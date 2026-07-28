@@ -1,0 +1,33 @@
+{
+  "project": "{{PROJECT_NAME}}",
+  "description": "Phase/task tracker. Only one entry may be ACTIVE at a time. Transition to PASSING requires the verification command to exit 0.",
+  "features": [
+    {
+      "id": "phase-01",
+      "name": "{{PHASE_1_NAME}}",
+      "description": "{{PHASE_1_DESCRIPTION}}",
+      "dependencies": [],
+      "status": "not-started",
+      "verification": "{{PHASE_1_VERIFY_COMMAND}}",
+      "evidence": ""
+    },
+    {
+      "id": "phase-02",
+      "name": "{{PHASE_2_NAME}}",
+      "description": "{{PHASE_2_DESCRIPTION}}",
+      "dependencies": ["phase-01"],
+      "status": "not-started",
+      "verification": "{{PHASE_2_VERIFY_COMMAND}}",
+      "evidence": ""
+    },
+    {
+      "id": "phase-03",
+      "name": "{{PHASE_3_NAME}}",
+      "description": "{{PHASE_3_DESCRIPTION}}",
+      "dependencies": ["phase-02"],
+      "status": "not-started",
+      "verification": "{{PHASE_3_VERIFY_COMMAND}}",
+      "evidence": ""
+    }
+  ]
+}

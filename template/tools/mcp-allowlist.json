@@ -1,0 +1,17 @@
+{
+  "_comment": "Which tools are allowed, and which are phase-gated. Edit per domain.",
+  "tools": [
+    {
+      "name": "{{TOOL_1}}",
+      "description": "{{TOOL_1_DESC}}",
+      "version": "{{VERSION}}"
+    },
+    {
+      "name": "{{TOOL_2_GATED}}",
+      "description": "{{TOOL_2_DESC}}",
+      "version": "{{VERSION}}",
+      "gated_until": "phase-01"
+    }
+  ],
+  "egress_hosts": ["localhost", "127.0.0.1"]
+}

@@ -1,0 +1,11 @@
+{
+  "_comment": "Hard-deny patterns. Blocked regardless of phase, scope, or authorization. Edit this per domain — the mechanism (permission.py) stays fixed.",
+  "patterns": [
+    "rm -rf /",
+    "sudo",
+    "shutdown",
+    "reboot",
+    "mkfs",
+    "> /dev/"
+  ]
+}
