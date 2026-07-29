@@ -2,56 +2,58 @@
 
 {{PROJECT_PURPOSE}}
 
-## Startup Workflow
+## Tech Stack
 
-1. Confirm working directory is the project root
-2. Read this file for project rules and boundaries
-3. Run `./init.sh` — must exit 0 before proceeding
-4. Read `feature_list.json` — identify the ACTIVE phase
-5. Read `progress.md` — understand current state and decisions
+- **Language:** {{LANGUAGE}} (e.g., Python 3.11+)
+- **Dependencies:** Zero external deps for mechanism code (stdlib only)
+- **Agent runtimes:** Claude Code, Kiro, Codex, Cursor, Copilot
+- **Enforcement:** `governance/permission.py` — three-gate permission check (CLI mode)
 
-## Working Rules
+## Architecture
 
-- **WIP=1** — One task at a time. Finish or park before starting another.
-- **Verify before claiming done** — Run the phase's verification command. Exit 0 = done.
-- **Update progress.md** — Record what was done, decisions, and next steps before session end.
-- **Stay in scope** — Only work within the active phase.
-- **Leave clean state** — No temp files, no broken tests, no uncommitted debug code.
+```
+├── governance/permission.py   ← Enforcement engine (deny-list → phase-gate → egress)
+├── observability/audit.py     ← Append-only audit log
+├── feature_list.json          ← Phase DAG (tracks workflow progression)
+├── tools/mcp-allowlist.json   ← Approved tools + egress hosts
+├── governance/deny-list.json  ← Hard-blocked command patterns
+├── context/                   ← Domain knowledge documents
+├── tests/                     ← Fixture-driven tests + E2E enforcement proof
+└── demo/                      ← Scripted evaluation harness (not production path)
+```
 
-## Governance Boundaries
+## How to Run
 
-{{DENY_LIST_SUMMARY}}
+```bash
+./init.sh                       # Verify environment, check placeholders, run tests
+python3 demo/demo.py            # Run enforcement demo
+python3 demo/demo.py --nogate   # Same model, no enforcement (proves harness matters)
+```
 
-Three enforcement gates fire on every tool call (mechanical, not advisory):
-1. **Deny-list** — Hard-blocked patterns → `governance/deny-list.json`
-2. **Phase-gate** — Tools locked until prerequisites pass → `tools/mcp-allowlist.json`
-3. **Egress** — Outbound network default-deny → `tools/mcp-allowlist.json` egress_hosts
-
-Enforcement mechanism: `governance/permission.py` (CLI mode, exit 0 = allow, exit 2 = block).
-
-## Verification Commands
+## How to Verify
 
 ```bash
 {{PRIMARY_VERIFICATION_COMMAND}}
+python3 tests/test_fixtures.py  # Permission gate ground-truth tests
+python3 tests/test_e2e.py       # Day 4 enforcement proof
+./init.sh                       # Full project health check
 ```
 
-## End of Session
+## Hard Constraints
 
-1. Update `progress.md` with current state and decisions
-2. Run `./init.sh` — confirm clean state
-3. If phase complete: report "Phase X passes. Requesting sign-off." (do NOT self-transition)
-4. If ending mid-task: fill the Session Handoff section in `progress.md`
+{{DENY_LIST_SUMMARY}}
 
-## Escalation
+- Enforcement is mechanical — `governance/permission.py` evaluates every tool call
+- Three gates in order: deny-list → phase-gate → egress (fail-closed, first denial wins)
+- The agent CANNOT bypass, modify, or disable the permission gate
+- Phase transitions require human sign-off (agent cannot self-promote phases)
+- Patterns in `governance/deny-list.json` are blocked unconditionally
 
-- **Scope ambiguity:** Re-read `feature_list.json` + `context/` docs
-- **Tool not available:** Check `tools/mcp-allowlist.json` — may be phase-gated
-- **Repeated failures (3+):** Update progress.md, flag for human review
-- **Permission denied:** Do not retry. Note in progress.md and move on.
-- {{DOMAIN_ESCALATION_RULES}}
+## Current State
+
+See `progress.md` for session journal and `feature_list.json` for phase status.
 
 ## Domain Context
 
 See `context/` for domain-specific knowledge:
-- [context/README.md](context/README.md) — What belongs here
 - {{DOMAIN_CONTEXT_LINKS}}
