@@ -33,3 +33,19 @@
 
 - Metasploit is phase-gated until recon completes — don't attempt exploitation yet
 - Check time window in context/target-scope.md before scanning
+
+---
+
+## Session Handoff (fill only when ending mid-task)
+
+> Delete this section's content once the next session resumes successfully.
+
+**Current objective:** (what was being worked on when session ended)
+
+**Files changed:** (list with one-line descriptions)
+
+**Resume steps:**
+1. Read this section
+2. Run `./init.sh`
+3. Resume from Current Objective above
+4. Clear this section once resumed
