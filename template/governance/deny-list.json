@@ -1,0 +1,10 @@
+{
+  "patterns": [
+    "rm -rf /",
+    "sudo",
+    "shutdown",
+    "reboot",
+    "mkfs",
+    "> /dev/"
+  ]
+}

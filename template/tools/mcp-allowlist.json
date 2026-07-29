@@ -1,0 +1,24 @@
+{
+  "tools": [
+    {
+      "name": "bash",
+      "description": "Shell commands",
+      "version": "1.0"
+    },
+    {
+      "name": "write_file",
+      "description": "Write files",
+      "version": "1.0"
+    },
+    {
+      "name": "exploit_runner",
+      "description": "Run exploitation framework",
+      "version": "2.0",
+      "gated_until": "phase-01"
+    }
+  ],
+  "egress_hosts": [
+    "localhost",
+    "127.0.0.1"
+  ]
+}

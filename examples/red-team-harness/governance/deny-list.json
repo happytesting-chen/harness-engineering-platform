@@ -1,0 +1,21 @@
+{
+  "_comment": "Hard-deny patterns for red team engagement. Blocked regardless of phase or authorization. Uses SUBSTRING matching.",
+  "patterns": [
+    "rm -rf /",
+    "sudo",
+    "shutdown",
+    "reboot",
+    "mkfs",
+    "> /dev/",
+    ":(){ :|:& };:",
+    "-Pn 172.16.",
+    "-Pn 10.0.",
+    "hping3",
+    "slowloris",
+    "--flood",
+    "scp ",
+    "exfil",
+    "nc -e",
+    "nc -c"
+  ]
+}

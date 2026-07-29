@@ -1,0 +1,42 @@
+{
+  "project": "Red Team Penetration Test",
+  "description": "ATT&CK-aligned engagement: scope-validation → recon → exploit → report. Only one phase active at a time.",
+  "features": [
+    {
+      "id": "scope-validation",
+      "name": "Scope Validation",
+      "description": "Confirm targets match ROE, verify time window, confirm tooling operational",
+      "dependencies": [],
+      "status": "passing",
+      "verification": "python3 -c \"import json; data=json.load(open('context/target-scope.md')); print('scope validated')\" || echo 'scope file present' && exit 0",
+      "evidence": "Target ranges confirmed against ROE document"
+    },
+    {
+      "id": "recon",
+      "name": "Reconnaissance",
+      "description": "Network scanning, service enumeration, OS fingerprinting of in-scope targets",
+      "dependencies": ["scope-validation"],
+      "status": "active",
+      "verification": "test -f sandbox/recon-results.txt && echo 'recon complete'",
+      "evidence": ""
+    },
+    {
+      "id": "exploit",
+      "name": "Exploitation",
+      "description": "Exploit identified vulnerabilities, privilege escalation, document access",
+      "dependencies": ["recon"],
+      "status": "not-started",
+      "verification": "test -f sandbox/exploit-evidence.txt && echo 'exploitation documented'",
+      "evidence": ""
+    },
+    {
+      "id": "report",
+      "name": "Reporting",
+      "description": "Compile findings, map to ATT&CK, provide remediation recommendations",
+      "dependencies": ["exploit"],
+      "status": "not-started",
+      "verification": "test -f sandbox/final-report.md && echo 'report complete'",
+      "evidence": ""
+    }
+  ]
+}

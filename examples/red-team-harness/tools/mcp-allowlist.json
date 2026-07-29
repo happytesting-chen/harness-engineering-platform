@@ -1,0 +1,39 @@
+{
+  "_comment": "Authorized tools for red team engagement. nmap always permitted; Metasploit gated until recon passes.",
+  "tools": [
+    {
+      "name": "bash",
+      "description": "Shell commands for general operations",
+      "version": "1.0"
+    },
+    {
+      "name": "nmap",
+      "description": "Network scanning and service enumeration (T1046, T1018)",
+      "version": "7.94"
+    },
+    {
+      "name": "write_file",
+      "description": "Write findings and evidence files",
+      "version": "1.0"
+    },
+    {
+      "name": "metasploit",
+      "description": "Exploitation framework (T1190, T1068)",
+      "version": "6.3",
+      "gated_until": "recon"
+    },
+    {
+      "name": "exploit_runner",
+      "description": "Custom exploit execution wrapper",
+      "version": "1.0",
+      "gated_until": "recon"
+    }
+  ],
+  "egress_hosts": [
+    "10.20.0.0/24",
+    "10.20.1.0/24",
+    "192.168.100.0/24",
+    "localhost",
+    "127.0.0.1"
+  ]
+}

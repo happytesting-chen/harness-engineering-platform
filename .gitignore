@@ -1,0 +1,20 @@
+# Exclude everything by default
+*
+
+# Include platform content
+!.gitignore
+!template/
+!template/**
+!examples/
+!examples/**
+!.kiro/
+!.kiro/specs/
+!.kiro/specs/harness-engineering-platform/
+!.kiro/specs/harness-engineering-platform/**
+
+# Exclude generated artifacts within included dirs
+__pycache__/
+*.pyc
+.pytest_cache/
+*.log
+.DS_Store
