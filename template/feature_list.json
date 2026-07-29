@@ -1,13 +1,13 @@
 {
   "project": "{{PROJECT_NAME}}",
-  "description": "Phase/task tracker. Only one entry may be ACTIVE at a time. Transition to PASSING requires the verification command to exit 0.",
+  "description": "Phase/task tracker. Only one entry may be ACTIVE at a time. Transition to PASSING requires human sign-off after verification passes.",
   "features": [
     {
       "id": "phase-01",
       "name": "{{PHASE_1_NAME}}",
       "description": "{{PHASE_1_DESCRIPTION}}",
       "dependencies": [],
-      "status": "not-started",
+      "status": "active",
       "verification": "{{PHASE_1_VERIFY_COMMAND}}",
       "evidence": ""
     },

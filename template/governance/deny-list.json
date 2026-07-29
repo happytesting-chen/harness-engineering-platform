@@ -1,10 +1,12 @@
 {
+  "_comment": "Hard-deny patterns. Blocked regardless of phase or authorization. Add domain-specific patterns below.",
+  "_guidance": "These are catastrophic-only defaults. Review and extend for your domain.",
   "patterns": [
     "rm -rf /",
-    "sudo",
-    "shutdown",
-    "reboot",
     "mkfs",
-    "> /dev/"
+    "> /dev/",
+    ":(){ :|:& };:",
+    "shutdown",
+    "reboot"
   ]
 }

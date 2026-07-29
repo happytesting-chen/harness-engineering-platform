@@ -8,7 +8,7 @@
 2. Run `./init.sh` — **must exit 0** before proceeding
 3. Read `feature_list.json` — identify the one phase with status `"active"`
 4. Read `progress.md` — understand current state, past decisions, and blockers
-5. If `session-handoff.md` has content, read it and resume from there
+5. If the Session Handoff section has content, resume from there
 
 ## Execution
 
@@ -25,7 +25,7 @@
 11. If the phase is complete (all tasks done, verification passes):
     - Report to the user: "Phase X verification passes. Requesting sign-off."
     - **Do NOT self-transition** — wait for human to update feature_list.json
-12. If ending mid-task: fill `session-handoff.md` with resume context
+12. If ending mid-task: fill the Session Handoff section in `progress.md`
 
 ## Exit Condition
 

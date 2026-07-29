@@ -1,24 +1,22 @@
 {
+  "_comment": "Permitted tools and egress hosts. Edit per domain — permission.py reads this on every check.",
   "tools": [
     {
       "name": "bash",
-      "description": "Shell commands",
+      "description": "Shell commands (always available)",
       "version": "1.0"
     },
     {
       "name": "write_file",
-      "description": "Write files",
+      "description": "Write files to project directory",
       "version": "1.0"
     },
     {
-      "name": "exploit_runner",
-      "description": "Run exploitation framework",
-      "version": "2.0",
+      "name": "{{GATED_TOOL}}",
+      "description": "{{GATED_TOOL_DESC}} — locked until phase-01 verification passes",
+      "version": "{{VERSION}}",
       "gated_until": "phase-01"
     }
   ],
-  "egress_hosts": [
-    "localhost",
-    "127.0.0.1"
-  ]
+  "egress_hosts": ["localhost", "127.0.0.1"]
 }

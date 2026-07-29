@@ -31,4 +31,19 @@
 
 - (anything the next session needs to know to pick up seamlessly)
 - (e.g., "init.sh had a warning about X — investigate first")
-- (e.g., "Phase-01 verification passes, ready for human sign-off")
+
+---
+
+## Session Handoff (fill only when ending mid-task)
+
+> Delete this section's content once the next session resumes successfully.
+
+**Current objective:** (what was being worked on when session ended)
+
+**Files changed:** (list with one-line descriptions)
+
+**Resume steps:**
+1. Read this section
+2. Run `./init.sh`
+3. Resume from Current Objective above
+4. Clear this section once resumed
