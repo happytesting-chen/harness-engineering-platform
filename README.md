@@ -32,4 +32,24 @@ Full requirements, design, and implementation tasks at `.kiro/specs/harness-engi
 
 ## Status
 
-Core mechanism complete (Tasks 1-5). Template instruction files, hooks, and Red Team example in progress.
+All tasks complete (1–14). Template fully functional with tests passing. Red Team example demonstrates the platform applied to authorized penetration testing.
+
+## References & Lineage
+
+Core framing: **agent = model + tools; harness = everything else.**
+
+### Foundational Reading
+
+| Resource | Role |
+|----------|------|
+| [Learn Harness Engineering](https://walkinglabs.github.io/learn-harness-engineering/en/) — 13-lecture course | The "why." Covers harness theory, lifecycle, and governance patterns. ([repo](https://github.com/walkinglabs/learn-harness-engineering)) |
+| [Awesome Harness Engineering](https://github.com/Jiaaqiliu/Awesome-Harness-Engineering) (Jiaaqiliu) | Curated primary-source map across 12 sections. Core framing for agent vs harness separation. |
+| [Awesome Claude Code](https://github.com/hesreallyhim/awesome-claude-code) (hesreallyhim) | The "how" — CLAUDE.md patterns, slash commands, hooks, subagents, and real-world configurations. |
+| "Harness Engineering: Leveraging Codex in an Agent-First World" (OpenAI) | Credited with coining the term. Both Awesome repos trace lineage here. |
+| Anthropic — Building Effective Agents / Long-Running Agent Harnesses | Design principles for tool-use loops, permission boundaries, and agent lifecycle. |
+
+### Reference Implementations
+
+| Resource | Relevance |
+|----------|-----------|
+| [Claude Code on AWS Bedrock — Best Practices](https://github.com/timwukp/claude-code-on-aws-bedrock-best-practices) | Secure dev kit with fail-closed hooks, managed-settings hierarchy, and red-team suite. Our guardrail + audit patterns echo this implementation. |
