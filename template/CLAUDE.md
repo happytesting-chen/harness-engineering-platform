@@ -52,4 +52,5 @@ Three enforcement gates fire on every tool call (mechanical, not advisory):
 
 See `context/` for domain-specific knowledge:
 - [context/README.md](context/README.md) — What belongs here
+- [context/BEST-PRACTICES.md](context/BEST-PRACTICES.md) — Harness engineering principles (from Learn Harness Engineering)
 - {{DOMAIN_CONTEXT_LINKS}}

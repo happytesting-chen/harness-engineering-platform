@@ -56,4 +56,5 @@ See `progress.md` for session journal and `feature_list.json` for phase status.
 ## Domain Context
 
 See `context/` for domain-specific knowledge:
+- [context/BEST-PRACTICES.md](context/BEST-PRACTICES.md) — Harness engineering principles
 - {{DOMAIN_CONTEXT_LINKS}}
