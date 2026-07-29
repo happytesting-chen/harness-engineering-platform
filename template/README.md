@@ -19,7 +19,8 @@ chmod +x init.sh
 
 | File | What to fill | Why |
 |------|-------------|-----|
-| `CLAUDE.md` | `{{PROJECT_NAME}}`, `{{PROJECT_PURPOSE}}`, `{{VERIFICATION_COMMAND}}` | Agent needs to know "what am I" and "how do I verify" |
+| `CLAUDE.md` | `{{PROJECT_NAME}}`, `{{PROJECT_PURPOSE}}`, `{{VERIFICATION_COMMAND}}` | Claude Code reads this on every session start |
+| `AGENTS.md` | Same placeholders as CLAUDE.md | Open standard read by Codex, Copilot, Cursor, Gemini CLI, Aider, Windsurf |
 | `feature_list.json` | Phase names, descriptions, verification commands | Phase-gate denies all tools if phases are undefined |
 | `governance/deny-list.json` | Review defaults, add domain-specific patterns | Catastrophic patterns ship pre-filled; add domain rules |
 | `tools/mcp-allowlist.json` | Add your domain tools, set `gated_until` where needed | Phase-gate denies tools not in this list |
@@ -54,7 +55,8 @@ The template maps to the full Customise → Operationalise → Secure cycle:
 
 ```
 template/
-├── CLAUDE.md                 ← Entry point (agent reads first)
+├── CLAUDE.md                 ← Claude Code instruction file
+├── AGENTS.md                 ← Open standard (Codex, Copilot, Cursor, Gemini, etc.)
 ├── feature_list.json         ← Phase DAG (domain expert fills)
 ├── progress.md               ← Session journal + handoff
 ├── init.sh                   ← Startup verification
@@ -123,11 +125,13 @@ python3 demo/demo.py --nogate   # Same model, no enforcement (proves harness mat
 
 ## Tool Compatibility
 
-| Feature | Claude Code | Kiro |
-|---------|------------|------|
-| Instruction file | `CLAUDE.md` (auto-loaded) | `CLAUDE.md` (manual ref) |
-| Hooks | `.claude/settings.json` | `.kiro/hooks/` |
-| Skills/Commands | `.claude/commands/*.md` | `.kiro/steering/*.md` |
+| Feature | Claude Code | Codex / Copilot / Cursor / Gemini | Kiro |
+|---------|------------|-----------------------------------|------|
+| Instruction file | `CLAUDE.md` (auto-loaded) | `AGENTS.md` (auto-loaded) | `CLAUDE.md` (manual ref) |
+| Hooks | `.claude/settings.json` | N/A (use permission.py CLI directly) | `.kiro/hooks/` |
+| Skills/Commands | `.claude/commands/*.md` | N/A | `.kiro/steering/*.md` |
+
+**Why both files?** `CLAUDE.md` is Anthropic's convention (Claude Code only). `AGENTS.md` is the Linux Foundation open standard read by Codex, Cursor, Copilot, Gemini CLI, Aider, Windsurf, and Zed. The template ships both for maximum tool compatibility. Content is parallel — fill both with the same project context.
 
 ## References & Lineage
 
