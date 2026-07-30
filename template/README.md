@@ -91,8 +91,14 @@ template/
 │       └── domain-workflow.md← Domain-specific placeholder
 │
 └── .kiro/
+    ├── hooks/
+    │   ├── governance-check.json  ← Permission gate (preToolUse)
+    │   ├── secret-block.json      ← Credential detection (preToolUse)
+    │   ├── audit-capture.json     ← Audit logging (postToolUse)
+    │   └── clean-state-check.json ← Session hygiene (agentStop)
     └── steering/
-        └── session-cycle.md  ← Same content, Kiro format
+        ├── session-cycle.md       ← Auto-included session workflow
+        └── domain-workflow.md     ← Manual-include domain placeholder
 ```
 
 ## How Enforcement Works
@@ -125,13 +131,16 @@ python3 demo/demo.py --nogate   # Same model, no enforcement (proves harness mat
 
 ## Tool Compatibility
 
-| Feature | Claude Code | Codex / Copilot / Cursor / Gemini | Kiro |
-|---------|------------|-----------------------------------|------|
-| Instruction file | `CLAUDE.md` (session workflow) | `AGENTS.md` (system identity) | `CLAUDE.md` (manual ref) |
-| Hooks | `.claude/settings.json` | N/A (use permission.py CLI directly) | `.kiro/hooks/` |
-| Skills/Commands | `.claude/commands/*.md` | N/A | `.kiro/steering/*.md` |
+| Feature | Claude Code | Kiro | Codex / Copilot / Cursor / Gemini |
+|---------|------------|------|-----------------------------------|
+| Instruction file | `CLAUDE.md` (auto-loaded) | `CLAUDE.md` (manual ref) | `AGENTS.md` (auto-loaded) |
+| Enforcement hooks | `.claude/settings.json` (5 hooks) | `.kiro/hooks/*.json` (4 hooks) | N/A (use permission.py CLI) |
+| Session workflow | `.claude/commands/session-cycle.md` (`/session-cycle`) | `.kiro/steering/session-cycle.md` (`inclusion: auto`) | — |
+| Domain workflow | `.claude/commands/domain-workflow.md` (placeholder) | `.kiro/steering/domain-workflow.md` (`inclusion: manual`) | — |
 
-**Why both files?** `CLAUDE.md` is Anthropic's convention (Claude Code only) — it defines *how the agent should work* (startup workflow, working rules, session lifecycle). `AGENTS.md` is the Linux Foundation open standard read by Codex, Cursor, Copilot, Gemini CLI, Aider, Windsurf, and Zed — it defines *what this system is* (identity, architecture, run/verify commands, hard constraints). Different questions, different audiences, complementary roles.
+**Why both `.claude/` and `.kiro/`?** Each tool reads from its own expected location. The template ships parallel content in both formats so enforcement and workflows fire regardless of which runtime you use. Same governance logic, different integration points.
+
+**Why `AGENTS.md` too?** It's the Linux Foundation open standard read by 60k+ repos (Codex, Cursor, Copilot, Gemini CLI, Aider, Windsurf, Zed). Defines system identity — different from CLAUDE.md's session workflow.
 
 ## References & Lineage
 
