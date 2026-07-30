@@ -122,6 +122,78 @@ if [ "$PROJECT_TYPE" = "python" ]; then
     echo ""
 fi
 
+# --- 7. Fresh Session Test (Lecture 03) ---
+echo "▶ Fresh Session Test — can a new session answer the 5 questions?"
+FST_PASS=0
+FST_FAIL=0
+
+# Q1: What is this? (AGENTS.md exists and has content beyond placeholders)
+if [ -f "AGENTS.md" ] && [ "$(wc -l < AGENTS.md)" -gt 5 ]; then
+    echo "  ✓ Q1 (What is this?) — AGENTS.md present"
+    FST_PASS=$((FST_PASS + 1))
+else
+    echo "  ✗ Q1 (What is this?) — AGENTS.md missing or empty"
+    FST_FAIL=$((FST_FAIL + 1))
+fi
+
+# Q2: How do I run it? (init.sh exists and is executable)
+if [ -x "init.sh" ]; then
+    echo "  ✓ Q2 (How to run?) — init.sh present and executable"
+    FST_PASS=$((FST_PASS + 1))
+else
+    echo "  ✗ Q2 (How to run?) — init.sh missing or not executable"
+    FST_FAIL=$((FST_FAIL + 1))
+fi
+
+# Q3: How do I verify it? (feature_list.json has at least one verification command that isn't a placeholder)
+if [ -f "feature_list.json" ]; then
+    HAS_VERIFY=$(grep -c '"verification"' feature_list.json 2>/dev/null || true)
+    PLACEHOLDER_VERIFY=$(grep -c '{{.*VERIFY' feature_list.json 2>/dev/null || true)
+    HAS_VERIFY=${HAS_VERIFY:-0}
+    PLACEHOLDER_VERIFY=${PLACEHOLDER_VERIFY:-0}
+    if [ "$HAS_VERIFY" -gt 0 ] && [ "$PLACEHOLDER_VERIFY" -eq 0 ]; then
+        echo "  ✓ Q3 (How to verify?) — feature_list.json has verification commands"
+        FST_PASS=$((FST_PASS + 1))
+    else
+        echo "  ⚠ Q3 (How to verify?) — verification commands are still placeholders"
+        FST_FAIL=$((FST_FAIL + 1))
+    fi
+else
+    echo "  ✗ Q3 (How to verify?) — feature_list.json missing"
+    FST_FAIL=$((FST_FAIL + 1))
+fi
+
+# Q4: What's done? (feature_list.json is readable + progress.md exists)
+if [ -f "feature_list.json" ] && [ -f "progress.md" ]; then
+    echo "  ✓ Q4 (What's done?) — feature_list.json + progress.md present"
+    FST_PASS=$((FST_PASS + 1))
+else
+    echo "  ✗ Q4 (What's done?) — feature_list.json or progress.md missing"
+    FST_FAIL=$((FST_FAIL + 1))
+fi
+
+# Q5: What's next? (feature_list.json has at least one not-started item)
+if [ -f "feature_list.json" ]; then
+    HAS_NEXT=$(grep -c '"not-started"' feature_list.json 2>/dev/null || echo "0")
+    HAS_ACTIVE=$(grep -c '"active"' feature_list.json 2>/dev/null || echo "0")
+    if [ "$HAS_NEXT" -gt 0 ] || [ "$HAS_ACTIVE" -gt 0 ]; then
+        echo "  ✓ Q5 (What's next?) — feature_list.json has pending work"
+        FST_PASS=$((FST_PASS + 1))
+    else
+        echo "  ✓ Q5 (What's next?) — all features passing (project complete)"
+        FST_PASS=$((FST_PASS + 1))
+    fi
+else
+    echo "  ✗ Q5 (What's next?) — feature_list.json missing"
+    FST_FAIL=$((FST_FAIL + 1))
+fi
+
+echo "  ─── Fresh Session Test: $FST_PASS/5 passed ───"
+if [ $FST_FAIL -gt 0 ]; then
+    WARNINGS=$((WARNINGS + FST_FAIL))
+fi
+echo ""
+
 # --- Summary ---
 echo "═══════════════════════════════════════════════════"
 if [ $ERRORS -gt 0 ]; then

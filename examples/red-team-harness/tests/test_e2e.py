@@ -20,11 +20,8 @@ import tempfile
 from pathlib import Path
 
 # --- Path setup: allow imports from sibling directories ---
-TEMPLATE_ROOT = Path(__file__).parent.parent
+TEMPLATE_ROOT = Path(__file__).resolve().parent.parent
 sys.path.insert(0, str(TEMPLATE_ROOT))
-sys.path.insert(0, str(TEMPLATE_ROOT / "demo"))
-sys.path.insert(0, str(TEMPLATE_ROOT / "governance"))
-sys.path.insert(0, str(TEMPLATE_ROOT / "observability"))
 
 from demo.fake_model import Block, Response, FakeModel
 from demo.harness import agent_loop, TOOL_HANDLERS, WORKDIR
