@@ -122,6 +122,44 @@ The human doesn't approve every action — they intervene at three defined point
 
 Everything else is autonomous within the gates.
 
+## Security Module
+
+AI-specific security guidance baked into the template at every stage of the development lifecycle. Controls are sourced from the AWS Agentic AI Lens, CSA Singapore Addendum, and OWASP Agentic AI Top 10.
+
+### How It Works (User Journey)
+
+| Stage | What happens | Security layer | Developer action |
+|-------|-------------|----------------|-----------------|
+| **Setup** | Fill `deny-list.json`, `mcp-allowlist.json` with domain rules | Policy (human) | Review defaults, add domain patterns |
+| **Session start** | Agent reads `context/SECURITY.md` — absorbs threat model + 40 controls | Context (read once) | None — automatic |
+| **While coding** | `.kiro/steering/security.md` injects rules every turn — input validation, output safety, scope boundaries | Steering (every turn) | None — invisible |
+| **Tool execution** | `permission.py` evaluates 3 gates: deny-list → phase-gate → egress | Mechanism (every action) | None — mechanical |
+| **Write/edit** | Hooks block hardcoded secrets, `eval()`, governance file modifications | Hook (pre-write) | None — auto-corrects |
+| **Phase transition** | Human reviews audit log, signs off on phase completion | HIL (per phase) | Review + edit feature_list.json |
+| **Session end** | Audit trail recorded, clean-state check fires | Durable (always) | None — logged to git |
+| **On-demand** | `/security-review` audits code against full checklist | Skill (opt-in) | Developer invokes when needed |
+
+### Security Files
+
+| File | Role | When active |
+|------|------|-------------|
+| `context/SECURITY.md` | Threat model + 40 controls (tagged by source framework) | Read at session start |
+| `.kiro/steering/security.md` | Actionable coding rules (input trust, output safety, scope) | Every turn (auto-injected) |
+| `.kiro/hooks/governance-check.json` | Permission gate enforcement | Every tool call |
+| `.kiro/hooks/secret-block.json` | Credential detection in writes | Every file write |
+| `governance/permission.py` | Three-gate mechanical enforcement | Every tool execution |
+| `governance/deny-list.json` | Hard-blocked command patterns | Gate 1 of permission check |
+| `tools/mcp-allowlist.json` | Tool + egress allowlist with version pins | Gate 2 + 3 of permission check |
+| `observability/audit.py` | Append-only decision log | Every action (accountability) |
+
+### What's Mechanical vs Advisory
+
+| Control type | Examples | Can agent bypass? |
+|-------------|---------|-------------------|
+| **Mechanical** (hooks + permission gate) | Deny-list, phase-gate, egress, secret detection | No — blocked before execution |
+| **Advisory** (steering + context) | Input validation patterns, output filtering, supply chain guidance | Technically yes — but always in context so agent follows naturally |
+| **Human-gated** (HIL points) | Phase transitions, policy changes, escalation decisions | No — requires human file edit |
+
 ## Running the Demo
 
 ```bash
