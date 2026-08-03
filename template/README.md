@@ -161,12 +161,14 @@ is `passing`:
 
 ### Step 5 — Add domain knowledge (`context/`)
 
-`context/` holds **project-specific** assets — your architecture, product/design doc,
-methodology, scope, threat model, glossary. The agent has no domain knowledge without
-them. Add at least one doc; for the claims agent, a `context/TRUST-BOUNDARIES.md`
-describing which inputs are untrusted and how the safety gates behave. (Generic
-references you *keep* — not fill — live elsewhere: `security/SECURITY.md` for controls,
-root `BEST-PRACTICES.md` for harness principles.)
+`context/` holds **project-specific AI-development assets** — your product/design doc,
+AI stack (framework + model, e.g. LangChain / Strands), deployment target
+(on-prem/cloud), architecture, methodology, and scope. These are the decisions unique to
+*this* agent; the agent has little domain grounding without them. Add at least one doc.
+
+Two things do **not** go in `context/`: **security artifacts** (threat model, controls →
+`security/`) and **generic framework references** you keep-not-fill (`security/SECURITY.md`
+for controls, root `BEST-PRACTICES.md` for harness principles).
 
 ### Step 6 — Run the health check and read it
 
@@ -325,9 +327,9 @@ my-agent/
 │   ├── audit.py           ← [MECHANISM] append-only audit log               [never edit]
 │   └── audit_hook.py      ← [MECHANISM] PostToolUse audit adapter           [never edit]
 │
-├── context/               ← [POLICY] PROJECT-specific assets                 [ADD ≥1 doc]
+├── context/               ← [POLICY] PROJECT AI-dev assets                   [ADD ≥1 doc]
 │   ├── README.md           ·  what belongs here
-│   └── (architecture.md, product-design.md, methodology.md, threat-model.md, …)
+│   └── (product-design.md, ai-stack.md, deployment.md, architecture.md, …)
 │
 ├── security/              ← SECURITY KIT (generic, not domain-specific)
 │   ├── README.md

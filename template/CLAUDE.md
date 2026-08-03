@@ -59,7 +59,8 @@ Three enforcement gates fire on every tool call (mechanical, not advisory):
 
 ## Domain Context
 
-See `context/` for **project-specific** assets (architecture, product/design docs,
-methodology, scope, threat model):
+See `context/` for **project-specific** AI-development assets — product/design, AI stack
+(framework + model, e.g. LangChain/Strands), deployment target (on-prem/cloud),
+architecture, methodology, scope. (Threat model and security controls live in `security/`.)
 - [context/README.md](context/README.md) — What belongs here
 - {{DOMAIN_CONTEXT_LINKS}}

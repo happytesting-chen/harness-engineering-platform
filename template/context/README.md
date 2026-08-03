@@ -13,13 +13,17 @@ CLAUDE.md links here. Keep documents focused and reference-ready.
 
 | Document Type | Purpose | Example |
 |--------------|---------|---------|
-| Architecture | System design, components, data flow | `architecture.md` |
-| Product / design doc | What the product does and why; requirements | `product-design.md` |
-| Methodology | Step-by-step workflow for the domain | `methodology.md` |
+| Product / design doc | What the agent does and why; requirements, success criteria | `product-design.md` |
+| AI stack | Framework + model choice and rationale (LangChain, Strands, LlamaIndex, custom…) | `ai-stack.md` |
+| Deployment target | On-prem vs cloud, runtime, data-residency constraints | `deployment.md` |
+| Architecture | System design, components, data flow, tool/integration inventory | `architecture.md` |
+| Methodology | Step-by-step workflow the agent follows for the domain | `methodology.md` |
 | Scope definition | Boundaries of what's in/out of scope | `target-scope.md` |
-| Threat model | Project-specific risks, attack surfaces, mitigations | `threat-model.md` |
-| Standards references | Compliance frameworks this project must meet | `standards.md` |
 | Glossary | Domain-specific terminology | `glossary.md` |
+
+> **Security artifacts do not go here.** A threat model, control mapping, or security
+> review belongs in `security/` (see `security/SECURITY.md` and
+> `security/control-matrix.md`) — not in `context/`.
 
 ## Guidelines
 

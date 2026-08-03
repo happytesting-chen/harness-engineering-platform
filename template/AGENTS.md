@@ -59,6 +59,7 @@ See `progress.md` for session journal and `feature_list.json` for phase status.
 
 ## Domain Context
 
-See `context/` for **project-specific** assets (architecture, product/design docs,
-methodology, scope, threat model):
+See `context/` for **project-specific** AI-development assets — product/design, AI stack
+(framework + model), deployment target (on-prem/cloud), architecture, methodology, scope.
+(Threat model and security controls live in `security/`.)
 - {{DOMAIN_CONTEXT_LINKS}}
