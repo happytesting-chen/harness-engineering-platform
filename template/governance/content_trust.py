@@ -18,7 +18,7 @@ Design goals:
   - Zero dependencies; pure functions; easy to unit-test.
 
 It does NOT sanitize-and-trust. It reports; the caller decides (fail toward review).
-See context/SECURITY.md S1.1–S1.5 (input trust) and S8.1–S8.2 (adversarial testing).
+See security/SECURITY.md S1.1–S1.5 (input trust) and S8.1–S8.2 (adversarial testing).
 """
 import re
 from dataclasses import dataclass, field

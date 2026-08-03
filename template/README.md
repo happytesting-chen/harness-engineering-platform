@@ -164,7 +164,7 @@ is `passing`:
 The agent has no domain knowledge without this. Add at least one doc — a threat model,
 a data contract, the rules of your domain. For the claims agent, a
 `context/TRUST-BOUNDARIES.md` describing which inputs are untrusted and how the safety
-gates behave. The shipped `context/SECURITY.md` (40 source-tagged controls) and
+gates behave. The shipped `security/SECURITY.md` (40 source-tagged controls) and
 `context/BEST-PRACTICES.md` are references you keep.
 
 ### Step 6 — Run the health check and read it
@@ -261,7 +261,7 @@ context, guidance, policy, enforcement, verification, and review evidence. It ap
 
 | Layer | Purpose | Where |
 |---|---|---|
-| **Context** | The approved posture, threats, controls | `context/SECURITY.md` (40 source-tagged controls) |
+| **Context** | The approved posture, threats, controls | `security/SECURITY.md` (40 source-tagged controls) |
 | **Guidance** | Shape everyday coding behaviour | `kiro/steering/security.md` (Kiro auto); `.claude/rules/` (Claude, optional) |
 | **Workflow** | Review sensitive changes consistently | `kiro/steering/security-review.md` |
 | **Policy** | Permitted tools, egress, approvals | `deny-list.json`, `mcp-allowlist.json`, `feature_list.json` |
@@ -296,7 +296,7 @@ stripped; `--no-security` is the explicit, recorded way to remove it.
 > now gates on the enforcement proofs so a disabled kit cannot pass silently.
 
 Sources: AWS Well-Architected Agentic AI Lens, CSA Singapore "Securing Agentic AI"
-Addendum, OWASP Agentic AI Top 10 — see `context/SECURITY.md` for the tagged mapping.
+Addendum, OWASP Agentic AI Top 10 — see `security/SECURITY.md` for the tagged mapping.
 
 ---
 
@@ -323,12 +323,14 @@ my-agent/
 │   ├── audit.py           ← [MECHANISM] append-only audit log               [never edit]
 │   └── audit_hook.py      ← [MECHANISM] PostToolUse audit adapter           [never edit]
 │
-├── context/               ← [POLICY] domain knowledge                       [ADD ≥1 doc]
-│   ├── SECURITY.md         ·  40-control reference (source-tagged)
+├── context/               ← [POLICY] domain knowledge (domain-specific only) [ADD ≥1 doc]
 │   └── BEST-PRACTICES.md   ·  harness engineering principles
 │
-├── security/              ← SECURITY KIT navigation + evidence
+├── security/              ← SECURITY KIT (generic, not domain-specific)
 │   ├── README.md
+│   ├── SECURITY.md         ·  40-control reference (source-tagged)
+│   ├── owasp-crosswalk.md  ·  OWASP LLM/Agentic → mechanism map
+│   ├── SECURITY-MANIFEST.md·  what is security vs non-security
 │   └── control-matrix.md   ·  control → code → test → evidence              [FILL rows]
 │
 ├── tests/                 ← VERIFICATION

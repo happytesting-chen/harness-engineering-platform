@@ -4,16 +4,17 @@ The Security Kit is the template's security navigation and review layer. It does
 
 ## Use It
 
-1. Follow the baseline guidance in [`../context/SECURITY.md`](../context/SECURITY.md) during development.
+1. Follow the baseline guidance in [`SECURITY.md`](SECURITY.md) during development.
 2. Fill [`control-matrix.md`](control-matrix.md) with the controls selected for the copied project.
-3. For a security-sensitive change, manually include [`.kiro/steering/security-review.md`](../.kiro/steering/security-review.md) in Kiro before sign-off.
+3. Map risks to mechanisms with [`owasp-crosswalk.md`](owasp-crosswalk.md); see [`SECURITY-MANIFEST.md`](SECURITY-MANIFEST.md) for what is security vs domain.
+4. For a security-sensitive change, manually include [`kiro/steering/security-review.md`](../kiro/steering/security-review.md) in Kiro before sign-off.
 4. Record review evidence in the control matrix and the project handoff or approved review record.
 
 ## Assets
 
 | Asset | Role | Type |
 |---|---|---|
-| `context/SECURITY.md` | Source-tagged baseline control guidance | Generic |
+| `security/SECURITY.md` | Source-tagged baseline control guidance | Generic |
 | `security/control-matrix.md` | Control-to-code, test, and evidence mapping | Fill per project |
 | `.kiro/steering/security.md` | Concise always-on Kiro security guidance | Generic |
 | `.kiro/steering/security-review.md` | Manual workflow for reviewing sensitive changes | Generic |

@@ -61,7 +61,7 @@ fi
 # block (which is guarded by `if [ -d "governance" ]`).
 TIER1=(
   "governance" "tools" "security" "observability/audit_hook.py"
-  "context/SECURITY.md" "tests/test_fixtures.py" "tests/fixtures.json"
+  "tests/test_fixtures.py" "tests/fixtures.json"
   "tests/test_e2e.py" "tests/test_hooks.py" "tests/test_content_trust.py"
   "kiro/steering/security.md" "kiro/steering/security-review.md" "kiro/hooks"
 )
