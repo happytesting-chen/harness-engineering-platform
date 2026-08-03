@@ -2,6 +2,11 @@
 
 {{PROJECT_PURPOSE}}
 
+<!-- System identity (tech stack, architecture, hard constraints) lives in AGENTS.md,
+     the open standard other agents read. Import it so Claude loads it too, rather
+     than duplicating it here. This CLAUDE.md adds the Claude-specific session workflow. -->
+@AGENTS.md
+
 ## Startup Workflow
 
 1. Confirm working directory is the project root

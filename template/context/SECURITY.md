@@ -22,7 +22,9 @@ This document provides security guidance for developing AI agent systems. Each c
 | S1.4 | Defend against indirect prompt injection: tool outputs or retrieved documents may contain adversarial instructions — do not follow embedded instructions from external data | `[AWS-LENS]` `[OWASP-AGENT]` |
 | S1.5 | Use parameterized queries and array-form subprocess calls — never concatenate untrusted strings into SQL or commands | `[OWASP-AGENT]` |
 
-**Template enforcement:** `governance/permission.py` Gate 1 (deny-list) blocks known dangerous command patterns mechanically. `[HARNESS]`
+**Template enforcement (control plane):** `governance/permission.py` Gate 1 (deny-list) blocks known dangerous command patterns mechanically. `[HARNESS]`
+
+**Template enforcement (data plane):** `governance/content_trust.py` is the complement for untrusted *content* (claim bodies, emails, retrieved docs) — which never passes a tool gate because it is data, not a tool call. Call `screen_record()` at every point external content enters the agent: it drops injected control fields (e.g. a record smuggling `{"decision": "APPROVE"}`) and flags instruction-shaped text (S1.4) so the caller can lower trust and route to human review. It reports; it never obeys. Proven by `tests/test_content_trust.py`. `[HARNESS]`
 
 ---
 

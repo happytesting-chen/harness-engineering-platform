@@ -19,8 +19,8 @@ chmod +x init.sh
 
 | File | What to fill | Why |
 |------|-------------|-----|
-| `CLAUDE.md` | `{{PROJECT_NAME}}`, `{{PROJECT_PURPOSE}}`, `{{VERIFICATION_COMMAND}}` | Claude Code reads this — defines session workflow and working rules |
-| `AGENTS.md` | `{{PROJECT_NAME}}`, `{{TECH_STACK}}`, `{{HARD_CONSTRAINTS}}` | Open standard — defines what this system is, how to run/verify it (Codex, Copilot, Cursor, Gemini) |
+| `CLAUDE.md` | `{{PROJECT_NAME}}`, `{{PROJECT_PURPOSE}}`, `{{PRIMARY_VERIFICATION_COMMAND}}` | Claude Code reads this — defines session workflow and working rules |
+| `AGENTS.md` | `{{PROJECT_NAME}}`, `{{PROJECT_PURPOSE}}`, `{{LANGUAGE}}`, `{{PRIMARY_VERIFICATION_COMMAND}}` | Open standard — defines what this system is, how to run/verify it (Codex, Copilot, Cursor, Gemini) |
 | `feature_list.json` | Phase names, descriptions, verification commands | Phase-gate denies all tools if phases are undefined |
 | `governance/deny-list.json` | Review defaults, add domain-specific patterns | Catastrophic patterns ship pre-filled; add domain rules |
 | `tools/mcp-allowlist.json` | Add your domain tools, set `gated_until` where needed | Phase-gate denies tools not in this list |
@@ -84,22 +84,34 @@ template/
 │   ├── demo.py               ← Scripted enforcement demo
 │   └── fake_model.py         ← Zero-dependency LLM mock
 │
-├── .claude/
-│   ├── settings.json         ← Hook config (production enforcement)
-│   └── commands/
-│       ├── session-cycle.md  ← Generic session workflow
-│       └── domain-workflow.md← Domain-specific placeholder
+├── security/                ← SECURITY KIT (navigation + review evidence)
+│   ├── README.md
+│   └── control-matrix.md     ← Control → code → test → evidence (fill per project)
 │
-└── .kiro/
-    ├── hooks/
-    │   ├── governance-check.json  ← Permission gate (preToolUse)
-    │   ├── secret-block.json      ← Credential detection (preToolUse)
-    │   ├── audit-capture.json     ← Audit logging (postToolUse)
-    │   └── clean-state-check.json ← Session hygiene (agentStop)
-    └── steering/
-        ├── session-cycle.md       ← Auto-included session workflow
-        └── domain-workflow.md     ← Manual-include domain placeholder
+├── context/
+│   ├── SECURITY.md           ← 40-control reference (source-tagged)
+│   └── BEST-PRACTICES.md
+│
+├── .claude/                 ← CLAUDE CODE (active runtime)
+│   ├── settings.json         ← Hooks: governance-check → secret-block → audit-capture
+│   ├── commands/
+│   │   ├── session-cycle.md  ← /session-cycle workflow
+│   │   └── domain-workflow.md← Domain-specific placeholder
+│   └── rules/                ← (optional) always-on rules, CLAUDE.md priority
+│
+└── kiro/                    ← KIRO ADD-ON (opt-in; copy to .kiro/ to activate)
+    ├── README.md             ← How to activate for Kiro
+    ├── hooks/                ← governance / secret-block / audit / clean-state
+    └── steering/             ← session-cycle, domain-workflow, security, security-review
+
+Note: `governance/permission.py` also gains `secret_scan.py`; `observability/` gains
+`audit_hook.py`; `tests/` gains `test_hooks.py` (hook-integration proof). Every
+module carries an `ARCHITECTURE.md`.
 ```
+
+**Claude-native root:** everything in the active root is read by Claude Code. Kiro
+support is opt-in under `kiro/` — nothing inert sits in the root. `CLAUDE.md` imports
+`@AGENTS.md` so the open-standard identity file loads in Claude too.
 
 ## How Enforcement Works
 
@@ -122,43 +134,41 @@ The human doesn't approve every action — they intervene at three defined point
 
 Everything else is autonomous within the gates.
 
-## Security Module
+## Security Kit
 
-AI-specific security guidance baked into the template at every stage of the development lifecycle. Controls are sourced from the AWS Agentic AI Lens, CSA Singapore Addendum, and OWASP Agentic AI Top 10.
+The Security Kit is the template's cross-cutting security operating model. It is not a separate agent or a single prompt: it combines repository context, Kiro guidance, policy, enforcement, verification, and review evidence. It applies an approved project design; it does not make architecture decisions for the project.
 
-### How It Works (User Journey)
+### Seven Layers
 
-| Stage | What happens | Security layer | Developer action |
-|-------|-------------|----------------|-----------------|
-| **Setup** | Fill `deny-list.json`, `mcp-allowlist.json` with domain rules | Policy (human) | Review defaults, add domain patterns |
-| **Session start** | Agent reads `context/SECURITY.md` — absorbs threat model + 40 controls | Context (read once) | None — automatic |
-| **While coding** | `.kiro/steering/security.md` injects rules every turn — input validation, output safety, scope boundaries | Steering (every turn) | None — invisible |
-| **Tool execution** | `permission.py` evaluates 3 gates: deny-list → phase-gate → egress | Mechanism (every action) | None — mechanical |
-| **Write/edit** | Hooks block hardcoded secrets, `eval()`, governance file modifications | Hook (pre-write) | None — auto-corrects |
-| **Phase transition** | Human reviews audit log, signs off on phase completion | HIL (per phase) | Review + edit feature_list.json |
-| **Session end** | Audit trail recorded, clean-state check fires | Durable (always) | None — logged to git |
-| **On-demand** | `/security-review` audits code against full checklist | Skill (opt-in) | Developer invokes when needed |
+| Layer | Purpose | Primary format |
+|-------|---------|----------------|
+| **Context** | Explain the approved security posture, threats, and controls | `context/SECURITY.md` plus project and module docs |
+| **Guidance** | Shape everyday coding behaviour | `.kiro/steering/security.md` |
+| **Workflow** | Review security-sensitive changes consistently | `.kiro/steering/security-review.md` |
+| **Policy** | Declare permitted tools, actions, egress, and approvals | Allowlist, deny-list, feature state, approval policy |
+| **Enforcement** | Prevent prohibited actions when integrated into an execution path | Policy gate, tool wrapper, runtime authorization |
+| **Verification** | Demonstrate that controls work and resist known attacks | Fixtures, E2E tests, scanners, adversarial cases |
+| **Lifecycle evidence** | Record decisions, approvals, findings, and residual risk | Control matrix, phase evidence, review records, Git/CI history |
 
-### Security Files
+### Development and Review Flow
 
-| File | Role | When active |
-|------|------|-------------|
-| `context/SECURITY.md` | Threat model + 40 controls (tagged by source framework) | Read at session start |
-| `.kiro/steering/security.md` | Actionable coding rules (input trust, output safety, scope) | Every turn (auto-injected) |
-| `.kiro/hooks/governance-check.json` | Permission gate enforcement | Every tool call |
-| `.kiro/hooks/secret-block.json` | Credential detection in writes | Every file write |
-| `governance/permission.py` | Three-gate mechanical enforcement | Every tool execution |
-| `governance/deny-list.json` | Hard-blocked command patterns | Gate 1 of permission check |
-| `tools/mcp-allowlist.json` | Tool + egress allowlist with version pins | Gate 2 + 3 of permission check |
-| `observability/audit.py` | Append-only decision log | Every action (accountability) |
+1. The coding agent follows concise, always-on Kiro security guidance.
+2. For a sensitive change—such as a tool, external API, identity, retrieval, policy, or deployment change—it manually uses the security-review workflow, reads the relevant controls, and runs mapped checks.
+3. The review records findings, evidence, and unresolved risk in the control matrix and project state.
+4. A human approves high-risk policy, release, or runtime-action decisions; the decision and evidence are recorded with the work.
 
-### What's Mechanical vs Advisory
+Hooks are the activation mechanism, not the Security Kit itself: Kiro hooks provide early local feedback; Git hooks provide developer feedback; CI/CD supplies shared merge and release gates; runtime authorization is the final control for deployed agent actions.
 
-| Control type | Examples | Can agent bypass? |
-|-------------|---------|-------------------|
-| **Mechanical** (hooks + permission gate) | Deny-list, phase-gate, egress, secret detection | No — blocked before execution |
-| **Advisory** (steering + context) | Input validation patterns, output filtering, supply chain guidance | Technically yes — but always in context so agent follows naturally |
-| **Human-gated** (HIL points) | Phase transitions, policy changes, escalation decisions | No — requires human file edit |
+### Security Kit v0.1
+
+| Status | Components |
+|--------|------------|
+| **Included now** | [`security/README.md`](security/README.md); [`security/control-matrix.md`](security/control-matrix.md); source-tagged baseline guidance in `context/SECURITY.md`; always-on Kiro guidance; a manual Kiro security-review workflow; allow/deny policy files; the demo permission gate; fixture and E2E enforcement tests |
+| **Starter integrations** | Kiro hook definitions for governance, audit capture, and clean-state reminders. Validate their end-to-end behaviour in the target Kiro environment before relying on them as enforcement. |
+| **Fill per project** | Control-matrix rows, threat model, data boundaries, approval policy, security test cases, and module-local constraints |
+| **Deferred** | Security-sensitive-change workflow, trigger-to-workflow mapping, required CI/CD checks, protected audit storage, and framework-specific runtime adapters |
+
+A control should be called **mechanical** only when an execution path enforces it and tests prove that path. Steering and documentation are guidance; hooks and local checks provide feedback; CI/CD and runtime controls provide the enforceable boundaries.
 
 ## Running the Demo
 
@@ -169,16 +179,27 @@ python3 demo/demo.py --nogate   # Same model, no enforcement (proves harness mat
 
 ## Tool Compatibility
 
-| Feature | Claude Code | Kiro | Codex / Copilot / Cursor / Gemini |
+| Feature | Claude Code (active root) | Kiro (opt-in: copy `kiro/`→`.kiro/`) | Codex / Copilot / Cursor / Gemini |
 |---------|------------|------|-----------------------------------|
-| Instruction file | `CLAUDE.md` (auto-loaded) | `CLAUDE.md` (manual ref) | `AGENTS.md` (auto-loaded) |
-| Enforcement hooks | `.claude/settings.json` (5 hooks) | `.kiro/hooks/*.json` (4 hooks) | N/A (use permission.py CLI) |
-| Session workflow | `.claude/commands/session-cycle.md` (`/session-cycle`) | `.kiro/steering/session-cycle.md` (`inclusion: auto`) | — |
-| Domain workflow | `.claude/commands/domain-workflow.md` (placeholder) | `.kiro/steering/domain-workflow.md` (`inclusion: manual`) | — |
+| Instruction file | `CLAUDE.md` (auto-loaded; imports `@AGENTS.md`) | `CLAUDE.md` (manual ref) | `AGENTS.md` (auto-loaded) |
+| Enforcement hooks | `.claude/settings.json` → `governance/permission.py` | `.kiro/hooks/*.json` → same `permission.py` | N/A (call `permission.py` CLI) |
+| Always-on rules | `.claude/rules/*.md` (CLAUDE.md priority) | `.kiro/steering/*.md` (`inclusion: auto`) | — |
+| Session workflow | `.claude/commands/session-cycle.md` (`/session-cycle`) | `.kiro/steering/session-cycle.md` | — |
 
-**Why both `.claude/` and `.kiro/`?** Each tool reads from its own expected location. The template ships parallel content in both formats so enforcement and workflows fire regardless of which runtime you use. Same governance logic, different integration points.
+**Claude-first, Kiro opt-in.** The active root is wired for Claude Code — nothing in
+it is inert. Kiro's integration lives under `kiro/`; a Kiro user copies it to `.kiro/`
+to activate (see `kiro/README.md`). Both runtimes invoke the **same** tool-agnostic
+`governance/permission.py` — only the activation layer differs.
 
-**Why `AGENTS.md` too?** It's the Linux Foundation open standard read by 60k+ repos (Codex, Cursor, Copilot, Gemini CLI, Aider, Windsurf, Zed). Defines system identity — different from CLAUDE.md's session workflow.
+**Why `AGENTS.md`?** It's the open standard read by other agents (Codex, Cursor,
+Copilot, Gemini, Aider, Windsurf, Zed) and defines system identity. Claude Code reads
+`CLAUDE.md`, not `AGENTS.md` — so `CLAUDE.md` imports it via `@AGENTS.md`, giving one
+source of truth that loads in every runtime.
+
+> **Enforcement caveat (verified this template revision):** the mechanical gate is
+> real, but the hook *wiring* is what activates it. The Claude hook path is proven by
+> `tests/test_hooks.py`. The Kiro hook payload wiring must be confirmed inside a real
+> Kiro runtime — see `kiro/hooks/governance-check.json`.
 
 ## References & Lineage
 

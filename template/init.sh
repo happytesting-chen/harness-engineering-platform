@@ -34,7 +34,7 @@ echo ""
 
 # --- 2. Check for unfilled {{placeholders}} in required config files ---
 echo "▶ Checking for unfilled placeholders..."
-REQUIRED_FILES=("CLAUDE.md" "feature_list.json" "governance/deny-list.json" "tools/mcp-allowlist.json")
+REQUIRED_FILES=("CLAUDE.md" "AGENTS.md" "feature_list.json" "governance/deny-list.json" "tools/mcp-allowlist.json")
 for f in "${REQUIRED_FILES[@]}"; do
     if [ -f "$f" ]; then
         PLACEHOLDERS=$(grep -o '{{[^}]*}}' "$f" 2>/dev/null || true)
@@ -100,6 +100,54 @@ if [ -f "tests/test_e2e.py" ]; then
     else
         echo "  ✗ E2E tests FAILED"
         ERRORS=$((ERRORS + 1))
+    fi
+    echo ""
+fi
+
+# --- 5b. Security-kit integrity gate ---
+# A governed-agent template must not silently pass with its enforcement removed or
+# unwired. This gate fails if the mechanism is absent, the hook is not wired, or the
+# hook-integration proof does not pass. Skipped only if this copy intentionally ships
+# no governance/ at all (a deliberately ungoverned project).
+if [ -d "governance" ]; then
+    echo "▶ Security-kit integrity..."
+    # (a) enforcement engine present
+    if [ -f "governance/permission.py" ]; then
+        echo "  ✓ enforcement engine present (governance/permission.py)"
+    else
+        echo "  ✗ governance/ exists but permission.py is MISSING — enforcement gutted"
+        ERRORS=$((ERRORS + 1))
+    fi
+    # (b) hook actually wired to the engine in .claude/settings.json
+    if [ -f ".claude/settings.json" ] && grep -q "governance/permission.py" .claude/settings.json; then
+        echo "  ✓ permission gate wired in .claude/settings.json"
+    else
+        echo "  ✗ .claude/settings.json does NOT wire governance/permission.py — gate inert"
+        ERRORS=$((ERRORS + 1))
+    fi
+    # (c) hook-integration proof passes (drives the real hook scripts via stdin)
+    if [ -f "tests/test_hooks.py" ]; then
+        if python3 tests/test_hooks.py >/dev/null 2>&1; then
+            echo "  ✓ hook-integration tests passed (tests/test_hooks.py)"
+        else
+            echo "  ✗ hook-integration tests FAILED — enforcement path broken"
+            ERRORS=$((ERRORS + 1))
+        fi
+    else
+        echo "  ⚠ no tests/test_hooks.py — hook wiring is unproven"
+        WARNINGS=$((WARNINGS + 1))
+    fi
+    # (d) data-plane content-trust proof (untrusted-content boundary)
+    if [ -f "governance/content_trust.py" ] && [ -f "tests/test_content_trust.py" ]; then
+        if python3 tests/test_content_trust.py >/dev/null 2>&1; then
+            echo "  ✓ content-trust tests passed (tests/test_content_trust.py)"
+        else
+            echo "  ✗ content-trust tests FAILED — data-plane boundary broken"
+            ERRORS=$((ERRORS + 1))
+        fi
+    else
+        echo "  ⚠ no content-trust primitive — untrusted-content boundary is app-only"
+        WARNINGS=$((WARNINGS + 1))
     fi
     echo ""
 fi

@@ -1,5 +1,5 @@
 {
-  "_comment": "Ground-truth test cases for the Permission Gate. Test runner uses test-specific policy files (see tests/policies/) where: deny-list includes standard patterns, 'bash' is ungated, 'metasploit' is gated_until phase-01, egress_hosts = ['localhost', '127.0.0.1'], and phase-01 is active.",
+  "_comment": "Ground-truth test cases for the Permission Gate. The runner (test_fixtures.py) provisions its policy in-memory — deny-list includes standard patterns, 'bash' is ungated, 'metasploit' is gated_until phase-01, egress_hosts = ['localhost', '127.0.0.1'], and phase-01 is active.",
   "cases": [
     {
       "description": "Deny-list hit: rm -rf / is blocked regardless of tool or phase",

@@ -11,6 +11,7 @@ To customise: edit deny-list.json and tools/mcp-allowlist.json.
 Do NOT modify this file per project — it's the mechanism, not the policy.
 """
 import json
+import re
 from pathlib import Path
 
 ROOT = Path(__file__).parent.parent
@@ -26,11 +27,36 @@ def _load_json(path):
 
 
 def check_deny_list(command: str) -> str | None:
-    """Gate 1: hard deny. Returns reason string if denied, None if allowed."""
+    """Gate 1: hard deny. Returns reason string if denied, None if allowed.
+
+    Each entry in `patterns` is either:
+      - a string  → substring match (backward-compatible default), or
+      - an object  {"pattern": "...", "mode": "substring"|"word"|"regex"}
+          * "word"  → matches the literal only on word boundaries, so "curl" does not
+                       fire on "curly"; the fix for the naive-substring problem.
+          * "regex" → full regex match.
+    A malformed regex falls back to substring match rather than crashing the gate.
+    """
     data = _load_json(DENY_LIST_PATH)
-    for pattern in data.get("patterns", []):
-        if pattern in command:
-            return f"deny-list hit: '{pattern}'"
+    for entry in data.get("patterns", []):
+        if isinstance(entry, dict):
+            pat = entry.get("pattern", "")
+            mode = entry.get("mode", "substring")
+        else:
+            pat, mode = entry, "substring"
+        if not pat:
+            continue
+        try:
+            if mode == "word":
+                hit = re.search(rf"\b{re.escape(pat)}\b", command) is not None
+            elif mode == "regex":
+                hit = re.search(pat, command) is not None
+            else:
+                hit = pat in command
+        except re.error:
+            hit = pat in command  # bad regex → safe fallback, never crash the gate
+        if hit:
+            return f"deny-list hit: '{pat}'"
     return None
 
 
@@ -96,14 +122,53 @@ def make_permission_check(auto_deny_on_ask=True):
 
 
 # --- CLI mode (for .claude/settings.json hooks) ---
+#
+# Claude Code delivers the tool call as a JSON envelope on stdin, e.g.
+#   {"tool_name": "Bash", "tool_input": {"command": "..."}, ...extra keys...}
+# and blocks the action ONLY on exit code 2. Any other non-zero is treated as a
+# non-blocking hook error and the tool proceeds — so this path must FAIL CLOSED
+# (exit 2) on malformed or empty input, never crash out with exit 1.
+#
+# Claude's tool names are PascalCase (Bash, Write, Edit); the allowlist and egress
+# check use internal lowercase names (bash, write_file). Normalize before checking.
+
+# Maps Claude Code tool names to the internal names used in mcp-allowlist.json.
+TOOL_NAME_MAP = {
+    "Bash": "bash",
+    "Write": "write_file",
+    "Edit": "write_file",
+    "MultiEdit": "write_file",
+    "NotebookEdit": "write_file",
+}
+
+
+def normalize_tool_name(name: str) -> str:
+    """Map a Claude Code tool name to its internal allowlist name.
+    Unmapped names pass through unchanged (already-internal or MCP tools)."""
+    return TOOL_NAME_MAP.get(name, name)
+
+
 if __name__ == "__main__":
     import sys
 
-    # Read tool call from stdin (JSON: {"tool_name": "...", "tool_input": {...}})
+    def _deny(reason: str):
+        print(reason)
+        sys.exit(2)
+
+    # Read tool call from stdin. Empty or unparseable input FAILS CLOSED.
     raw = sys.stdin.read().strip()
     if not raw:
-        sys.exit(0)
-    data = json.loads(raw)
+        _deny("permission gate: empty stdin (fail closed)")
+    try:
+        data = json.loads(raw)
+    except (json.JSONDecodeError, ValueError):
+        _deny("permission gate: malformed hook payload (fail closed)")
+    if not isinstance(data, dict):
+        _deny("permission gate: unexpected hook payload shape (fail closed)")
+
+    tool_input = data.get("tool_input", {})
+    if not isinstance(tool_input, dict):
+        tool_input = {}
 
     # Build a minimal Block-like object for the check
     class _Block:
@@ -111,10 +176,9 @@ if __name__ == "__main__":
             self.name = name
             self.input = input
 
-    block = _Block(data.get("tool_name", ""), data.get("tool_input", {}))
+    block = _Block(normalize_tool_name(data.get("tool_name", "")), tool_input)
     check = make_permission_check()
     allowed, reason = check(block)
     if not allowed:
-        print(reason)
-        sys.exit(2)
+        _deny(reason)
     sys.exit(0)
