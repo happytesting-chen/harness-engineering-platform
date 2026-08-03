@@ -10,7 +10,7 @@
         "hooks": [
           {
             "type": "command",
-            "command": "python3 governance/permission.py",
+            "command": "python3 Security-kit/governance/permission.py",
             "timeout": 5
           }
         ]
@@ -22,7 +22,7 @@
         "hooks": [
           {
             "type": "command",
-            "command": "python3 governance/secret_scan.py",
+            "command": "python3 Security-kit/governance/secret_scan.py",
             "timeout": 3
           }
         ]
@@ -36,7 +36,7 @@
         "hooks": [
           {
             "type": "command",
-            "command": "python3 observability/audit_hook.py",
+            "command": "python3 Harness-Best-Practice/observability/audit_hook.py",
             "timeout": 3
           }
         ]
@@ -62,7 +62,7 @@
         "hooks": [
           {
             "type": "command",
-            "command": "python3 -c \"import os,time; p='progress.md'; mtime=os.path.getmtime(p) if os.path.exists(p) else 0; age=time.time()-mtime; print('WARNING: progress.md not updated this session') if age > 3600 else None\"",
+            "command": "python3 -c \"import os,time; p='Harness-Best-Practice/progress.md'; mtime=os.path.getmtime(p) if os.path.exists(p) else 0; age=time.time()-mtime; print('WARNING: progress.md not updated this session') if age > 3600 else None\"",
             "timeout": 3
           }
         ]

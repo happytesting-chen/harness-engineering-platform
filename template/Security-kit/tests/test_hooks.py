@@ -17,19 +17,20 @@ import sys
 from pathlib import Path
 
 TEMPLATE_ROOT = Path(__file__).resolve().parent.parent
+PROJECT_ROOT = Path(__file__).resolve().parent.parent.parent
 PERMISSION = TEMPLATE_ROOT / "governance" / "permission.py"
 SECRET_SCAN = TEMPLATE_ROOT / "governance" / "secret_scan.py"
-AUDIT_HOOK = TEMPLATE_ROOT / "observability" / "audit_hook.py"
-AUDIT_LOG = TEMPLATE_ROOT / "observability" / "audit.log"
+AUDIT_HOOK = PROJECT_ROOT / "Harness-Best-Practice" / "observability" / "audit_hook.py"
+AUDIT_LOG = PROJECT_ROOT / "Harness-Best-Practice" / "observability" / "audit.log"
 
 
 def _run(script: Path, payload: dict) -> int:
     """Pipe a Claude-shaped envelope to a hook script; return its exit code.
-    Run from TEMPLATE_ROOT so relative paths inside the scripts resolve."""
+    Run from PROJECT_ROOT so relative paths inside the scripts resolve."""
     proc = subprocess.run(
         [sys.executable, str(script)],
         input=json.dumps(payload),
-        capture_output=True, text=True, cwd=str(TEMPLATE_ROOT),
+        capture_output=True, text=True, cwd=str(PROJECT_ROOT),
     )
     return proc.returncode
 
@@ -61,13 +62,13 @@ def test_egress_blocked_by_default():
 
 def test_permission_fails_closed_on_empty_stdin():
     proc = subprocess.run([sys.executable, str(PERMISSION)], input="",
-                          capture_output=True, text=True, cwd=str(TEMPLATE_ROOT))
+                          capture_output=True, text=True, cwd=str(PROJECT_ROOT))
     assert proc.returncode == 2, "empty stdin must FAIL CLOSED (exit 2), not open"
 
 
 def test_permission_fails_closed_on_malformed_json():
     proc = subprocess.run([sys.executable, str(PERMISSION)], input="{not json",
-                          capture_output=True, text=True, cwd=str(TEMPLATE_ROOT))
+                          capture_output=True, text=True, cwd=str(PROJECT_ROOT))
     assert proc.returncode == 2, "malformed payload must FAIL CLOSED (exit 2)"
 
 

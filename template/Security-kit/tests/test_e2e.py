@@ -20,8 +20,9 @@ import tempfile
 from pathlib import Path
 
 # --- Path setup: allow imports from sibling directories ---
-TEMPLATE_ROOT = Path(__file__).resolve().parent.parent
-sys.path.insert(0, str(TEMPLATE_ROOT))
+PROJECT_ROOT = Path(__file__).resolve().parent.parent.parent
+sys.path.insert(0, str(PROJECT_ROOT))
+sys.path.insert(0, str(PROJECT_ROOT / "Security-kit"))
 
 from demo.fake_model import Block, Response, FakeModel
 from demo.harness import agent_loop, TOOL_HANDLERS, WORKDIR
@@ -36,10 +37,10 @@ from governance.permission import make_permission_check
 _ORIGINALS = {}
 
 # Paths that get test-specific content during tests
-_DENY_LIST = TEMPLATE_ROOT / "governance" / "deny-list.json"
-_ALLOWLIST = TEMPLATE_ROOT / "tools" / "mcp-allowlist.json"
-_FEATURE_LIST = TEMPLATE_ROOT / "feature_list.json"
-_AUDIT_LOG = TEMPLATE_ROOT / "observability" / "audit.log"
+_DENY_LIST = PROJECT_ROOT / "Security-kit" / "governance" / "deny-list.json"
+_ALLOWLIST = PROJECT_ROOT / "Security-kit" / "governance" / "mcp-allowlist.json"
+_FEATURE_LIST = PROJECT_ROOT / "Harness-Best-Practice" / "feature_list.json"
+_AUDIT_LOG = PROJECT_ROOT / "Harness-Best-Practice" / "observability" / "audit.log"
 
 
 def _backup(path: Path):
