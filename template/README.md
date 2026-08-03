@@ -272,6 +272,25 @@ context, guidance, policy, enforcement, verification, and review evidence. It ap
 **Fill per project:** the rows of `security/control-matrix.md` (control → code →
 verification → evidence), your threat model, and any domain-specific test cases.
 
+**AI-specific risk coverage.** `security/owasp-crosswalk.md` maps every item of the
+**OWASP Top 10 for LLM Applications (2025)** and the **OWASP Top 10 for Agentic
+Applications (2026, ASI01–ASI10)** to the exact template mechanism that addresses it —
+marked `[MECH]` (enforced + tested), `[GUIDE]` (advisory), `[APP]` (your code), or
+`[GAP]`. Use it to prove coverage and record residual risk.
+
+**Security vs non-security.** `security/SECURITY-MANIFEST.md` is the authoritative
+inventory: which files are pure-security (removable), which are pure-harness, and which
+are *wired* (security woven into a shared file). To produce a build with the security
+layer removed — for comparison, or a deliberately ungoverned project:
+
+```bash
+./install.sh --no-security --dry-run   # preview what's removed/neutralized
+./install.sh --no-security             # strip it (run on a copy)
+```
+
+The full build's `init.sh` integrity gate prevents the kit from being *silently*
+stripped; `--no-security` is the explicit, recorded way to remove it.
+
 > A control is only **mechanical** when an execution path enforces it *and* a test proves
 > that path. Steering and docs are *guidance*; hooks and tests are *enforcement*. `init.sh`
 > now gates on the enforcement proofs so a disabled kit cannot pass silently.

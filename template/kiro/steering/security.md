@@ -6,7 +6,8 @@ inclusion: auto
 
 Apply these agent-specific security patterns on every turn. These complement — not
 restate — the governance gates described in CLAUDE.md. For the full control set and
-source attribution, see `context/SECURITY.md`.
+source attribution (OWASP/AWS/CSA), see `context/SECURITY.md`; for OWASP-item →
+mechanism mapping, see `security/owasp-crosswalk.md`.
 
 ## Input Trust
 
