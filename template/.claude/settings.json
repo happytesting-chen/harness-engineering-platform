@@ -1,5 +1,5 @@
 {
-  "_comment": "Claude Code hook configuration. Hooks fire automatically — no domain-specific content needed for base enforcement.",
+  "_comment": "Claude Code hook configuration. Hook commands use $CLAUDE_PROJECT_DIR so they resolve from the project root regardless of the working directory when the hook runs (handlers run in the CURRENT dir, not root — see Claude Code hooks docs). This prevents the gate from failing-closed and blocking all tools when cwd drifts.",
   "_extension_guide": "Add domain-specific hooks by appending to the arrays below. Base hooks stay untouched.",
   "hooks": {
     "PreToolUse": [
@@ -10,7 +10,7 @@
         "hooks": [
           {
             "type": "command",
-            "command": "python3 Security-kit/governance/permission.py",
+            "command": "python3 \"$CLAUDE_PROJECT_DIR/Security-kit/governance/permission.py\"",
             "timeout": 5
           }
         ]
@@ -22,7 +22,7 @@
         "hooks": [
           {
             "type": "command",
-            "command": "python3 Security-kit/governance/secret_scan.py",
+            "command": "python3 \"$CLAUDE_PROJECT_DIR/Security-kit/governance/secret_scan.py\"",
             "timeout": 3
           }
         ]
@@ -36,7 +36,7 @@
         "hooks": [
           {
             "type": "command",
-            "command": "python3 Harness-Best-Practice/observability/audit_hook.py",
+            "command": "python3 \"$CLAUDE_PROJECT_DIR/Harness-Best-Practice/observability/audit_hook.py\"",
             "timeout": 3
           }
         ]
@@ -45,12 +45,12 @@
     "Stop": [
       {
         "id": "stop:cost-tracker",
-        "description": "Records token usage and cost for the session.",
+        "description": "Records session end to the audit log.",
         "matcher": "*",
         "hooks": [
           {
             "type": "command",
-            "command": "python3 -c \"from observability.audit import record; record('session_end', 'system', {'event': 'stop'}, 'INFO')\"",
+            "command": "python3 \"$CLAUDE_PROJECT_DIR/Harness-Best-Practice/observability/audit_hook.py\"",
             "timeout": 3
           }
         ]
@@ -62,7 +62,7 @@
         "hooks": [
           {
             "type": "command",
-            "command": "python3 -c \"import os,time; p='Harness-Best-Practice/progress.md'; mtime=os.path.getmtime(p) if os.path.exists(p) else 0; age=time.time()-mtime; print('WARNING: progress.md not updated this session') if age > 3600 else None\"",
+            "command": "python3 -c \"import os,time; p=os.path.join(os.environ.get('CLAUDE_PROJECT_DIR','.'),'Harness-Best-Practice/progress.md'); mtime=os.path.getmtime(p) if os.path.exists(p) else 0; print('WARNING: progress.md not updated this session') if (time.time()-mtime) > 3600 else None\"",
             "timeout": 3
           }
         ]
