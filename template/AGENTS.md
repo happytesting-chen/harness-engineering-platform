@@ -53,8 +53,12 @@ python3 tests/test_e2e.py       # Day 4 enforcement proof
 
 See `progress.md` for session journal and `feature_list.json` for phase status.
 
+## Reference
+
+- [BEST-PRACTICES.md](BEST-PRACTICES.md) — Harness engineering principles (generic)
+
 ## Domain Context
 
-See `context/` for domain-specific knowledge:
-- [context/BEST-PRACTICES.md](context/BEST-PRACTICES.md) — Harness engineering principles
+See `context/` for **project-specific** assets (architecture, product/design docs,
+methodology, scope, threat model):
 - {{DOMAIN_CONTEXT_LINKS}}

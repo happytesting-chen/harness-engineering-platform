@@ -161,11 +161,12 @@ is `passing`:
 
 ### Step 5 — Add domain knowledge (`context/`)
 
-The agent has no domain knowledge without this. Add at least one doc — a threat model,
-a data contract, the rules of your domain. For the claims agent, a
-`context/TRUST-BOUNDARIES.md` describing which inputs are untrusted and how the safety
-gates behave. The shipped `security/SECURITY.md` (40 source-tagged controls) and
-`context/BEST-PRACTICES.md` are references you keep.
+`context/` holds **project-specific** assets — your architecture, product/design doc,
+methodology, scope, threat model, glossary. The agent has no domain knowledge without
+them. Add at least one doc; for the claims agent, a `context/TRUST-BOUNDARIES.md`
+describing which inputs are untrusted and how the safety gates behave. (Generic
+references you *keep* — not fill — live elsewhere: `security/SECURITY.md` for controls,
+root `BEST-PRACTICES.md` for harness principles.)
 
 ### Step 6 — Run the health check and read it
 
@@ -309,6 +310,7 @@ my-agent/
 ├── feature_list.json      ← Phases: behavior + verification + status        [FILL]
 ├── progress.md            ← Session journal + handoff                       [UPDATE]
 ├── init.sh                ← Startup health check + integrity gate           [as-is]
+├── BEST-PRACTICES.md      ← Harness engineering principles (generic)        [as-is]
 │
 ├── governance/            ← ENFORCEMENT
 │   ├── permission.py      ← [MECHANISM] 3-gate control plane                [never edit]
@@ -323,8 +325,9 @@ my-agent/
 │   ├── audit.py           ← [MECHANISM] append-only audit log               [never edit]
 │   └── audit_hook.py      ← [MECHANISM] PostToolUse audit adapter           [never edit]
 │
-├── context/               ← [POLICY] domain knowledge (domain-specific only) [ADD ≥1 doc]
-│   └── BEST-PRACTICES.md   ·  harness engineering principles
+├── context/               ← [POLICY] PROJECT-specific assets                 [ADD ≥1 doc]
+│   ├── README.md           ·  what belongs here
+│   └── (architecture.md, product-design.md, methodology.md, threat-model.md, …)
 │
 ├── security/              ← SECURITY KIT (generic, not domain-specific)
 │   ├── README.md

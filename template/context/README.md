@@ -1,25 +1,34 @@
 # Context Directory
 
-This directory holds domain-specific knowledge documents that the agent reads for context. CLAUDE.md links here — keep documents focused and reference-ready.
+This directory holds **project-specific assets** — the architecture, product/design,
+and domain knowledge unique to *this* project. The agent reads them for context.
+CLAUDE.md links here. Keep documents focused and reference-ready.
+
+> **This is for what you author per project, not generic framework material.**
+> Generic references that ship with the template live elsewhere: harness principles in
+> root `BEST-PRACTICES.md`, security controls in `security/SECURITY.md`. Don't copy
+> those here.
 
 ## What Goes Here
 
 | Document Type | Purpose | Example |
 |--------------|---------|---------|
+| Architecture | System design, components, data flow | `architecture.md` |
+| Product / design doc | What the product does and why; requirements | `product-design.md` |
 | Methodology | Step-by-step workflow for the domain | `methodology.md` |
 | Scope definition | Boundaries of what's in/out of scope | `target-scope.md` |
-| Standards references | Compliance frameworks, coding standards | `standards.md` |
-| Threat model | Risks, attack surfaces, mitigations | `threat-model.md` |
-| Architecture | System design, component relationships | `architecture.md` |
+| Threat model | Project-specific risks, attack surfaces, mitigations | `threat-model.md` |
+| Standards references | Compliance frameworks this project must meet | `standards.md` |
 | Glossary | Domain-specific terminology | `glossary.md` |
 
 ## Guidelines
 
-- One topic per file — keep documents under 200 lines
-- Use filenames that describe the content (no `doc1.md`)
-- CLAUDE.md should link to each file you add here
-- The agent reads these files for domain context during sessions
-- Do NOT put mechanism code or configuration here — those go in `governance/` and `tools/`
+- Author these per project — they describe *your* system, not the framework.
+- One topic per file — keep documents under 200 lines.
+- Use filenames that describe the content (no `doc1.md`).
+- CLAUDE.md should link to each file you add here.
+- Do NOT put mechanism code/config here (→ `governance/`, `tools/`), generic harness
+  guidance (→ root `BEST-PRACTICES.md`), or security controls (→ `security/`).
 
 ## Getting Started
 

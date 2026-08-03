@@ -40,7 +40,7 @@ Project-management and evaluation scaffolding. No security role.
 |------|------|
 | `AGENTS.md` | Agent identity (open standard) |
 | `progress.md` | Session journal + handoff |
-| `context/BEST-PRACTICES.md` | Harness engineering principles |
+| `BEST-PRACTICES.md` | Harness engineering principles (generic, root-level) |
 | `.claude/commands/session-cycle.md`, `kiro/steering/session-cycle.md` | Session workflow |
 | `.claude/commands/domain-workflow.md`, `kiro/steering/domain-workflow.md` | Domain workflow placeholder |
 | `demo/` | Evaluation harness (fake model, scripted demo) |

@@ -53,9 +53,13 @@ Three enforcement gates fire on every tool call (mechanical, not advisory):
 - **Permission denied:** Do not retry. Note in progress.md and move on.
 - {{DOMAIN_ESCALATION_RULES}}
 
+## Reference
+
+- [BEST-PRACTICES.md](BEST-PRACTICES.md) — Harness engineering principles (generic, from Learn Harness Engineering)
+
 ## Domain Context
 
-See `context/` for domain-specific knowledge:
+See `context/` for **project-specific** assets (architecture, product/design docs,
+methodology, scope, threat model):
 - [context/README.md](context/README.md) — What belongs here
-- [context/BEST-PRACTICES.md](context/BEST-PRACTICES.md) — Harness engineering principles (from Learn Harness Engineering)
 - {{DOMAIN_CONTEXT_LINKS}}
