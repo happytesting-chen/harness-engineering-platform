@@ -25,6 +25,14 @@ CLAUDE.md links here. Keep documents focused and reference-ready.
 > review belongs in `security/` (see `security/SECURITY.md` and
 > `security/control-matrix.md`) — not in `context/`.
 
+## Starter stubs
+
+This directory ships two fill-in-the-blank starters for the most important AI-dev
+decisions. Copy off the `.template` suffix and fill:
+
+- `ai-stack.md.template` → `ai-stack.md` — framework + model choice and rationale.
+- `deployment.md.template` → `deployment.md` — on-prem/cloud target, egress, secrets.
+
 ## Guidelines
 
 - Author these per project — they describe *your* system, not the framework.

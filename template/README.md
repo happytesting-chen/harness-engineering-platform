@@ -327,9 +327,11 @@ my-agent/
 │   ├── audit.py           ← [MECHANISM] append-only audit log               [never edit]
 │   └── audit_hook.py      ← [MECHANISM] PostToolUse audit adapter           [never edit]
 │
-├── context/               ← [POLICY] PROJECT AI-dev assets                   [ADD ≥1 doc]
+├── context/               ← [POLICY] PROJECT AI-dev assets                   [FILL stubs]
 │   ├── README.md           ·  what belongs here
-│   └── (product-design.md, ai-stack.md, deployment.md, architecture.md, …)
+│   ├── ai-stack.md.template     ·  framework + model choice        [copy→fill]
+│   ├── deployment.md.template   ·  on-prem/cloud, egress, secrets  [copy→fill]
+│   └── (+ product-design.md, architecture.md, … as needed)
 │
 ├── security/              ← SECURITY KIT (generic, not domain-specific)
 │   ├── README.md
