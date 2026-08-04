@@ -441,6 +441,24 @@ the style of `examples/claims-agent/evaluation/TEMPLATE-EVALUATION-REPORT.md`.
 
 ---
 
+## 7b. Implementation phasing (decided 2026-08-04)
+
+Build in two phases; **Phase 1 (tailor + selection benchmark) ships and is trusted before
+Phase 2 begins.** Each phase leaves `init.sh` green on its own.
+
+| Phase | Delivers | Pieces | Eval | Done when |
+|---|---|---|---|---|
+| **1 — Tailor (Q1)** | product → selected controls, coverage-gated, dev-time steering, selection recall measured | §4.1 skill, §4.2 coverage.json, §4.3 check_coverage.py, §4.4 test_coverage.py, §4.5 active-controls.md; wiring §5.1/§5.2; §6.2 selection corpus + `eval_selection.py` | §6.2 recall on frozen corpus ≥ floor | fresh full build can't reach PASS without a coverage pass; recall measured & tracked |
+| **2 — Scanner (Q2)** | product *code* scanned for the sinks of selected controls, detection rate measured | §4.6 sast_scan.py; §6.3 planted-vuln corpus | §6.3 detection rate ≥ floor | scanner runs in block 5b (warn-default); FN/FP measured on planted corpus |
+
+Phase 2 depends only on Phase 1's `coverage.json` contract, so the boundary is clean —
+nothing in Phase 1 is rework. Success criteria §6.5 #7 gates Phase 1; #8 gates Phase 2.
+
+**This plan cycle covers Phase 1 only.** Phase 2 gets its own plan once Phase 1's recall
+number is trusted.
+
+---
+
 ## 8. Open questions for the engineer
 1. **Context hash scope** — hash all of `Context/`, or only the docs the skill actually
    read? (Proposal: all non-template `.md` in `Context/`, sorted, concatenated.)
