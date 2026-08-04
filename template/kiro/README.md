@@ -20,7 +20,7 @@ Kiro then auto-loads:
 ## What's shared vs tool-specific
 
 - **Shared, tool-agnostic:** `governance/permission.py`, `governance/deny-list.json`,
-  `tools/mcp-allowlist.json`, `observability/audit.py`, `feature_list.json`,
+  `governance/mcp-allowlist.json`, `Harness-Best-Practice/observability/audit.py`, `feature_list.json`,
   `tests/`. Both runtimes invoke these; they live in the project root, not here.
 - **Kiro-specific (here):** the `.kiro/` hooks and steering that wire those shared
   mechanisms into Kiro's lifecycle. The Claude equivalents live in `.claude/`.

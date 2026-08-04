@@ -55,12 +55,12 @@ Three enforcement gates fire on every tool call (mechanical, not advisory):
 
 ## Reference
 
-- [BEST-PRACTICES.md](BEST-PRACTICES.md) — Harness engineering principles (generic, from Learn Harness Engineering)
+- [BEST-PRACTICES.md](Harness-Best-Practice/BEST-PRACTICES.md) — Harness engineering principles (generic, from Learn Harness Engineering)
 
 ## Domain Context
 
 See `context/` for **project-specific** AI-development assets — product/design, AI stack
 (framework + model, e.g. LangChain/Strands), deployment target (on-prem/cloud),
-architecture, methodology, scope. (Threat model and security controls live in `security/`.)
+architecture, methodology, scope. (Threat model and security controls live in `Security-kit/`.)
 - [Context/README.md](Context/README.md) — What belongs here
 - {{DOMAIN_CONTEXT_LINKS}}

@@ -41,7 +41,7 @@ This document provides security guidance for developing AI agent systems. Each c
 | S2.5 | Scope credentials per session — use short-lived tokens, not long-lived keys | `[AWS-LENS]` |
 | S2.6 | Limit transitive tool chains — if tool A can invoke tool B, both must be in the allowlist | `[CSA-ADD]` |
 
-**Template enforcement:** `governance/permission.py` Gate 2 (phase-gate) + `tools/mcp-allowlist.json` enforce tool boundaries mechanically. `[HARNESS]`
+**Template enforcement:** `governance/permission.py` Gate 2 (phase-gate) + `governance/mcp-allowlist.json` enforce tool boundaries mechanically. `[HARNESS]`
 
 ---
 
@@ -101,10 +101,10 @@ This document provides security guidance for developing AI agent systems. Each c
 | S6.1 | Phase transitions require human sign-off — the agent reports "verification passes, requesting sign-off" and waits | `[CSA-ADD]` `[HARNESS]` |
 | S6.2 | Escalation for ambiguous situations — agent stops, records in progress.md, flags for human review | `[AWS-LENS]` `[HARNESS]` |
 | S6.3 | Policy refinement is human-only — deny-list and allowlist changes require human edit (the agent never self-modifies constraints) | `[CSA-ADD]` `[HARNESS]` |
-| S6.4 | All decisions are recorded in `observability/audit.log` — append-only, tamper-evident | `[AWS-LENS]` `[HARNESS]` |
+| S6.4 | All decisions are recorded in `Harness-Best-Practice/observability/audit.log` — append-only, tamper-evident | `[AWS-LENS]` `[HARNESS]` |
 | S6.5 | Regular audit log review to detect patterns the rules missed — feeds back into deny-list refinement | `[CSA-ADD]` |
 
-**Template enforcement:** 3 HIL points + `observability/audit.py` + `progress.md` decision table. `[HARNESS]`
+**Template enforcement:** 3 HIL points + `Harness-Best-Practice/observability/audit.py` + `progress.md` decision table. `[HARNESS]`
 
 ---
 

@@ -4,8 +4,8 @@ Complete only the rows that apply to the copied project's approved design. The m
 
 | Control ID | Objective and boundary | Implementation location | Verification | Review evidence |
 |---|---|---|---|---|
-| `SEC-TOOL-001` | Only approved tools may execute | `tools/mcp-allowlist.json` | `python3 tests/test_fixtures.py` | Tool/version approval |
-| `SEC-EGRESS-001` | Network actions stay within approved destinations | `tools/mcp-allowlist.json`, `governance/permission.py` | Egress fixture or E2E test | Egress policy review |
+| `SEC-TOOL-001` | Only approved tools may execute | `governance/mcp-allowlist.json` | `python3 tests/test_fixtures.py` | Tool/version approval |
+| `SEC-EGRESS-001` | Network actions stay within approved destinations | `governance/mcp-allowlist.json`, `governance/permission.py` | Egress fixture or E2E test | Egress policy review |
 | `SEC-XXX-001` | {{PROJECT_SPECIFIC_SECURITY_OBJECTIVE}} | {{IMPLEMENTATION_LOCATION}} | {{VERIFICATION_COMMAND}} | {{REVIEW_RECORD_OR_DECISION}} |
 
 ## Completion Rules

@@ -6,7 +6,7 @@ CLAUDE.md links here. Keep documents focused and reference-ready.
 
 > **This is for what you author per project, not generic framework material.**
 > Generic references that ship with the template live elsewhere: harness principles in
-> root `BEST-PRACTICES.md`, security controls in `security/SECURITY.md`. Don't copy
+> `Harness-Best-Practice/BEST-PRACTICES.md`, security controls in `Security-kit/SECURITY.md`. Don't copy
 > those here.
 
 ## What Goes Here
@@ -22,8 +22,8 @@ CLAUDE.md links here. Keep documents focused and reference-ready.
 | Glossary | Domain-specific terminology | `glossary.md` |
 
 > **Security artifacts do not go here.** A threat model, control mapping, or security
-> review belongs in `security/` (see `security/SECURITY.md` and
-> `security/control-matrix.md`) — not in `context/`.
+> review belongs in `Security-kit/` (see `Security-kit/SECURITY.md` and
+> `Security-kit/control-matrix.md`) — not in `context/`.
 
 ## Starter stubs
 
@@ -40,7 +40,7 @@ decisions. Copy off the `.template` suffix and fill:
 - Use filenames that describe the content (no `doc1.md`).
 - CLAUDE.md should link to each file you add here.
 - Do NOT put mechanism code/config here (→ `governance/`, `tools/`), generic harness
-  guidance (→ root `BEST-PRACTICES.md`), or security controls (→ `security/`).
+  guidance (→ `Harness-Best-Practice/BEST-PRACTICES.md`), or security controls (→ `Security-kit/`).
 
 ## Getting Started
 

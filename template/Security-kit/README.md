@@ -14,8 +14,8 @@ The Security Kit is the template's security navigation and review layer. It does
 
 | Asset | Role | Type |
 |---|---|---|
-| `security/SECURITY.md` | Source-tagged baseline control guidance | Generic |
-| `security/control-matrix.md` | Control-to-code, test, and evidence mapping | Fill per project |
+| `Security-kit/SECURITY.md` | Source-tagged baseline control guidance | Generic |
+| `Security-kit/control-matrix.md` | Control-to-code, test, and evidence mapping | Fill per project |
 | `.kiro/steering/security.md` | Concise always-on Kiro security guidance | Generic |
 | `.kiro/steering/security-review.md` | Manual workflow for reviewing sensitive changes | Generic |
 | `governance/`, `tools/`, `tests/` | Policy, enforcement, and verification mechanisms | Mixed |

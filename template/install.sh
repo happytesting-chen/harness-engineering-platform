@@ -2,11 +2,11 @@
 # install.sh — assemble a template build.
 #
 # Default: full build (security kit intact) — this is a no-op that just confirms layout.
-# --no-security: produce a build with the security layer removed, per security/SECURITY-MANIFEST.md
+# --no-security: produce a build with the security layer removed, per Security-kit/SECURITY-MANIFEST.md
 #                (Tier 1 deleted, Tier 3 security parts neutralized in place).
 #
 # Safety: refuses to run on the canonical template unless --force; intended to run on a
-# COPY. Use --dry-run to preview. See security/SECURITY-MANIFEST.md for the full rationale.
+# COPY. Use --dry-run to preview. See Security-kit/SECURITY-MANIFEST.md for the full rationale.
 #
 # Usage:
 #   cp -r template/ my-agent/ && cd my-agent/
@@ -45,7 +45,7 @@ fi
 echo "═══════════════════════════════════════════════════"
 [ "$DRY_RUN" -eq 1 ] && LABEL="(dry-run)" || LABEL=""
 echo "  install.sh --no-security  $LABEL"
-echo "  Removes the security layer per security/SECURITY-MANIFEST.md"
+echo "  Removes the security layer per Security-kit/SECURITY-MANIFEST.md"
 echo "═══════════════════════════════════════════════════"
 
 # Guard: don't nuke the canonical template by accident.

@@ -7,7 +7,7 @@ Three gates, evaluated in order (fail-closed):
   2. Phase gate (checks feature_list.json — is this tool allowed in the current phase?)
   3. Egress control (default-deny outbound to unlisted hosts)
 
-To customise: edit deny-list.json and tools/mcp-allowlist.json.
+To customise: edit deny-list.json and governance/mcp-allowlist.json.
 Do NOT modify this file per project — it's the mechanism, not the policy.
 """
 import json

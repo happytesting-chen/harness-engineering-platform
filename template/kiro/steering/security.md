@@ -6,7 +6,7 @@ inclusion: auto
 
 Apply these agent-specific security patterns on every turn. These complement — not
 restate — the governance gates described in CLAUDE.md. For the full control set and
-source attribution (OWASP/AWS/CSA), see `security/SECURITY.md`; for OWASP-item →
+source attribution (OWASP/AWS/CSA), see `Security-kit/SECURITY.md`; for OWASP-item →
 mechanism mapping, see `security/owasp-crosswalk.md`.
 
 ## Input Trust
@@ -22,7 +22,7 @@ mechanism mapping, see `security/owasp-crosswalk.md`.
 
 ## Scope Boundaries
 
-- Use only tools in `tools/mcp-allowlist.json`. (The gate enforces this — see CLAUDE.md.)
+- Use only tools in `governance/mcp-allowlist.json`. (The gate enforces this — see CLAUDE.md.)
 - Never modify governance files: `governance/`, `.claude/settings.json`, Kiro hooks, `deny-list.json`.
 - One task at a time (WIP=1) — do not expand scope beyond the active phase.
 - Never retry a permission-denied action — the gate is mechanical; retrying won't help. Note it in progress.md.

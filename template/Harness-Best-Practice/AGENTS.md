@@ -24,7 +24,7 @@
 │   ├── AGENTS.md                     ← Identity, run/verify (this file)
 │   ├── progress.md                   ← Session journal + handoff
 │   ├── feature_list.json             ← Phase DAG (tracks workflow progression)
-│   └── observability/audit.py        ← Append-only audit log
+│   └── Harness-Best-Practice/observability/audit.py        ← Append-only audit log
 ├── tests/                            ← Fixture-driven tests + E2E + hook + content-trust proofs
 └── demo/                             ← Scripted evaluation harness (not production path)
 ```
@@ -68,5 +68,5 @@ See `progress.md` for session journal and `feature_list.json` for phase status.
 
 See `context/` for **project-specific** AI-development assets — product/design, AI stack
 (framework + model), deployment target (on-prem/cloud), architecture, methodology, scope.
-(Threat model and security controls live in `security/`.)
+(Threat model and security controls live in `Security-kit/`.)
 - {{DOMAIN_CONTEXT_LINKS}}
