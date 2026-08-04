@@ -10,7 +10,7 @@
         "hooks": [
           {
             "type": "command",
-            "command": "python3 \"$CLAUDE_PROJECT_DIR/Security-kit/governance/permission.py\"",
+            "command": "python3 \"$CLAUDE_PROJECT_DIR/governance/permission.py\"",
             "timeout": 5
           }
         ]
@@ -22,7 +22,7 @@
         "hooks": [
           {
             "type": "command",
-            "command": "python3 \"$CLAUDE_PROJECT_DIR/Security-kit/governance/secret_scan.py\"",
+            "command": "python3 \"$CLAUDE_PROJECT_DIR/Security-kit/secret_scan.py\"",
             "timeout": 3
           }
         ]

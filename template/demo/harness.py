@@ -15,7 +15,7 @@ import sys
 
 # Adjust sys.path so we can import from sibling directories (governance/, observability/)
 sys.path.insert(0, str(Path(__file__).parent.parent / "Harness-Best-Practice" / "observability"))
-sys.path.insert(0, str(Path(__file__).parent.parent / "Security-kit" / "governance"))
+sys.path.insert(0, str(Path(__file__).parent.parent / "governance"))
 
 from audit import record
 from permission import make_permission_check

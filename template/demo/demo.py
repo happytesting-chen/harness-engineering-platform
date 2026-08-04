@@ -24,10 +24,9 @@ DEMO_DIR = Path(__file__).parent
 TEMPLATE_ROOT = DEMO_DIR.parent
 sys.path.insert(0, str(TEMPLATE_ROOT))
 sys.path.insert(0, str(DEMO_DIR))
-sys.path.insert(0, str(TEMPLATE_ROOT / "Security-kit" / "governance"))
+sys.path.insert(0, str(TEMPLATE_ROOT / "governance"))
 sys.path.insert(0, str(TEMPLATE_ROOT / "Harness-Best-Practice" / "observability"))
 # Also expose the package parents so `governance.permission` / `observability.audit` resolve.
-sys.path.insert(0, str(TEMPLATE_ROOT / "Security-kit"))
 sys.path.insert(0, str(TEMPLATE_ROOT / "Harness-Best-Practice"))
 
 from fake_model import Block, Response, FakeModel
@@ -38,8 +37,8 @@ from observability.audit import LOG as AUDIT_LOG_PATH
 # --- Demo policy setup ---
 # Write deterministic demo policy files so the demo is self-contained.
 
-DENY_LIST_PATH = TEMPLATE_ROOT / "Security-kit" / "governance" / "deny-list.json"
-ALLOWLIST_PATH = TEMPLATE_ROOT / "Security-kit" / "governance" / "mcp-allowlist.json"
+DENY_LIST_PATH = TEMPLATE_ROOT / "governance" / "deny-list.json"
+ALLOWLIST_PATH = TEMPLATE_ROOT / "governance" / "mcp-allowlist.json"
 FEATURE_LIST_PATH = TEMPLATE_ROOT / "Harness-Best-Practice" / "feature_list.json"
 
 DEMO_DENY_LIST = {

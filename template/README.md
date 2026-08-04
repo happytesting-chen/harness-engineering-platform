@@ -86,7 +86,7 @@ Replace these placeholders (find them with `grep -o '{{[^}]*}}' CLAUDE.md AGENTS
 | `{{PRIMARY_VERIFICATION_COMMAND}}` | The exact command that proves the agent works | `python3 tests/test_triage.py` |
 | `{{DENY_LIST_SUMMARY}}` | One line summarizing what's hard-blocked | *"Destructive shell + no network egress in phase-01."* |
 | `{{DOMAIN_ESCALATION_RULES}}` (CLAUDE.md) | When the agent must stop and ask a human | *"If a claim fails validation or a safety gate fires, route to HUMAN_REVIEW."* |
-| `{{DOMAIN_CONTEXT_LINKS}}` | Links to your `context/` docs | `[context/TRUST-BOUNDARIES.md](context/TRUST-BOUNDARIES.md)` |
+| `{{DOMAIN_CONTEXT_LINKS}}` | Links to your `Context/` docs | `[Context/TRUST-BOUNDARIES.md](Context/TRUST-BOUNDARIES.md)` |
 
 ### Step 3 — Define your phases (`feature_list.json`)
 
@@ -124,7 +124,7 @@ the unit of human sign-off.
 Status values: `active` (work here now), `not-started` (locked until dependencies pass),
 and `passing` (set by a **human** after sign-off — the agent never sets this itself).
 
-### Step 4 — Set policy (`governance/deny-list.json`, `tools/mcp-allowlist.json`)
+### Step 4 — Set policy (`governance/deny-list.json`, `governance/mcp-allowlist.json`)
 
 **`governance/deny-list.json`** ships with catastrophic defaults already filled — you
 only **add** domain patterns. Defaults: `rm -rf /`, `mkfs`, `> /dev/`, fork-bomb,
@@ -143,7 +143,7 @@ only **add** domain patterns. Defaults: `rm -rf /`, `mkfs`, `> /dev/`, fork-bomb
 Use `word`/`regex` for command names (so `curl` doesn't block `curly`); a malformed
 regex safely falls back to substring.
 
-**`tools/mcp-allowlist.json`** — replace the `{{GATED_TOOL}}` placeholder with your real
+**`governance/mcp-allowlist.json`** — replace the `{{GATED_TOOL}}` placeholder with your real
 tools, and set `egress_hosts`. A tool with `gated_until` stays blocked until that phase
 is `passing`:
 
@@ -159,16 +159,17 @@ is `passing`:
 }
 ```
 
-### Step 5 — Add domain knowledge (`context/`)
+### Step 5 — Add domain knowledge (`Context/`)
 
-`context/` holds **project-specific AI-development assets** — your product/design doc,
+`Context/` holds **project-specific AI-development assets** — your product/design doc,
 AI stack (framework + model, e.g. LangChain / Strands), deployment target
 (on-prem/cloud), architecture, methodology, and scope. These are the decisions unique to
 *this* agent; the agent has little domain grounding without them. Add at least one doc.
 
-Two things do **not** go in `context/`: **security artifacts** (threat model, controls →
-`security/`) and **generic framework references** you keep-not-fill (`security/SECURITY.md`
-for controls, root `BEST-PRACTICES.md` for harness principles).
+Two things do **not** go in `Context/`: **security artifacts** (threat model, controls →
+`Security-kit/`) and **generic framework references** you keep-not-fill
+(`Security-kit/SECURITY.md` for controls, `Harness-Best-Practice/BEST-PRACTICES.md` for
+harness principles).
 
 ### Step 6 — Run the health check and read it
 
@@ -223,15 +224,15 @@ denial wins, and malformed/empty input is denied, not allowed):
 | # | Gate | Blocks when… | Config |
 |---|---|---|---|
 | 1 | **Deny-list** | command matches a hard-blocked pattern | `governance/deny-list.json` |
-| 2 | **Phase-gate** | tool isn't in the allowlist, or its `gated_until` phase isn't `passing` | `tools/mcp-allowlist.json` + `feature_list.json` |
-| 3 | **Egress** | a network command targets a host not in `egress_hosts` | `tools/mcp-allowlist.json` |
+| 2 | **Phase-gate** | tool isn't in the allowlist, or its `gated_until` phase isn't `passing` | `governance/mcp-allowlist.json` + `Harness-Best-Practice/feature_list.json` |
+| 3 | **Egress** | a network command targets a host not in `egress_hosts` | `governance/mcp-allowlist.json` |
 
 `exit 0` = allow, `exit 2` = **BLOCK**. Proven end-to-end by `tests/test_hooks.py`.
 
 ### Data plane — content trust (untrusted input)
 
 Tool gates can't see a threat that arrives as *data* — e.g. prompt injection inside a
-claim body. `governance/content_trust.py` is the complement: call `screen_record()`
+claim body. `Security-kit/content_trust.py` is the complement: call `screen_record()`
 where untrusted content enters. It **drops injected control fields** (a claim smuggling
 `{"decision":"APPROVE"}`) and **flags instruction-shaped text** so the caller lowers
 trust and routes to a human. It reports; it never obeys. Proven by
@@ -239,8 +240,10 @@ trust and routes to a human. It reports; it never obeys. Proven by
 
 ### Observability
 
-Every decision (allow or deny) appends one JSON line to `observability/audit.log` via
-`observability/audit.py`. The model cannot rewrite it — it's the accountability record.
+Every decision (allow or deny) appends one JSON line to
+`Harness-Best-Practice/observability/audit.log` via
+`Harness-Best-Practice/observability/audit.py`. The model cannot rewrite it — it's the
+accountability record.
 
 ### Human-in-the-loop checkpoints
 
@@ -264,24 +267,24 @@ context, guidance, policy, enforcement, verification, and review evidence. It ap
 
 | Layer | Purpose | Where |
 |---|---|---|
-| **Context** | The approved posture, threats, controls | `security/SECURITY.md` (40 source-tagged controls) |
+| **Context** | The approved posture, threats, controls | `Security-kit/SECURITY.md` (40 source-tagged controls) |
 | **Guidance** | Shape everyday coding behaviour | `kiro/steering/security.md` (Kiro auto); `.claude/rules/` (Claude, optional) |
 | **Workflow** | Review sensitive changes consistently | `kiro/steering/security-review.md` |
-| **Policy** | Permitted tools, egress, approvals | `deny-list.json`, `mcp-allowlist.json`, `feature_list.json` |
-| **Enforcement** | Prevent prohibited actions | `governance/permission.py` (control) + `governance/content_trust.py` (data) |
+| **Policy** | Permitted tools, egress, approvals | `governance/deny-list.json`, `governance/mcp-allowlist.json`, `Harness-Best-Practice/feature_list.json` |
+| **Enforcement** | Prevent prohibited actions | `governance/permission.py` (control) + `Security-kit/content_trust.py` (data) |
 | **Verification** | Prove controls work + resist attack | `tests/test_hooks.py`, `test_e2e.py`, `test_content_trust.py`, `fixtures.json` |
-| **Evidence** | Record decisions, findings, residual risk | `security/control-matrix.md`, `progress.md`, git history |
+| **Evidence** | Record decisions, findings, residual risk | `Security-kit/control-matrix.md`, `progress.md`, git history |
 
-**Fill per project:** the rows of `security/control-matrix.md` (control → code →
+**Fill per project:** the rows of `Security-kit/control-matrix.md` (control → code →
 verification → evidence), your threat model, and any domain-specific test cases.
 
-**AI-specific risk coverage.** `security/owasp-crosswalk.md` maps every item of the
+**AI-specific risk coverage.** `Security-kit/owasp-crosswalk.md` maps every item of the
 **OWASP Top 10 for LLM Applications (2025)** and the **OWASP Top 10 for Agentic
 Applications (2026, ASI01–ASI10)** to the exact template mechanism that addresses it —
 marked `[MECH]` (enforced + tested), `[GUIDE]` (advisory), `[APP]` (your code), or
 `[GAP]`. Use it to prove coverage and record residual risk.
 
-**Security vs non-security.** `security/SECURITY-MANIFEST.md` is the authoritative
+**Security vs non-security.** `Security-kit/SECURITY-MANIFEST.md` is the authoritative
 inventory: which files are pure-security (removable), which are pure-harness, and which
 are *wired* (security woven into a shared file). To produce a build with the security
 layer removed — for comparison, or a deliberately ungoverned project:
@@ -299,7 +302,7 @@ stripped; `--no-security` is the explicit, recorded way to remove it.
 > now gates on the enforcement proofs so a disabled kit cannot pass silently.
 
 Sources: AWS Well-Architected Agentic AI Lens, CSA Singapore "Securing Agentic AI"
-Addendum, OWASP Agentic AI Top 10 — see `security/SECURITY.md` for the tagged mapping.
+Addendum, OWASP Agentic AI Top 10 — see `Security-kit/SECURITY.md` for the tagged mapping.
 
 ---
 
@@ -308,37 +311,32 @@ Addendum, OWASP Agentic AI Top 10 — see `security/SECURITY.md` for the tagged 
 ```
 my-agent/
 ├── CLAUDE.md              ← Claude Code instructions (imports @AGENTS.md)   [FILL]
-├── AGENTS.md              ← Open standard: identity, run/verify             [FILL]
-├── feature_list.json      ← Phases: behavior + verification + status        [FILL]
-├── progress.md            ← Session journal + handoff                       [UPDATE]
-├── init.sh                ← Startup health check + integrity gate           [as-is]
-├── BEST-PRACTICES.md      ← Harness engineering principles (generic)        [as-is]
+├── README.md             ← This file                                       [as-is]
+├── init.sh               ← Startup health check + integrity gate           [as-is]
+├── install.sh            ← Build assembler (full / --no-security)          [as-is]
 │
-├── governance/            ← ENFORCEMENT
+├── governance/            ← ENFORCEMENT + POLICY (top-level)
 │   ├── permission.py      ← [MECHANISM] 3-gate control plane                [never edit]
-│   ├── content_trust.py   ← [MECHANISM] data-plane content boundary         [never edit]
-│   ├── secret_scan.py     ← [MECHANISM] secret-block hook adapter           [never edit]
-│   └── deny-list.json     ← [POLICY] hard-blocked patterns                  [EXTEND]
-│
-├── tools/
+│   ├── deny-list.json     ← [POLICY] hard-blocked patterns                  [EXTEND]
 │   └── mcp-allowlist.json ← [POLICY] approved tools + egress hosts          [FILL]
 │
-├── observability/
-│   ├── audit.py           ← [MECHANISM] append-only audit log               [never edit]
-│   └── audit_hook.py      ← [MECHANISM] PostToolUse audit adapter           [never edit]
-│
-├── context/               ← [POLICY] PROJECT AI-dev assets                   [FILL stubs]
-│   ├── README.md           ·  what belongs here
-│   ├── ai-stack.md.template     ·  framework + model choice        [copy→fill]
-│   ├── deployment.md.template   ·  on-prem/cloud, egress, secrets  [copy→fill]
-│   └── (+ product-design.md, architecture.md, … as needed)
-│
-├── security/              ← SECURITY KIT (generic, not domain-specific)
+├── Security-kit/          ← SECURITY KIT (generic, not domain-specific)
 │   ├── README.md
 │   ├── SECURITY.md         ·  40-control reference (source-tagged)
 │   ├── owasp-crosswalk.md  ·  OWASP LLM/Agentic → mechanism map
 │   ├── SECURITY-MANIFEST.md·  what is security vs non-security
-│   └── control-matrix.md   ·  control → code → test → evidence              [FILL rows]
+│   ├── control-matrix.md   ·  control → code → test → evidence             [FILL rows]
+│   ├── content_trust.py    ← [MECHANISM] data-plane content boundary        [never edit]
+│   └── secret_scan.py      ← [MECHANISM] secret-block hook adapter          [never edit]
+│
+├── Harness-Best-Practice/ ← IDENTITY + WORKFLOW STATE
+│   ├── AGENTS.md          ← Open standard: identity, run/verify             [FILL]
+│   ├── progress.md        ← Session journal + handoff                       [UPDATE]
+│   ├── feature_list.json  ← Phases: behavior + verification + status        [FILL]
+│   ├── BEST-PRACTICES.md  ← Harness engineering principles (generic)        [as-is]
+│   └── observability/
+│       ├── audit.py       ← [MECHANISM] append-only audit log               [never edit]
+│       └── audit_hook.py  ← [MECHANISM] PostToolUse audit adapter           [never edit]
 │
 ├── tests/                 ← VERIFICATION
 │   ├── fixtures.json          ·  ground-truth gate cases                    [EXTEND]
@@ -347,13 +345,17 @@ my-agent/
 │   ├── test_hooks.py          ·  hook-integration proof (Claude path)
 │   └── test_content_trust.py  ·  data-plane boundary proof
 │
+├── Context/               ← [POLICY] PROJECT AI-dev assets                   [FILL stubs]
+│   ├── README.md           ·  what belongs here
+│   ├── ai-stack.md.template     ·  framework + model choice        [copy→fill]
+│   └── deployment.md.template   ·  on-prem/cloud, egress, secrets  [copy→fill]
+│
 ├── demo/                  ← EVALUATION (not the production path)
 │   ├── harness.py · demo.py · fake_model.py   (zero-dependency LLM mock)
 │
 ├── .claude/               ← CLAUDE CODE (active runtime)
 │   ├── settings.json      ← hooks: governance-check · secret-block · audit-capture · clean-state
-│   ├── commands/          ← /session-cycle, /domain-workflow
-│   └── rules/             ← (optional) always-on rules, CLAUDE.md priority
+│   └── commands/          ← /session-cycle, /domain-workflow
 │
 └── kiro/                  ← KIRO ADD-ON (opt-in: `cp -r kiro/ .kiro/` to activate)
     ├── README.md

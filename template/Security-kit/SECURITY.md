@@ -24,7 +24,7 @@ This document provides security guidance for developing AI agent systems. Each c
 
 **Template enforcement (control plane):** `governance/permission.py` Gate 1 (deny-list) blocks known dangerous command patterns mechanically. `[HARNESS]`
 
-**Template enforcement (data plane):** `governance/content_trust.py` is the complement for untrusted *content* (claim bodies, emails, retrieved docs) — which never passes a tool gate because it is data, not a tool call. Call `screen_record()` at every point external content enters the agent: it drops injected control fields (e.g. a record smuggling `{"decision": "APPROVE"}`) and flags instruction-shaped text (S1.4) so the caller can lower trust and route to human review. It reports; it never obeys. Proven by `tests/test_content_trust.py`. `[HARNESS]`
+**Template enforcement (data plane):** `Security-kit/content_trust.py` is the complement for untrusted *content* (claim bodies, emails, retrieved docs) — which never passes a tool gate because it is data, not a tool call. Call `screen_record()` at every point external content enters the agent: it drops injected control fields (e.g. a record smuggling `{"decision": "APPROVE"}`) and flags instruction-shaped text (S1.4) so the caller can lower trust and route to human review. It reports; it never obeys. Proven by `tests/test_content_trust.py`. `[HARNESS]`
 
 ---
 

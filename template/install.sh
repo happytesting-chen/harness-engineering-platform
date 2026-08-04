@@ -56,11 +56,12 @@ if [ -d "../.git" ] && [ "$FORCE" -eq 0 ] && [ "$DRY_RUN" -eq 0 ]; then
 fi
 
 # Tier 1 — delete pure-security paths.
-# Remove whole directories (Security-kit/, kiro/hooks/) rather than files piecemeal, so
-# no empty security dir is left behind to trip init.sh's integrity block (which is guarded
-# by `if [ -d "Security-kit/governance" ]`).
+# Remove whole directories (governance/, Security-kit/, tests/, kiro/hooks/) rather than
+# files piecemeal, so no empty security dir is left behind to trip init.sh's integrity
+# block (which is guarded by `if [ -d "governance" ]`).
 TIER1=(
-  "Security-kit" "Harness-Best-Practice/observability/audit_hook.py"
+  "governance" "Security-kit" "tests"
+  "Harness-Best-Practice/observability/audit_hook.py"
   "kiro/steering/security.md" "kiro/steering/security-review.md" "kiro/hooks"
 )
 echo "▶ Deleting Tier 1 (pure security)..."
@@ -85,7 +86,7 @@ fi
 
 # init.sh → drop REQUIRED_FILES governance entries (integrity block self-skips when governance/ is gone)
 if [ -f "init.sh" ]; then
-  run "sed -i.bak 's#\"Security-kit/governance/deny-list.json\" \"Security-kit/governance/mcp-allowlist.json\"##' init.sh && rm -f init.sh.bak"
+  run "sed -i.bak 's#\"governance/deny-list.json\" \"governance/mcp-allowlist.json\"##' init.sh && rm -f init.sh.bak"
   echo "  ~ init.sh (removed governance JSON from REQUIRED_FILES; integrity block auto-skips)"
 fi
 

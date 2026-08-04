@@ -12,14 +12,21 @@
 ## Architecture
 
 ```
-├── governance/permission.py   ← Enforcement engine (deny-list → phase-gate → egress)
-├── observability/audit.py     ← Append-only audit log
-├── feature_list.json          ← Phase DAG (tracks workflow progression)
-├── tools/mcp-allowlist.json   ← Approved tools + egress hosts
-├── governance/deny-list.json  ← Hard-blocked command patterns
-├── context/                   ← Domain knowledge documents
-├── tests/                     ← Fixture-driven tests + E2E enforcement proof
-└── demo/                      ← Scripted evaluation harness (not production path)
+├── governance/                       ← ENFORCEMENT + POLICY (top-level)
+│   ├── permission.py                 ← Enforcement engine (deny-list → phase-gate → egress)
+│   ├── deny-list.json                ← Hard-blocked command patterns
+│   └── mcp-allowlist.json            ← Approved tools + egress hosts
+├── Security-kit/                     ← AI-security kit
+│   ├── SECURITY.md                   ← Control reference (source-tagged)
+│   ├── content_trust.py              ← Data-plane content boundary
+│   └── secret_scan.py                ← Secret-block hook adapter
+├── Harness-Best-Practice/            ← This file + workflow state
+│   ├── AGENTS.md                     ← Identity, run/verify (this file)
+│   ├── progress.md                   ← Session journal + handoff
+│   ├── feature_list.json             ← Phase DAG (tracks workflow progression)
+│   └── observability/audit.py        ← Append-only audit log
+├── tests/                            ← Fixture-driven tests + E2E + hook + content-trust proofs
+└── demo/                             ← Scripted evaluation harness (not production path)
 ```
 
 ## How to Run

@@ -16,10 +16,9 @@ import subprocess
 import sys
 from pathlib import Path
 
-TEMPLATE_ROOT = Path(__file__).resolve().parent.parent
-PROJECT_ROOT = Path(__file__).resolve().parent.parent.parent
-PERMISSION = TEMPLATE_ROOT / "governance" / "permission.py"
-SECRET_SCAN = TEMPLATE_ROOT / "governance" / "secret_scan.py"
+PROJECT_ROOT = Path(__file__).resolve().parent.parent
+PERMISSION = PROJECT_ROOT / "governance" / "permission.py"
+SECRET_SCAN = PROJECT_ROOT / "Security-kit" / "secret_scan.py"
 AUDIT_HOOK = PROJECT_ROOT / "Harness-Best-Practice" / "observability" / "audit_hook.py"
 AUDIT_LOG = PROJECT_ROOT / "Harness-Best-Practice" / "observability" / "audit.log"
 

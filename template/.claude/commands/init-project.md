@@ -32,8 +32,8 @@ From that understanding, prepare drafts for:
 | `Harness-Best-Practice/AGENTS.md` | name, purpose, `{{LANGUAGE}}`, verification command |
 | `Harness-Best-Practice/feature_list.json` | phases derived from architecture milestones — each with behavior + a real verification command + status (`phase-01` active, rest not-started) |
 | `Harness-Best-Practice/progress.md` | session-1 state: what Context/ defined, what was auto-filled, open questions |
-| `Security-kit/governance/mcp-allowlist.json` | the tools the architecture says the agent uses (+ `gated_until` for risky ones); `egress_hosts` from deployment |
-| `Security-kit/governance/deny-list.json` | add domain patterns implied by the design (keep catastrophic defaults) |
+| `governance/mcp-allowlist.json` | the tools the architecture says the agent uses (+ `gated_until` for risky ones); `egress_hosts` from deployment |
+| `governance/deny-list.json` | add domain patterns implied by the design (keep catastrophic defaults) |
 | `Security-kit/control-matrix.md` | one row per trust boundary the design introduces (tool, egress, untrusted input) |
 
 ## Step 3 — FLAG every uncertainty (do not guess)

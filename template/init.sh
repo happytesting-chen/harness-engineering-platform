@@ -34,7 +34,7 @@ echo ""
 
 # --- 2. Check for unfilled {{placeholders}} in required config files ---
 echo "▶ Checking for unfilled placeholders..."
-REQUIRED_FILES=("CLAUDE.md" "Harness-Best-Practice/AGENTS.md" "Harness-Best-Practice/feature_list.json" "Security-kit/governance/deny-list.json" "Security-kit/governance/mcp-allowlist.json")
+REQUIRED_FILES=("CLAUDE.md" "Harness-Best-Practice/AGENTS.md" "Harness-Best-Practice/feature_list.json" "governance/deny-list.json" "governance/mcp-allowlist.json")
 for f in "${REQUIRED_FILES[@]}"; do
     if [ -f "$f" ]; then
         PLACEHOLDERS=$(grep -o '{{[^}]*}}' "$f" 2>/dev/null || true)
@@ -74,9 +74,9 @@ echo ""
 
 # --- 4. Run fixture-based tests ---
 echo "▶ Running tests..."
-if [ -f "Security-kit/tests/test_fixtures.py" ]; then
+if [ -f "tests/test_fixtures.py" ]; then
     if command -v python3 &>/dev/null; then
-        if python3 Security-kit/tests/test_fixtures.py; then
+        if python3 tests/test_fixtures.py; then
             echo "  ✓ Fixture tests passed"
         else
             echo "  ✗ Fixture tests FAILED"
@@ -93,9 +93,9 @@ fi
 echo ""
 
 # --- 5. Run E2E tests if available ---
-if [ -f "Security-kit/tests/test_e2e.py" ]; then
+if [ -f "tests/test_e2e.py" ]; then
     echo "▶ Running E2E enforcement tests..."
-    if python3 Security-kit/tests/test_e2e.py; then
+    if python3 tests/test_e2e.py; then
         echo "  ✓ E2E tests passed"
     else
         echo "  ✗ E2E tests FAILED"
@@ -109,38 +109,38 @@ fi
 # unwired. This gate fails if the mechanism is absent, the hook is not wired, or the
 # hook-integration proof does not pass. Skipped only if this copy intentionally ships
 # no governance/ at all (a deliberately ungoverned project).
-if [ -d "Security-kit/governance" ]; then
+if [ -d "governance" ]; then
     echo "▶ Security-kit integrity..."
     # (a) enforcement engine present
-    if [ -f "Security-kit/governance/permission.py" ]; then
-        echo "  ✓ enforcement engine present (Security-kit/governance/permission.py)"
+    if [ -f "governance/permission.py" ]; then
+        echo "  ✓ enforcement engine present (governance/permission.py)"
     else
-        echo "  ✗ Security-kit/governance/ exists but permission.py is MISSING — enforcement gutted"
+        echo "  ✗ governance/ exists but permission.py is MISSING — enforcement gutted"
         ERRORS=$((ERRORS + 1))
     fi
     # (b) hook actually wired to the engine in .claude/settings.json
-    if [ -f ".claude/settings.json" ] && grep -q "Security-kit/governance/permission.py" .claude/settings.json; then
+    if [ -f ".claude/settings.json" ] && grep -q "governance/permission.py" .claude/settings.json; then
         echo "  ✓ permission gate wired in .claude/settings.json"
     else
-        echo "  ✗ .claude/settings.json does NOT wire Security-kit/governance/permission.py — gate inert"
+        echo "  ✗ .claude/settings.json does NOT wire governance/permission.py — gate inert"
         ERRORS=$((ERRORS + 1))
     fi
     # (c) hook-integration proof passes (drives the real hook scripts via stdin)
-    if [ -f "Security-kit/tests/test_hooks.py" ]; then
-        if python3 Security-kit/tests/test_hooks.py >/dev/null 2>&1; then
-            echo "  ✓ hook-integration tests passed (Security-kit/tests/test_hooks.py)"
+    if [ -f "tests/test_hooks.py" ]; then
+        if python3 tests/test_hooks.py >/dev/null 2>&1; then
+            echo "  ✓ hook-integration tests passed (tests/test_hooks.py)"
         else
             echo "  ✗ hook-integration tests FAILED — enforcement path broken"
             ERRORS=$((ERRORS + 1))
         fi
     else
-        echo "  ⚠ no Security-kit/tests/test_hooks.py — hook wiring is unproven"
+        echo "  ⚠ no tests/test_hooks.py — hook wiring is unproven"
         WARNINGS=$((WARNINGS + 1))
     fi
     # (d) data-plane content-trust proof (untrusted-content boundary)
-    if [ -f "Security-kit/governance/content_trust.py" ] && [ -f "Security-kit/tests/test_content_trust.py" ]; then
-        if python3 Security-kit/tests/test_content_trust.py >/dev/null 2>&1; then
-            echo "  ✓ content-trust tests passed (Security-kit/tests/test_content_trust.py)"
+    if [ -f "Security-kit/content_trust.py" ] && [ -f "tests/test_content_trust.py" ]; then
+        if python3 tests/test_content_trust.py >/dev/null 2>&1; then
+            echo "  ✓ content-trust tests passed (tests/test_content_trust.py)"
         else
             echo "  ✗ content-trust tests FAILED — data-plane boundary broken"
             ERRORS=$((ERRORS + 1))
@@ -193,15 +193,24 @@ else
     FST_FAIL=$((FST_FAIL + 1))
 fi
 
-# Q3: How do I verify it? (feature_list.json has at least one verification command that isn't a placeholder)
+# Q3: How do I verify it? (feature_list.json has at least one verification command that
+#     is neither a {{placeholder}} nor a flagged NEEDS-CONFIRMATION / TODO / TBD value)
 if [ -f "Harness-Best-Practice/feature_list.json" ]; then
     HAS_VERIFY=$(grep -c '"verification"' Harness-Best-Practice/feature_list.json 2>/dev/null || true)
     PLACEHOLDER_VERIFY=$(grep -c '{{.*VERIFY' Harness-Best-Practice/feature_list.json 2>/dev/null || true)
+    # A verification value that is present but flagged as unconfirmed is NOT a real
+    # verification command — treat NEEDS-CONFIRMATION / TODO / TBD as unfilled.
+    FLAGGED_VERIFY=$(grep '"verification"' Harness-Best-Practice/feature_list.json 2>/dev/null \
+        | grep -c -E 'NEEDS-CONFIRMATION|TODO|TBD' || true)
     HAS_VERIFY=${HAS_VERIFY:-0}
     PLACEHOLDER_VERIFY=${PLACEHOLDER_VERIFY:-0}
-    if [ "$HAS_VERIFY" -gt 0 ] && [ "$PLACEHOLDER_VERIFY" -eq 0 ]; then
+    FLAGGED_VERIFY=${FLAGGED_VERIFY:-0}
+    if [ "$HAS_VERIFY" -gt 0 ] && [ "$PLACEHOLDER_VERIFY" -eq 0 ] && [ "$FLAGGED_VERIFY" -eq 0 ]; then
         echo "  ✓ Q3 (How to verify?) — feature_list.json has verification commands"
         FST_PASS=$((FST_PASS + 1))
+    elif [ "$FLAGGED_VERIFY" -gt 0 ]; then
+        echo "  ⚠ Q3 (How to verify?) — verification commands flagged NEEDS-CONFIRMATION/TODO/TBD"
+        FST_FAIL=$((FST_FAIL + 1))
     else
         echo "  ⚠ Q3 (How to verify?) — verification commands are still placeholders"
         FST_FAIL=$((FST_FAIL + 1))

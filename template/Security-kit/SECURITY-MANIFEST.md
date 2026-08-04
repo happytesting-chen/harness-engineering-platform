@@ -18,8 +18,8 @@ These exist only for security. A no-security build deletes them.
 | Path | Role | OWASP |
 |------|------|-------|
 | `governance/permission.py` | Control-plane gate (deny-list → phase-gate → egress) | LLM06, ASI02/05 |
-| `governance/content_trust.py` | Data-plane boundary (injection screening) | LLM01/05, ASI01/06 |
-| `governance/secret_scan.py` | Secret-block hook adapter | LLM02, LLM07 |
+| `Security-kit/content_trust.py` | Data-plane boundary (injection screening) | LLM01/05, ASI01/06 |
+| `Security-kit/secret_scan.py` | Secret-block hook adapter | LLM02, LLM07 |
 | `governance/deny-list.json` | Hard-blocked patterns (policy) | ASI05 |
 | `tools/mcp-allowlist.json` | Tool + egress allowlist (policy) | LLM03, ASI02/03/04 |
 | `observability/audit_hook.py` | PostToolUse audit adapter | ASI09/10 |

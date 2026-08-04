@@ -29,8 +29,8 @@
 
 Three enforcement gates fire on every tool call (mechanical, not advisory):
 1. **Deny-list** — Hard-blocked patterns → `governance/deny-list.json`
-2. **Phase-gate** — Tools locked until prerequisites pass → `tools/mcp-allowlist.json`
-3. **Egress** — Outbound network default-deny → `tools/mcp-allowlist.json` egress_hosts
+2. **Phase-gate** — Tools locked until prerequisites pass → `governance/mcp-allowlist.json`
+3. **Egress** — Outbound network default-deny → `governance/mcp-allowlist.json` egress_hosts
 
 ## Verification Commands
 
@@ -48,7 +48,7 @@ Three enforcement gates fire on every tool call (mechanical, not advisory):
 ## Escalation
 
 - **Scope ambiguity:** Re-read `feature_list.json` + `context/` docs
-- **Tool not available:** Check `tools/mcp-allowlist.json` — may be phase-gated
+- **Tool not available:** Check `governance/mcp-allowlist.json` — may be phase-gated
 - **Repeated failures (3+):** Update progress.md, flag for human review
 - **Permission denied:** Do not retry. Note in progress.md and move on.
 - {{DOMAIN_ESCALATION_RULES}}
@@ -62,5 +62,5 @@ Three enforcement gates fire on every tool call (mechanical, not advisory):
 See `context/` for **project-specific** AI-development assets — product/design, AI stack
 (framework + model, e.g. LangChain/Strands), deployment target (on-prem/cloud),
 architecture, methodology, scope. (Threat model and security controls live in `security/`.)
-- [context/README.md](context/README.md) — What belongs here
+- [Context/README.md](Context/README.md) — What belongs here
 - {{DOMAIN_CONTEXT_LINKS}}

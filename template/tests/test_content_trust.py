@@ -11,8 +11,9 @@ Run:
 import sys
 from pathlib import Path
 
-sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
-from governance.content_trust import screen_record, scan_text
+PROJECT_ROOT = Path(__file__).resolve().parent.parent
+sys.path.insert(0, str(PROJECT_ROOT / "Security-kit"))
+from content_trust import screen_record, scan_text
 
 
 def test_drops_injected_control_fields():

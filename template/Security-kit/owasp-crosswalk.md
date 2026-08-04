@@ -21,11 +21,11 @@ Sources (verified 2026-08-03):
 
 | ID | Risk | How the template addresses it | Where |
 |----|------|-------------------------------|-------|
-| LLM01 | Prompt Injection | **[MECH]** data-plane screening drops injected control fields + flags instruction-shaped text; **[GUIDE]** input-trust rules | `governance/content_trust.py`, `tests/test_content_trust.py`, `security/SECURITY.md` S1.4 |
-| LLM02 | Sensitive Information Disclosure | **[MECH]** secret-block hook on writes; **[MECH]** egress default-deny; **[GUIDE]** output-safety rules | `governance/secret_scan.py`, `permission.py` Gate 3, `security/SECURITY.md` §4 |
+| LLM01 | Prompt Injection | **[MECH]** data-plane screening drops injected control fields + flags instruction-shaped text; **[GUIDE]** input-trust rules | `Security-kit/content_trust.py`, `tests/test_content_trust.py`, `security/SECURITY.md` S1.4 |
+| LLM02 | Sensitive Information Disclosure | **[MECH]** secret-block hook on writes; **[MECH]** egress default-deny; **[GUIDE]** output-safety rules | `Security-kit/secret_scan.py`, `permission.py` Gate 3, `security/SECURITY.md` §4 |
 | LLM03 | Supply Chain | **[MECH]** tool allowlist with pinned versions + phase-gate on unregistered tools; **[GUIDE]** pin deps | `tools/mcp-allowlist.json`, `permission.py` Gate 2, `security/SECURITY.md` §5 |
 | LLM04 | Data and Model Poisoning | **[APP]** treat context files as untrusted / verify consistency; **[GAP]** no training-data controls (out of scope for a local agent harness) | `security/SECURITY.md` S1.3; declare residual risk in `control-matrix.md` |
-| LLM05 | Improper Output Handling | **[MECH]** content_trust screens tool/return content before use; **[GUIDE]** validate tool output | `governance/content_trust.py`, `security/SECURITY.md` S1.1, S5.4 |
+| LLM05 | Improper Output Handling | **[MECH]** content_trust screens tool/return content before use; **[GUIDE]** validate tool output | `Security-kit/content_trust.py`, `security/SECURITY.md` S1.1, S5.4 |
 | LLM06 | Excessive Agency | **[MECH]** phase-gate (tools locked until prerequisite phase passes) + WIP=1 + human sign-off; deny-list | `permission.py` Gate 2, `feature_list.json`, `CLAUDE.md` working rules |
 | LLM07 | System Prompt Leakage | **[GUIDE]** don't expose gate internals/deny-list/audit; **[APP]** keep secrets out of prompts | `security/SECURITY.md` S4.3; `kiro/steering/security.md` output-safety |
 | LLM08 | Vector & Embedding Weaknesses | **[GAP]** no RAG/vector store in the base template | Declare N/A or add controls in `control-matrix.md` if you add retrieval |
@@ -38,12 +38,12 @@ Sources (verified 2026-08-03):
 
 | ID | Risk | How the template addresses it | Where |
 |----|------|-------------------------------|-------|
-| ASI01 | Agent Goal Hijack | **[MECH]** content_trust flags instruction-shaped text in untrusted input → route to human; **[GUIDE]** claim/content is DATA not commands | `governance/content_trust.py`, `security/SECURITY.md` S1.4 |
+| ASI01 | Agent Goal Hijack | **[MECH]** content_trust flags instruction-shaped text in untrusted input → route to human; **[GUIDE]** claim/content is DATA not commands | `Security-kit/content_trust.py`, `security/SECURITY.md` S1.4 |
 | ASI02 | Tool Misuse & Exploitation | **[MECH]** tool allowlist + phase-gate + deny-list on dangerous commands | `tools/mcp-allowlist.json`, `governance/permission.py` Gates 1–2 |
 | ASI03 | Identity & Privilege Abuse | **[MECH]** least-privilege via per-phase tool gating; **[GUIDE]** short-lived scoped creds; **[GAP]** no identity broker (deployment concern) | `permission.py` Gate 2, `security/SECURITY.md` S2.4–S2.5 |
 | ASI04 | Agentic Supply Chain Vulnerabilities | **[MECH]** version-pinned allowlist, human approval for new tools; **[GUIDE]** exact dep pins | `tools/mcp-allowlist.json`, `security/SECURITY.md` §5 |
 | ASI05 | Unexpected Code Execution (RCE) | **[MECH]** deny-list blocks destructive/exec patterns (word/regex modes); egress default-deny | `governance/deny-list.json`, `permission.py` Gates 1 & 3 |
-| ASI06 | Memory & Context Poisoning | **[MECH/APP]** treat `progress.md`/`feature_list.json` as tamperable — verify consistency; content_trust on stored content | `security/SECURITY.md` S1.3, `governance/content_trust.py` |
+| ASI06 | Memory & Context Poisoning | **[MECH/APP]** treat `progress.md`/`feature_list.json` as tamperable — verify consistency; content_trust on stored content | `security/SECURITY.md` S1.3, `Security-kit/content_trust.py` |
 | ASI07 | Insecure Inter-Agent Communication | **[GAP]** base template is single-agent | Declare N/A; add controls in `control-matrix.md` if you add multi-agent |
 | ASI08 | Cascading Failures | **[MECH/APP]** fail-closed gates + 3-strike stop + `max_turns`; human sign-off between phases | `permission.py` (fail-closed), `CLAUDE.md` escalation, `security/SECURITY.md` §7 |
 | ASI09 | Human-Agent Trust Exploitation | **[MECH]** three human-in-the-loop checkpoints (phase sign-off, escalation, policy update); append-only audit | `feature_list.json` sign-off, `observability/audit.py`, `security/SECURITY.md` §6 |

@@ -14,10 +14,10 @@ import json
 import re
 from pathlib import Path
 
-# Layout: <project_root>/Security-kit/governance/permission.py
+# Layout: <project_root>/governance/permission.py
 #   deny-list.json + mcp-allowlist.json are siblings (in governance/)
 #   feature_list.json lives in <project_root>/Harness-Best-Practice/
-PROJECT_ROOT = Path(__file__).parent.parent.parent
+PROJECT_ROOT = Path(__file__).parent.parent
 DENY_LIST_PATH = Path(__file__).parent / "deny-list.json"
 ALLOWLIST_PATH = Path(__file__).parent / "mcp-allowlist.json"
 FEATURE_LIST_PATH = PROJECT_ROOT / "Harness-Best-Practice" / "feature_list.json"
