@@ -71,12 +71,39 @@ the test suites, verifies the security kit is intact, and answers the five
 [fresh-session questions](#step-6--run-the-health-check-and-read-it). Read its output
 top to bottom.
 
-### Step 2 — Fill the identity files (`CLAUDE.md`, `AGENTS.md`)
+### Step 2 — Define the product first (`Context/`)
 
-These define *what the agent is*. `CLAUDE.md` is what Claude Code loads every session;
-it imports `AGENTS.md` (the open standard) so both files stay in sync.
+**Do this before filling anything else** — every later step (the agent's purpose, its
+phases, its allowed tools) is *derived* from what you write here. `Context/` holds
+**project-specific AI-development assets**: your product/design doc, AI stack (framework
++ model, e.g. LangChain / Strands), deployment target (on-prem/cloud), architecture, and
+scope. The agent has little domain grounding without them; add at least one doc.
 
-Replace these placeholders (find them with `grep -o '{{[^}]*}}' CLAUDE.md AGENTS.md`):
+`Context/` ships two starter stubs — copy off the `.template` suffix and fill:
+
+```bash
+cp Context/ai-stack.md.template   Context/ai-stack.md      # framework + model choice
+cp Context/deployment.md.template Context/deployment.md    # on-prem/cloud, egress, secrets
+# add product-design.md, architecture.md as needed
+```
+
+Two things do **not** go in `Context/`: **security artifacts** (threat model, controls →
+`Security-kit/`) and **generic framework references** you keep-not-fill
+(`Security-kit/SECURITY.md` for controls, `Harness-Best-Practice/BEST-PRACTICES.md` for
+harness principles).
+
+> If you're using Claude Code, the `/init-project` command reads everything in
+> `Context/` and drafts Steps 3–5 for you — flagging anything it can't derive rather than
+> guessing. The manual steps below are what it automates.
+
+### Step 3 — Fill the identity files (`CLAUDE.md`, `Harness-Best-Practice/AGENTS.md`)
+
+These define *what the agent is*, derived from your `Context/` docs. `CLAUDE.md` (at the
+project root) is what Claude Code loads every session; it imports
+`Harness-Best-Practice/AGENTS.md` (the open standard) so both stay in sync.
+
+Replace these placeholders (find them with
+`grep -ro '{{[^}]*}}' CLAUDE.md Harness-Best-Practice/AGENTS.md`):
 
 | Placeholder | Put here | Example |
 |---|---|---|
@@ -86,9 +113,9 @@ Replace these placeholders (find them with `grep -o '{{[^}]*}}' CLAUDE.md AGENTS
 | `{{PRIMARY_VERIFICATION_COMMAND}}` | The exact command that proves the agent works | `python3 tests/test_triage.py` |
 | `{{DENY_LIST_SUMMARY}}` | One line summarizing what's hard-blocked | *"Destructive shell + no network egress in phase-01."* |
 | `{{DOMAIN_ESCALATION_RULES}}` (CLAUDE.md) | When the agent must stop and ask a human | *"If a claim fails validation or a safety gate fires, route to HUMAN_REVIEW."* |
-| `{{DOMAIN_CONTEXT_LINKS}}` | Links to your `Context/` docs | `[Context/TRUST-BOUNDARIES.md](Context/TRUST-BOUNDARIES.md)` |
+| `{{DOMAIN_CONTEXT_LINKS}}` | Links to the `Context/` docs you wrote in Step 2 | `[Context/product-design.md](Context/product-design.md)` |
 
-### Step 3 — Define your phases (`feature_list.json`)
+### Step 4 — Define your phases (`Harness-Best-Practice/feature_list.json`)
 
 This is the harness's core primitive. Each phase carries the **triple**:
 `behavior` (what "done" looks like) + `verification` (a command, exit 0 = pass) +
@@ -124,7 +151,7 @@ the unit of human sign-off.
 Status values: `active` (work here now), `not-started` (locked until dependencies pass),
 and `passing` (set by a **human** after sign-off — the agent never sets this itself).
 
-### Step 4 — Set policy (`governance/deny-list.json`, `governance/mcp-allowlist.json`)
+### Step 5 — Set policy (`governance/deny-list.json`, `governance/mcp-allowlist.json`)
 
 **`governance/deny-list.json`** ships with catastrophic defaults already filled — you
 only **add** domain patterns. Defaults: `rm -rf /`, `mkfs`, `> /dev/`, fork-bomb,
@@ -159,18 +186,6 @@ is `passing`:
 }
 ```
 
-### Step 5 — Add domain knowledge (`Context/`)
-
-`Context/` holds **project-specific AI-development assets** — your product/design doc,
-AI stack (framework + model, e.g. LangChain / Strands), deployment target
-(on-prem/cloud), architecture, methodology, and scope. These are the decisions unique to
-*this* agent; the agent has little domain grounding without them. Add at least one doc.
-
-Two things do **not** go in `Context/`: **security artifacts** (threat model, controls →
-`Security-kit/`) and **generic framework references** you keep-not-fill
-(`Security-kit/SECURITY.md` for controls, `Harness-Best-Practice/BEST-PRACTICES.md` for
-harness principles).
-
 ### Step 6 — Run the health check and read it
 
 ```bash
@@ -194,7 +209,9 @@ Now hand the project to your coding agent (Claude Code reads `CLAUDE.md` automat
 Every session follows the same loop — enforced by working rules in `CLAUDE.md`:
 
 1. **Startup** — read `CLAUDE.md`, run `./init.sh` (must be green), read
-   `feature_list.json` (find the `active` phase), read `progress.md`.
+   `Harness-Best-Practice/feature_list.json` (find the `active` phase), read
+   `Harness-Best-Practice/progress.md`. (Claude Code discovers these automatically via
+   `CLAUDE.md`'s links.)
 2. **Work** — one task at a time (**WIP=1**), only within the active phase. Every
    `Bash`/`Write`/`Edit` passes the [permission gate](#how-enforcement-works) first.
 3. **Verify** — run the phase's `verification` command; exit 0 = done.
