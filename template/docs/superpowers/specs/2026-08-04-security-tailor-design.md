@@ -1,8 +1,10 @@
 # Security-Tailor — Design Spec
 
-**Status:** Draft for review (rev 2 — extended to dev-time steering)
+**Status:** Draft for review (rev 3 — added tailored static scan + benchmarked effectiveness)
 **Date:** 2026-08-04
-**Scope:** Approach A (skill + coverage artifact + init.sh gate) **+ dev-time steering feedback**
+**Scope:** Two components — (1) tailor (skill → coverage artifact → init.sh gate → dev-time
+steering); (2) tailored static scan (`sast_scan.py`) that checks the product's code for the
+sinks of the *selected* controls. Both proven by labeled benchmarks (confusion matrix).
 **Author:** brainstormed with Yuan Shi
 
 ---
@@ -107,7 +109,13 @@ standalone by construction.
 
 ---
 
-## 4. Implementation — the five pieces (start small)
+## 4. Implementation — the pieces (start small)
+
+Two components: **the tailor** (§4.1–4.5 — selects controls, gates coverage, steers dev)
+and **the tailored static scan** (§4.6 — checks the product code for the sinks of the
+*selected* controls, so "we selected LLM01" is backed by "we actually looked for LLM01
+sinks in the code").
+
 
 ### 4.1 `security-tailor` skill
 - **Files:** `.claude/commands/security-tailor.md` (Claude) + `kiro/steering/security-tailor.md` (Kiro mirror).
@@ -197,6 +205,39 @@ dev-time reminders (not the full 40-row reference).
   from the selection. `check_coverage.py` MAY additionally assert it exists and its control
   set matches `coverage.json`'s `applies` set (cheap, keeps D honest) — see §6.1.
 
+### 4.6 `Security-kit/sast_scan.py` — the tailored static scan (SAST-the-capability)
+Answers the second effectiveness question: not "did we *select* the right controls" (that
+is §4.1) but "does the product's own code *contain* the sinks for the controls we
+selected?" It reads `coverage.json`, and for each `applies` control runs the matching
+static checks over the product's code.
+
+- **Inputs:** `coverage.json` (which controls to scan for) + the product's own source —
+  `tools/*.py`, prompt templates, and `tools/mcp-allowlist.json` (tool scopes).
+- **Technique (zero-dep, honest about its limits):** stdlib `ast` walk + regex, the same
+  idiom `init.sh:188` already uses (`ast.parse`). It is **heuristic pattern/AST matching,
+  not taint-complete** — no interprocedural dataflow like Semgrep/CodeQL. That limit is not
+  hidden; it is *quantified* by the benchmark in §6.2. Zero-dep is a template constraint
+  (§7.5), and the benchmark is what keeps the heuristic honest.
+- **Checks (one family per OWASP id it was told applies):**
+  | Selected control | Static check over product code |
+  |---|---|
+  | LLM01 (prompt injection) | untrusted input reaching a prompt/f-string without `content_trust.screen_record()` |
+  | LLM02 (secrets/output) | hardcoded secret patterns in source (reuses `secret_scan.py` regexes) |
+  | LLM03 / ASI02-04 (supply chain / tool scope) | wildcard or over-broad entries in `tools/mcp-allowlist.json`; egress host not in allowlist |
+  | LLM06 (excessive agency) | `eval(`/`exec(`/`subprocess … shell=True` in tool code |
+  | SSRF-class | URL built from untrusted input without host validation |
+- **Only scans selected controls.** A `n_a` control is not scanned — the scan *inherits*
+  the tailor's selection, so the two components are bound: over-broad selection = wasted
+  scan; a missed selection (false `n_a`) means its sinks are never scanned — which is
+  exactly why §6's headline metric is the tailor's **recall** (a miss cascades).
+- **Output:** findings list (control id, file:line, sink kind) → written to
+  `Security-kit/scan-findings.json`. Wired into `init.sh` block 5b as a **warning by
+  default** (findings ≠ hard fail, because heuristic FPs shouldn't brick the board); an
+  opt-in strict mode escalates to `ERRORS++`. Adequacy of a finding stays human, like the
+  matrix review column.
+- **Not a replacement for the runtime gate.** `permission.py` blocks at call time;
+  `sast_scan.py` inspects code before it runs. Defense in depth, not either/or.
+
 ---
 
 ## 5. Binding into the main template (add/omit + observability)
@@ -217,20 +258,35 @@ split from `SECURITY-MANIFEST.md`, consumed by `install.sh --no-security`.
 5. **`Security-kit/README.md`** + `Security-kit/control-matrix.md` — document the new flow
    and the "skill fills objective/location, you fill verification" division.
 
-### 5.2 add/omit registration
-- **`Security-kit/SECURITY-MANIFEST.md`**
-  - Tier 1 (deleted by `--no-security`): `security-tailor.md`, `check_coverage.py`,
-    `test_coverage.py`, `coverage.json`, `active-controls.md`,
-    `kiro/steering/security-tailor.md`, `kiro/steering/active-controls.md`.
-  - Tier 3 (neutralized in place): the `check_coverage.py` line in `init.sh`; the
-    `/init-project` Step 2b; the `/session-cycle` sign-off step; **the
-    `@Security-kit/active-controls.md` import line in `CLAUDE.md`** (must be stripped, else
-    a no-security build has a dangling import to a deleted file).
-- **`install.sh`**
-  - add the new files to `TIER1=(...)` (line ~62).
-  - add one `sed` to strip the `check_coverage.py` line from `init.sh` (mirror of the
-    existing governance-JSON strip at line ~89).
-  - add one `sed` to strip the `@Security-kit/active-controls.md` line from `CLAUDE.md`.
+### 5.2 add/omit registration (audited against real `install.sh`, 2026-08-04)
+`install.sh:62-66` deletes Tier 1 as **whole directories** (`governance`, `Security-kit`,
+`tests`, plus two `kiro/steering/*` files and `kiro/hooks`) — not file-by-file. Three
+consequences for the new pieces, verified by reading `install.sh`:
+
+- **Files under `Security-kit/` and `tests/` need NO new TIER1 entry.** `coverage.json`,
+  `check_coverage.py`, `sast_scan.py`, `scan-findings.json`, `active-controls.md`,
+  `tests/test_coverage.py` all sit inside dirs `install.sh:63` already `rm -rf`s. Listing
+  them individually (as rev 2 did) is redundant and contradicts the dir-level design.
+- **The `init.sh` block-5b additions need NO strip.** `check_coverage.py` / `sast_scan.py`
+  live inside block 5b, guarded by `if [ -d "governance" ]` (`init.sh:112`). When `--no-security`
+  deletes `governance/`, the whole block self-skips — same as every existing 5b check. So
+  rev 2's "add a sed to strip check_coverage from init.sh" is **unnecessary**; drop it.
+- **Two genuinely NEW `install.sh` actions are required** (today `install.sh` edits only
+  `.claude/settings.json:76-85` and `init.sh:88-91` — it touches neither `.claude/commands/`
+  nor `CLAUDE.md`):
+  1. **Delete `.claude/commands/security-tailor.md`.** TIER1 (`install.sh:62-66`) lists no
+     `.claude/commands/` path, so without this the `/security-tailor` command survives and
+     dangles at a deleted `Security-kit/`. Add the path to `TIER1=(...)`.
+  2. **Strip the `CLAUDE.md` `@import` + the command references.** `install.sh` has zero
+     `CLAUDE.md` edits today; the manifest *says* CLAUDE.md is hand-neutralized
+     (`SECURITY-MANIFEST.md:57,79`) but no code does it. Add a `sed`/python step (mirror of
+     the `init.sh` strip at `install.sh:88`) to remove: the `@Security-kit/active-controls.md`
+     line, the `/init-project` Step 2b, and the `/session-cycle` sign-off step. This edit
+     *also* finally implements the manifest's currently-unbacked CLAUDE.md neutralization.
+- **`SECURITY-MANIFEST.md`** — add to Tier 1: `.claude/commands/security-tailor.md`,
+  `kiro/steering/security-tailor.md`, `kiro/steering/active-controls.md` (the only *new*
+  paths not already covered by a dir entry). Add to Tier 3 row for `CLAUDE.md`: the
+  `@Security-kit/active-controls.md` import + Step 2b + sign-off references.
 
 ### 5.3 What you observe (the A/B contrast)
 | Scenario | Full build | `--no-security` build |
@@ -239,6 +295,7 @@ split from `SECURITY-MANIFEST.md`, consumed by `install.sh --no-security`.
 | `coverage.json` | present, fresh, gates | absent |
 | Security reasoning | ran at init + every sign-off | never ran |
 | Agent's session context (layer D) | tailored `active-controls.md` in context — attends to THIS product's controls while coding | no tailored steering; only generic `SECURITY.md` (if kept) or nothing |
+| Product code scanned for selected sinks | `sast_scan.py` runs in block 5b; findings surfaced | never scanned |
 
 This adds a **sharper failure mode** to the template's existing A/B story (full build
 24/24 vs no-security 16/24, per `SECURITY-MANIFEST.md:84`): "you extended the attack surface
@@ -255,56 +312,107 @@ covered for free by the `if [ -d "governance" ]` guard.
 
 ## 6. Evaluation — how we know it works
 
-### 6.1 Unit / integration (mechanical, CI-able)
-- `tests/test_coverage.py` (§4.4) — the checker's ground truth. Wired into `init.sh`
-  block 4 alongside the other tests.
-- `init.sh` on a fresh full copy: **FAILs** citing missing `coverage.json` (proves the
-  gate has teeth). After `/security-tailor` + filled verifications: **PASS**.
-- **Layer-D consistency (proves the steering isn't stale):** `check_coverage.py` asserts
-  `active-controls.md` exists and its control set == `coverage.json`'s `applies` set; and
-  a small test asserts `CLAUDE.md` contains the `@Security-kit/active-controls.md` import
-  (else layer D is unwired — the same "inert" failure `init.sh` block 5b already guards
-  for `permission.py`).
+Effectiveness has **two distinct questions**, and each is measured with the SAST
+benchmark idiom — a **labeled corpus + confusion matrix**, exactly how OWASP Benchmark
+scores a static analyzer (score cases labeled true/false per weakness → TP/FP/TN/FN →
+recall & precision). No hand-waving anecdotes; a tracked number.
 
-### 6.2 End-to-end on the reference example
-Use the existing `examples/claims-agent/` as the E2E subject (note: its product docs are
-in lowercase `context/` — the skill should match `Context/` or `context/`):
-- Run `/security-tailor` against its `context/`. Expect: LLM01 (untrusted claim) →
-  `applies`; LLM08 (vector) → `n_a`; a plausible `gap`. Verdicts must cite claims-agent
-  context lines.
-- Confirm `init.sh` goes red with a blank verification, green once mapped.
+- **Q1 — is the *selection* correct?** (does the tailor pick the right controls for a
+  described product) → §6.2.
+- **Q2 — does the *product code* contain the sinks?** (does `sast_scan.py` catch planted
+  vulnerabilities) → §6.3.
 
-### 6.3 A/B differential (the template's own evaluation idiom)
-- Full build vs `install.sh --no-security` on the same product-with-a-new-dataflow:
-  full fails the coverage gate; no-security passes. Record in the style of the example's
-  `examples/claims-agent/evaluation/TEMPLATE-EVALUATION-REPORT.md`.
+### 6.1 Plumbing (mechanical, CI-able — necessary, not sufficient)
+- `tests/test_coverage.py` (§4.4) — the checker's ground truth, wired into `init.sh`
+  **block 5b** (the security-integrity block, `init.sh:112-181`), not block 4 (block 4
+  runs only `test_fixtures.py` by name, `init.sh:77`).
+- `init.sh` on a fresh full copy: **FAILs** citing missing `coverage.json`; after
+  `/security-tailor` + filled verifications: **PASS**. (Gate has teeth.)
+- **Wiring/consistency asserts:** `check_coverage.py` asserts `active-controls.md` exists
+  and its control set == `coverage.json` `applies` set; a test asserts `CLAUDE.md` contains
+  the `@import` (else layer D is inert — same failure class block 5b already guards for
+  `permission.py`, `init.sh:122`).
 
-### 6.4 Quality checks on the reasoning (human, sampled)
-Because reasoning is inherently advisory, sample the verdicts:
-- **Grounding:** does every verdict cite a real `Context/` line? (no citation = fail)
-- **False-N/A audit:** for a product WITH retrieval, does it correctly flip LLM08 to
-  `applies`? (guards the dangerous direction — under-claiming coverage)
-- **Idempotence:** re-running with unchanged `Context/` produces an identical
-  `coverage.json` (stable hash, stable verdicts).
+These prove the machine *runs*. They do **not** prove it is *right* — that is §6.2/§6.3.
+
+### 6.2 Q1 — Selection benchmark (confusion matrix on the tailor)
+Treat **`applies` = the positive/"vulnerable" class.** Build a small labeled corpus and
+score the tailor's verdicts against ground truth.
+
+- **Corpus:** `Security-kit/eval/corpus/` — 3–5 synthetic product descriptions (a
+  `context/`-shaped folder each), every one of the 20 OWASP ids **hand-labeled**
+  `applies` / `n_a` by a human. ≈ 60–100 labeled cells. `claims-agent/context/` is **one
+  row** of this corpus, not the whole eval.
+- **Score:** run the tailor headless → compare verdict vs label → confusion matrix:
+
+  | | truly applies | truly n_a |
+  |---|---|---|
+  | predicted applies | TP | FP (over-select — cheap: an extra matrix row) |
+  | predicted n_a | **FN — MISSED CONTROL** | TN |
+
+- **Headline = recall = TP/(TP+FN).** A false `n_a` is a **false negative = a missed
+  vulnerability class**, the SAST failure that matters. Target recall → 1.0; precision is
+  secondary (guards alert fatigue). This *replaces* rev 2's anecdotal "false-N/A audit"
+  with a measured, regression-trackable number.
+- **Runner:** `Security-kit/eval/eval_selection.py` prints the matrix + recall/precision;
+  a regression test fails if recall drops below a set floor on the frozen corpus.
+- **Idempotence:** re-running on unchanged corpus yields identical `coverage.json` (stable
+  hash + verdicts) — a corpus row doubles as the idempotence check.
+
+### 6.3 Q2 — Scanner benchmark (detection rate on planted vulns)
+`sast_scan.py` (§4.6) is itself scored like a SAST tool against **planted-vulnerability
+code**, so its heuristic limits are quantified, not claimed away.
+
+- **Corpus:** `Security-kit/eval/vuln-corpus/` — small code samples, each **labeled** with
+  the sink it does/doesn't contain: e.g. a tool with `subprocess(…, shell=True)` (LLM06),
+  a hardcoded API key (LLM02), a wildcard `mcp-allowlist.json` scope (ASI04), an
+  unvalidated URL builder (SSRF) — paired with clean look-alikes (for FP measurement).
+- **Score:** run `sast_scan.py` → confusion matrix over sinks → **detection rate =
+  recall on planted vulns**, plus FP rate on the clean look-alikes. Report both; a strict
+  mode can require recall ≥ floor.
+- **Real-world anchor:** `claims-agent` has **no product `.py` to scan** (its `tools/` is
+  `ARCHITECTURE.md` + `mcp-allowlist.json` only — verified 2026-08-04). The one live check
+  it exercises is **wildcard tool scope in `tools/mcp-allowlist.json`** (ASI04). So the
+  planted-vuln corpus is the scanner's primary proving ground; claims-agent is the "does
+  it run on a real project" smoke test, honestly labeled as such.
+- **Binding to Q1:** the scanner only checks controls the tailor marked `applies` — so a
+  tailor false-negative (§6.2) *cascades* into "sinks never scanned." This is why the two
+  benchmarks are reported together, and why the tailor's recall is the upstream headline.
+
+### 6.4 A/B differential (the template's own evaluation idiom)
+Full build vs `install.sh --no-security` on the same product-with-a-new-dataflow: full
+fails the coverage gate + runs the scan; no-security does neither and passes. Record in
+the style of `examples/claims-agent/evaluation/TEMPLATE-EVALUATION-REPORT.md`.
 
 ### 6.5 Success criteria
 1. Fresh full build cannot reach `init.sh` PASS without a coverage pass.
 2. `/security-tailor` runs standalone from just `Context/`.
-3. `--no-security` cleanly strips all new pieces (incl. `active-controls.md` + its
-   `CLAUDE.md` import); that build still passes its own (reduced) `init.sh`.
+3. `--no-security` cleanly strips all new pieces (incl. `.claude/commands/security-tailor.md`,
+   `active-controls.md` + its `CLAUDE.md` import); that build still passes its own
+   (reduced) `init.sh` with **no dangling command or import** (the audit fix, §5.2).
 4. Every verdict in `coverage.json` carries a `Context/` citation.
-5. Zero new runtime dependencies (stdlib python + bash only).
-6. **Layer D live:** in a full build, the tailored `active-controls.md` is present, loaded
-   by `CLAUDE.md`, and lists exactly the `applies` controls — so a developing agent sees
-   this product's controls, not the generic 40.
+5. Zero new runtime dependencies (stdlib python + bash only) — including `sast_scan.py`
+   (stdlib `ast` + regex, per §4.6).
+6. **Layer D live:** tailored `active-controls.md` present, loaded by `CLAUDE.md`, lists
+   exactly the `applies` controls.
+7. **Q1 selection recall** measured on the frozen corpus and ≥ floor (headline metric).
+8. **Q2 scanner detection rate** measured on the planted-vuln corpus and ≥ floor.
 
 ---
 
 ## 7. Advice / recommendation
 
-1. **Ship §4 + §5 only. Defer C.** The applicability gate is the whole value of "start
-   small." Policy-diff generation and invented controls are a clean *second* phase once
-   the coverage loop is trusted.
+1. **Build order: tailor first, scanner second, both benchmarked.** The tailor (§4.1–4.5)
+   + its selection benchmark (§6.2) is the load-bearing half — ship and trust it first.
+   `sast_scan.py` (§4.6) + its planted-vuln benchmark (§6.3) is the second half and depends
+   on `coverage.json` existing. Still deferred beyond this spec: policy-diff generation and
+   *inventing* controls (original Approach C) — out of scope here.
+   **On SAST honesty:** the tailor is design-time **threat modeling / control selection**,
+   NOT SAST; `sast_scan.py` IS SAST-the-capability but **heuristic** (stdlib AST+regex, no
+   interprocedural taint — §4.6). Never label it "SAST-complete." The §6.3 detection-rate
+   number is the honest statement of what it catches. The *methodology* (labeled corpus +
+   confusion matrix) is borrowed from SAST for BOTH halves; the *capability* is SAST only
+   for the code scan.
 2. **Fail-closed on missing coverage.json is the load-bearing decision.** If the checker
    "skips when absent," the entire gate becomes advisory and the enhancement collapses
    into today's status quo. Treat absent = fail (except in `--no-security`).
