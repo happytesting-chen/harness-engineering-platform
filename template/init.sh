@@ -198,6 +198,18 @@ if [ "$PROJECT_TYPE" = "python" ]; then
     echo ""
 fi
 
+# --- 6b. Evaluation primitive (optional; measures task quality) ---
+if [ -f "evaluation/eval.py" ]; then
+    echo "▶ Evaluation — quantifying reference target..."
+    if python3 evaluation/eval.py >/dev/null 2>&1; then
+        echo "  ✓ eval.py runs; reference target at 100% accuracy + reproducibility"
+    else
+        echo "  ✗ eval.py reference target regressed (accuracy/reproducibility < 100%)"
+        ERRORS=$((ERRORS + 1))
+    fi
+    echo ""
+fi
+
 # --- 7. Fresh Session Test (Lecture 03) ---
 echo "▶ Fresh Session Test — can a new session answer the 5 questions?"
 FST_PASS=0

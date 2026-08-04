@@ -30,7 +30,7 @@ From that understanding, prepare drafts for:
 |------|--------------------|
 | `CLAUDE.md` | `{{PROJECT_NAME}}`, `{{PROJECT_PURPOSE}}`, `{{PRIMARY_VERIFICATION_COMMAND}}`, `{{DENY_LIST_SUMMARY}}`, `{{DOMAIN_ESCALATION_RULES}}`, `{{DOMAIN_CONTEXT_LINKS}}` |
 | `Harness-Best-Practice/AGENTS.md` | name, purpose, `{{LANGUAGE}}`, verification command |
-| `Harness-Best-Practice/feature_list.json` | phases derived from architecture milestones — each with behavior + a real verification command + status (`phase-01` active, rest not-started) |
+| `Harness-Best-Practice/feature_list.json` | phases derived from architecture milestones — each with behavior + a real verification command + status (`phase-01` active, rest not-started). Make the LAST phase an evaluation-and-snapshot phase (see `_recommended_final_phase`): fresh-session `python3 evaluation/eval.py` recording accuracy/reproducibility/latency/cost, proposing a `SNAPSHOT.md`, starting no new work. |
 | `Harness-Best-Practice/progress.md` | session-1 state: what Context/ defined, what was auto-filled, open questions |
 | `governance/mcp-allowlist.json` | the tools the architecture says the agent uses (+ `gated_until` for risky ones); `egress_hosts` from deployment |
 | `governance/deny-list.json` | add domain patterns implied by the design (keep catastrophic defaults) |
