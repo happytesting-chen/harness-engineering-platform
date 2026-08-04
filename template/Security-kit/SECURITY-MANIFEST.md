@@ -31,6 +31,17 @@ These exist only for security. A no-security build deletes them.
 | `tests/test_content_trust.py` | Data-plane proof | LLM01 |
 | `kiro/steering/security.md`, `kiro/steering/security-review.md` | Kiro security guidance/workflow | all |
 | `kiro/hooks/*` | Kiro enforcement hooks | LLM06 |
+| `Security-kit/check_coverage.py` | Coverage gate (init.sh block 5b) | all |
+| `Security-kit/coverage.json` (generated) | Per-project control applicability output | all |
+| `Security-kit/coverage.schema.md` | coverage.json field contract | all |
+| `Security-kit/active-controls.md` | Layer-D steering (agent loads every session) | all |
+| `Security-kit/eval/` | Selection benchmark corpus + eval_selection.py | all |
+| `tests/test_coverage.py` | Coverage-gate unit + integration tests | LLM06 |
+| `tests/test_eval_selection.py` | Selection benchmark recall test | all |
+| `.claude/commands/security-tailor.md` | `/security-tailor` slash command (explicit Tier 1 — outside Security-kit/ dir) | all |
+| `kiro/steering/security-tailor.md` | Kiro security-tailor steering (explicit Tier 1 — outside Security-kit/ dir) | all |
+
+> Note: `Security-kit/check_coverage.py`, `Security-kit/coverage.json`, `Security-kit/coverage.schema.md`, `Security-kit/active-controls.md`, and `Security-kit/eval/` are covered by the top-level `Security-kit/` directory deletion in `install.sh`. `tests/test_coverage.py` and `tests/test_eval_selection.py` are covered by the `tests/` directory deletion. Only `.claude/commands/security-tailor.md` and `kiro/steering/security-tailor.md` require explicit entries in TIER1.
 
 ## Tier 2 — Pure harness / non-security (kept in every build)
 
@@ -54,7 +65,7 @@ must sit at integration points that also serve non-security functions. `--no-sec
 
 | Path | Non-security part | Security part (what `--no-security` strips) |
 |------|-------------------|---------------------------------------------|
-| `CLAUDE.md` | startup workflow, WIP=1, verification, session end | the "Governance Boundaries" section + governance escalation lines |
+| `CLAUDE.md` | startup workflow, WIP=1, verification, session end | the "Governance Boundaries" section + governance escalation lines + `@Security-kit/active-controls.md` import (Step 2b sed strip) |
 | `Harness-Best-Practice/feature_list.json` | phase list (behavior/verification/status) | the same file is *read by* the phase-gate — no lines to strip, but the gate stops consuming it |
 | `init.sh` | placeholder check, tests, Fresh Session Test | the "Security-kit integrity" section (block 5b) |
 | `.claude/settings.json` | Stop: clean-state-check | PreToolUse governance-check + secret-block, PostToolUse audit-capture |
@@ -76,7 +87,8 @@ comparison or for a project that deliberately accepts no mechanical governance.
    - `.claude/settings.json` → keep only the Stop hooks (no PreToolUse/PostToolUse).
    - `init.sh` → drop the "Security-kit integrity" block and the two governance JSON
      entries from `REQUIRED_FILES`.
-   - `CLAUDE.md` → remove the Governance Boundaries section + governance escalation lines.
+   - `CLAUDE.md` → remove the Governance Boundaries section + governance escalation lines
+     + the `@Security-kit/active-controls.md` layer-D import (sed strip, Step 2b).
 3. Keep all Tier 2 as-is.
 
 The result still passes its own `init.sh` (placeholder + tests + Fresh Session) but has

@@ -63,6 +63,8 @@ TIER1=(
   "governance" "Security-kit" "tests"
   "Harness-Best-Practice/observability/audit_hook.py"
   "kiro/steering/security.md" "kiro/steering/security-review.md" "kiro/hooks"
+  "kiro/steering/security-tailor.md"
+  ".claude/commands/security-tailor.md"
 )
 echo "▶ Deleting Tier 1 (pure security)..."
 for p in "${TIER1[@]}"; do
@@ -88,6 +90,12 @@ fi
 if [ -f "init.sh" ]; then
   run "sed -i.bak 's#\"governance/deny-list.json\" \"governance/mcp-allowlist.json\"##' init.sh && rm -f init.sh.bak"
   echo "  ~ init.sh (removed governance JSON from REQUIRED_FILES; integrity block auto-skips)"
+fi
+
+# CLAUDE.md → strip the layer-D import (its target is deleted with Security-kit/)
+if [ -f "CLAUDE.md" ]; then
+  run "sed -i.bak '/@Security-kit\/active-controls.md/d' CLAUDE.md && rm -f CLAUDE.md.bak"
+  echo "  ~ CLAUDE.md (removed @Security-kit/active-controls.md import)"
 fi
 
 echo ""
