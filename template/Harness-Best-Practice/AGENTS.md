@@ -24,7 +24,8 @@
 │   ├── AGENTS.md                     ← Identity, run/verify (this file)
 │   ├── progress.md                   ← Session journal + handoff
 │   ├── feature_list.json             ← Phase DAG (tracks workflow progression)
-│   └── Harness-Best-Practice/observability/audit.py        ← Append-only audit log
+│   └── observability/
+│       └── audit.py                   ← Append-only audit log
 ├── tests/                            ← Fixture-driven tests + E2E + hook + content-trust proofs
 └── demo/                             ← Scripted evaluation harness (not production path)
 ```
