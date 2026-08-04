@@ -177,6 +177,36 @@ for raw in re.findall(r"\$CLAUDE_PROJECT_DIR/(\S+?\.py)", blob):
             ERRORS=$((ERRORS + 1))
         fi
     fi
+    # (f) coverage-checker ground-truth tests (named explicitly — init.sh has no glob runner)
+    if [ -f "tests/test_coverage.py" ]; then
+        if python3 tests/test_coverage.py >/dev/null 2>&1; then
+            echo "  ✓ coverage-checker tests passed (tests/test_coverage.py)"
+        else
+            echo "  ✗ coverage-checker tests FAILED (tests/test_coverage.py)"
+            ERRORS=$((ERRORS + 1))
+        fi
+    fi
+    # (g) selection-scorer math tests
+    if [ -f "tests/test_eval_selection.py" ]; then
+        if python3 tests/test_eval_selection.py >/dev/null 2>&1; then
+            echo "  ✓ selection-scorer tests passed (tests/test_eval_selection.py)"
+        else
+            echo "  ✗ selection-scorer tests FAILED (tests/test_eval_selection.py)"
+            ERRORS=$((ERRORS + 1))
+        fi
+    fi
+    # (h) coverage gate: applicable controls must be mapped to a verification
+    if [ -f "Security-kit/check_coverage.py" ]; then
+        if python3 Security-kit/check_coverage.py; then
+            echo "  ✓ security coverage complete (Security-kit/check_coverage.py)"
+        else
+            echo "  ✗ security coverage incomplete — run /security-tailor and fill verifications"
+            ERRORS=$((ERRORS + 1))
+        fi
+    else
+        echo "  ⚠ no check_coverage.py — control coverage is unproven"
+        WARNINGS=$((WARNINGS + 1))
+    fi
     echo ""
 fi
 
