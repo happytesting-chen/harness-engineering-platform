@@ -65,11 +65,14 @@ must sit at integration points that also serve non-security functions. `--no-sec
 
 | Path | Non-security part | Security part (what `--no-security` strips) |
 |------|-------------------|---------------------------------------------|
-| `CLAUDE.md` | startup workflow, WIP=1, verification, session end | the "Governance Boundaries" section + governance escalation lines + `@Security-kit/active-controls.md` import (Step 2b sed strip) |
+| `CLAUDE.md` | startup workflow, WIP=1, verification, session end | the "Governance Boundaries" section + governance escalation lines + the layer-D HTML comment + `@Security-kit/active-controls.md` import (python3 strip in install.sh) |
 | `Harness-Best-Practice/feature_list.json` | phase list (behavior/verification/status) | the same file is *read by* the phase-gate — no lines to strip, but the gate stops consuming it |
 | `init.sh` | placeholder check, tests, Fresh Session Test | the "Security-kit integrity" section (block 5b) |
 | `.claude/settings.json` | Stop: clean-state-check | PreToolUse governance-check + secret-block, PostToolUse audit-capture |
 | `Harness-Best-Practice/observability/audit.py` | (none — pure security in practice, but demo/ imports it) | append-only decision log; kept if demo/ needs it, else Tier 1 |
+| `.claude/commands/init-project.md` | Steps 1–5 project init workflow | Step 2b block (invokes `/security-tailor`; removed by install.sh — advisory doc edit, not mechanical enforcement) |
+| `.claude/commands/session-cycle.md` | full session loop startup/execution/exit | step 11b block (invokes `/security-tailor`; removed by install.sh — advisory doc edit, not mechanical enforcement) |
+| `kiro/steering/session-cycle.md` | full session loop startup/execution/exit | step 11b block (invokes `/security-tailor`; removed by install.sh — advisory doc edit, not mechanical enforcement) |
 
 > Why Tier 3 exists: a gate that isn't wired into the tool-call path does nothing.
 > Enforcement *is* the wiring. This is the honest boundary — you can label and toggle
