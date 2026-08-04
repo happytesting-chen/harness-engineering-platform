@@ -149,6 +149,34 @@ if [ -d "governance" ]; then
         echo "  ⚠ no content-trust primitive — untrusted-content boundary is app-only"
         WARNINGS=$((WARNINGS + 1))
     fi
+    # (e) hook-path integrity: every hook script wired in settings.json must resolve on
+    # disk. A missing path makes python3 exit 2 — indistinguishable from a real policy
+    # BLOCK — so a wrong path silently fail-closes EVERY tool. This check catches that
+    # config error before it bricks a session (distinct from a deny decision).
+    if [ -f ".claude/settings.json" ]; then
+        MISSING_HOOKS=$(python3 -c '
+import json, re, os, sys
+try:
+    cfg = json.load(open(".claude/settings.json"))
+except Exception as e:
+    print("UNPARSEABLE:" + str(e)); sys.exit(0)
+blob = json.dumps(cfg)
+seen = set()
+for raw in re.findall(r"\$CLAUDE_PROJECT_DIR/(\S+?\.py)", blob):
+    p = raw.strip(chr(34) + chr(39))
+    if p not in seen:
+        seen.add(p)
+        if not os.path.isfile(p):
+            print(p)
+')
+        if [ -z "$MISSING_HOOKS" ]; then
+            echo "  ✓ all wired hook paths resolve on disk"
+        else
+            echo "  ✗ GATE MISCONFIGURED — settings.json wires hook script(s) that do NOT exist:"
+            echo "$MISSING_HOOKS" | sed 's/^/        (config error, not a policy block) /'
+            ERRORS=$((ERRORS + 1))
+        fi
+    fi
     echo ""
 fi
 

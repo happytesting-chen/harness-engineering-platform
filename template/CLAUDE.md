@@ -2,18 +2,19 @@
 
 {{PROJECT_PURPOSE}}
 
-<!-- System identity (tech stack, architecture, hard constraints) lives in AGENTS.md,
-     the open standard other agents read. Import it so Claude loads it too, rather
-     than duplicating it here. This CLAUDE.md adds the Claude-specific session workflow. -->
-@AGENTS.md
+<!-- System identity (tech stack, architecture, hard constraints) lives in AGENTS.md
+     (under Harness-Best-Practice/), the open standard other agents read. Import it so
+     Claude loads it too, rather than duplicating it here. This CLAUDE.md adds the
+     Claude-specific session workflow. Import path is relative to this file (root). -->
+@Harness-Best-Practice/AGENTS.md
 
 ## Startup Workflow
 
 1. Confirm working directory is the project root
 2. Read this file for project rules and boundaries
 3. Run `./init.sh` — must exit 0 before proceeding
-4. Read `feature_list.json` — identify the ACTIVE phase
-5. Read `progress.md` — understand current state and decisions
+4. Read `Harness-Best-Practice/feature_list.json` — identify the ACTIVE phase
+5. Read `Harness-Best-Practice/progress.md` — understand current state and decisions
 
 ## Working Rules
 
@@ -40,17 +41,17 @@ Three enforcement gates fire on every tool call (mechanical, not advisory):
 
 ## End of Session
 
-1. Update `progress.md` with current state and decisions
+1. Update `Harness-Best-Practice/progress.md` with current state and decisions
 2. Run `./init.sh` — confirm clean state
 3. If phase complete: report "Phase X passes. Requesting sign-off." (do NOT self-transition)
-4. If ending mid-task: fill the Session Handoff section in `progress.md`
+4. If ending mid-task: fill the Session Handoff section in `Harness-Best-Practice/progress.md`
 
 ## Escalation
 
-- **Scope ambiguity:** Re-read `feature_list.json` + `context/` docs
+- **Scope ambiguity:** Re-read `Harness-Best-Practice/feature_list.json` + `Context/` docs
 - **Tool not available:** Check `governance/mcp-allowlist.json` — may be phase-gated
-- **Repeated failures (3+):** Update progress.md, flag for human review
-- **Permission denied:** Do not retry. Note in progress.md and move on.
+- **Repeated failures (3+):** Update `Harness-Best-Practice/progress.md`, flag for human review
+- **Permission denied:** Do not retry. Note in `Harness-Best-Practice/progress.md` and move on.
 - {{DOMAIN_ESCALATION_RULES}}
 
 ## Reference
@@ -59,7 +60,7 @@ Three enforcement gates fire on every tool call (mechanical, not advisory):
 
 ## Domain Context
 
-See `context/` for **project-specific** AI-development assets — product/design, AI stack
+See `Context/` for **project-specific** AI-development assets — product/design, AI stack
 (framework + model, e.g. LangChain/Strands), deployment target (on-prem/cloud),
 architecture, methodology, scope. (Threat model and security controls live in `Security-kit/`.)
 - [Context/README.md](Context/README.md) — What belongs here

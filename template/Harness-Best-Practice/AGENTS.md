@@ -58,7 +58,8 @@ python3 tests/test_e2e.py       # Day 4 enforcement proof
 
 ## Current State
 
-See `progress.md` for session journal and `feature_list.json` for phase status.
+See `Harness-Best-Practice/progress.md` for session journal and
+`Harness-Best-Practice/feature_list.json` for phase status.
 
 ## Reference
 
@@ -66,7 +67,7 @@ See `progress.md` for session journal and `feature_list.json` for phase status.
 
 ## Domain Context
 
-See `context/` for **project-specific** AI-development assets — product/design, AI stack
+See `Context/` for **project-specific** AI-development assets — product/design, AI stack
 (framework + model), deployment target (on-prem/cloud), architecture, methodology, scope.
 (Threat model and security controls live in `Security-kit/`.)
 - {{DOMAIN_CONTEXT_LINKS}}

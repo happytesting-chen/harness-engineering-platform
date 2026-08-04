@@ -6,8 +6,8 @@
 
 1. Read `CLAUDE.md` for project rules and governance boundaries
 2. Run `./init.sh` — **must exit 0** before proceeding
-3. Read `feature_list.json` — identify the one phase with status `"active"`
-4. Read `progress.md` — understand current state, past decisions, and blockers
+3. Read `Harness-Best-Practice/feature_list.json` — identify the one phase with status `"active"`
+4. Read `Harness-Best-Practice/progress.md` — understand current state, past decisions, and blockers
 5. If the Session Handoff section has content, resume from there
 
 ## Execution
