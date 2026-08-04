@@ -36,6 +36,13 @@ From that understanding, prepare drafts for:
 | `governance/deny-list.json` | add domain patterns implied by the design (keep catastrophic defaults) |
 | `Security-kit/control-matrix.md` | one row per trust boundary the design introduces (tool, egress, untrusted input) |
 
+## Step 2b — Tailor security controls
+
+Invoke **`/security-tailor`** now (Context/ is freshly read). It writes
+`Security-kit/coverage.json` (which OWASP-AI controls apply to this product), adds
+`applies` rows to `control-matrix.md` (Verification left for you to fill), and regenerates
+`Security-kit/active-controls.md`. Fold its gap report into your Step 3 Clarification list.
+
 ## Step 3 — FLAG every uncertainty (do not guess)
 
 For each value you cannot derive **with confidence** from `Context/`, do NOT invent one.
