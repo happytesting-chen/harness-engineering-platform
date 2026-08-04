@@ -6,28 +6,28 @@
 
 ## Target
 
-`permission gate (governance/permission.py) over tests/fixtures.json`
+`claims decision engine (claims.decide) over claims/tests/fixtures/*.json`
 
 ## Metrics
 
 | Axis | Value | Notes |
 |------|-------|-------|
-| Cases | 7 | repeated 3× each |
-| **Accuracy** | 100.0% (7/7) | decisions vs oracle |
-| **Reproducibility** | 100.0% (7/7) | identical across repeat runs |
-| **Latency** | mean 0.068 ms · max 0.09 ms | wall-clock per case |
+| Cases | 5 | repeated 3× each |
+| **Accuracy** | 100.0% (5/5) | decisions vs oracle |
+| **Reproducibility** | 100.0% (5/5) | identical across repeat runs |
+| **Latency** | mean 0.008 ms · max 0.024 ms | wall-clock per case |
 | **Cost (tokens)** | N/A (no real provider wired) | N/A until a real provider is wired |
 | **Cost (USD)** | N/A (no real provider wired) | N/A until a real provider is wired |
 
 ## What this attests
 
 - **Effectiveness / accuracy** — the target produced the correct decision on
-  7 of 7 cases against a known oracle.
-- **Reproducibility** — 7 of 7 cases returned
+  5 of 5 cases against a known oracle.
+- **Reproducibility** — 5 of 5 cases returned
   identical output across 3 runs (determinism).
 - **Cost-effectiveness** — latency is real wall-clock; token/$ cost is `N/A`
-  under the reference (FakeModel/gate) wiring. Wire a real `task_fn` + `usage_fn`
-  in `eval.py` to populate cost honestly (see `evaluation/README.md`).
+  under the reference (deterministic, no-provider) wiring. Wire a real `decide_fn`
+  + `usage_fn` in `eval.py` to populate cost honestly (see `evaluation/README.md`).
 
 ## Reproduce
 

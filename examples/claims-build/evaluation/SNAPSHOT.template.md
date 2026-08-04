@@ -26,8 +26,8 @@
 - **Reproducibility** — {{REPRODUCIBLE}} of {{TOTAL_CASES}} cases returned
   identical output across {{REPEATS}} runs (determinism).
 - **Cost-effectiveness** — latency is real wall-clock; token/$ cost is `N/A`
-  under the reference (FakeModel/gate) wiring. Wire a real `task_fn` + `usage_fn`
-  in `eval.py` to populate cost honestly (see `evaluation/README.md`).
+  under the reference (deterministic, no-provider) wiring. Wire a real `decide_fn`
+  + `usage_fn` in `eval.py` to populate cost honestly (see `evaluation/README.md`).
 
 ## Reproduce
 

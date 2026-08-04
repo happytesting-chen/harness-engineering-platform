@@ -52,6 +52,15 @@
 - [x] Verified: full suite 38 passed; test_hooks 10/10 (gate reopened); `./init.sh` exit 0 (PASS, 1 warning); **egress_hosts still [] ; claims/ still stdlib-only** (no LLM code/creds/egress opened this session).
 - Planning artifacts: `task_plan.md`, `findings.md`, root `progress.md`; `evaluation/BUILD-C-PHASE-PROPOSAL.md` retained as the phase's acceptance-criteria reference.
 
+### Session 4 (cont.) — retarget demo + eval to the claims domain (docs/wiring only)
+- [x] **eval.py retargeted:** reference wiring swapped from the *permission gate* (`_gate_decide_fn` over `tests/fixtures.json`) to the *deterministic claims engine* (`_claims_decide_fn` → `claims.decide` over `claims/tests/fixtures/*.json`). "Accuracy" now means claims-decision accuracy. `evaluate()` kept generic — only the reference wiring + target string changed.
+  - Oracle isolation preserved: each case is `{"record", "oracle"}`; `decide_fn` reads only `record` (the fixture MINUS its `expected` block), so the oracle never reaches the decision path. `_oracle_string()` normalizes to `OUTCOME/REASON_CODE`.
+  - Result: **100% accuracy (5/5), 100% reproducibility, cost N/A** (no provider wired — never fabricated). Exit 0.
+- [x] **Docs pointed at `claims_demo.py`:** `AGENTS.md` "How to Run" + `README.md` demo block now invoke `demo/claims_demo.py` (gate governs the REAL `claims_runner`); `demo/demo.py` explicitly labeled the generic pentest illustration, kept as a template reference (per human "keep both" decision).
+  - `evaluation/README.md` honesty-rule + reference-target prose retargeted to `claims.decide`. `SNAPSHOT.template.md` stale "(FakeModel/gate) wiring" → "(deterministic, no-provider) wiring"; `evaluation/build-a/SNAPSHOT.md` regenerated (measured, not hand-edited).
+- [x] Verified: `./init.sh` exit 0 (PASS, 1 warning); `pytest -q` → **50 passed**; `claims_demo.py` gate mode shows bash ✓ → claims_runner ⛔ DENIED (phase-01 unsigned) → ✓ ALLOW after sign-off; `--nogate` runs claims_runner immediately (fail-closed writer still refuses the duplicate = defense-in-depth). **egress_hosts still []; claims/ untouched.**
+- Scope note: docs/eval-wiring only — no claims/ logic, no provider, no egress, no phase self-transition.
+
 ## In Progress
 
 - **Current task:** none — phase-03 signed off. Next work (security phase) not yet scoped.

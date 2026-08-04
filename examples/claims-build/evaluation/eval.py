@@ -2,8 +2,8 @@
 """Evaluation primitive — quantify a task's quality, not just assert correctness.
 
 The harness already has two proofs:
-  - tests/    asserts the gate is CORRECT (pass/fail ground truth)
-  - demo/     shows the gate MATTERS (enforced vs --nogate)
+  - tests/    asserts the claims engine is CORRECT (pass/fail ground truth)
+  - demo/     shows enforcement MATTERS (gated vs --nogate)
 
 This module adds the third: it QUANTIFIES a task over four axes and emits a
 snapshot report a human can sign off:
@@ -15,15 +15,16 @@ snapshot report a human can sign off:
                     reports usage; otherwise N/A — never fabricated)
 
 `evaluate()` is generic: give it cases, a `decide_fn`, and the oracle key. The
-reference wiring at the bottom measures the project's OWN permission gate over
-tests/fixtures.json — every project has a gate, so this runs with zero deps and
-no API key. To evaluate a real agent task, pass your own `decide_fn` (and a
+reference wiring at the bottom measures the project's OWN task — the
+deterministic claims decision engine (claims.decide) over the committed labeled
+fixtures — so it runs with zero deps and no API key. To evaluate a different
+task (e.g. the LLM extraction front-end), pass your own `decide_fn` (and a
 `usage_fn` if your provider reports token usage) — see README.md.
 
 Stdlib only. No network, no provider, no keys.
 
 Usage:
-    python3 evaluation/eval.py                 # evaluate the gate, print report
+    python3 evaluation/eval.py                 # evaluate claims.decide, print report
     python3 evaluation/eval.py --snapshot DIR  # also write a filled SNAPSHOT.md
 """
 
@@ -156,71 +157,53 @@ def format_report(metrics: dict, *, target: str) -> str:
 
 
 # ---------------------------------------------------------------------------
-# Reference wiring: evaluate the project's OWN permission gate (zero deps).
-# This is the "task" every harness ships. Swap decide_fn for your real agent
-# task to measure accuracy/cost against your own oracle.
+# Reference wiring: evaluate the project's OWN task — the deterministic claims
+# decision engine (claims.decide) over the committed labeled fixtures. This is
+# the thing this harness actually produces, so "accuracy" here means claims
+# accuracy, not gate accuracy. Swap decide_fn for a different task (e.g. the LLM
+# extraction front-end) to measure that instead — see README.md.
 # ---------------------------------------------------------------------------
 
-def _gate_decide_fn():
-    """Return (cases, decide_fn, oracle_key, cleanup) wired to the real gate.
+# The oracle string is OUTCOME/REASON_CODE, e.g. "APPROVED/EXACT_COVERAGE". This
+# is what claims.decide effectively produces and what each fixture's `expected`
+# block records — a single normalized token the evaluator can compare exactly.
+def _oracle_string(expected: dict) -> str:
+    return f"{expected['outcome']}/{expected['reason_code']}"
 
-    Reuses the exact policy provisioning that tests/test_fixtures.py uses, so the
-    evaluated decisions come from governance/permission.py — not a reimplementation.
+
+def _claims_decide_fn():
+    """Return (cases, decide_fn, oracle_key, cleanup) wired to claims.decide.
+
+    Each case is a wrapper {"record": <wire claim>, "oracle": "OUTCOME/REASON"}.
+    decide_fn reads only "record" and calls the REAL claims.decide — the oracle
+    is never fed into the decision path (validate() would reject an injected
+    oracle field anyway; keeping it in a wrapper makes the separation explicit).
     """
-    import tempfile
+    proj = str(PROJECT_ROOT)
+    if proj not in sys.path:
+        sys.path.insert(0, proj)
+    from claims import decide as claims_decide  # noqa: E402
 
-    gov_parent = str(PROJECT_ROOT)
-    if gov_parent not in sys.path:
-        sys.path.insert(0, gov_parent)
-    import governance.permission as permission_mod  # noqa: E402
-
-    fixtures_path = PROJECT_ROOT / "tests" / "fixtures.json"
-    cases = json.loads(fixtures_path.read_text())["cases"]
-
-    # Same ground-truth policy the fixture tests assert against.
-    deny = {"patterns": ["rm -rf /", "sudo", "shutdown", "reboot", "mkfs", "> /dev/"]}
-    allowlist = {
-        "tools": [
-            {"name": "bash", "description": "Shell", "version": "1.0"},
-            {"name": "metasploit", "description": "Exploit", "version": "6.0",
-             "gated_until": "phase-01"},
-        ],
-        "egress_hosts": ["localhost", "127.0.0.1"],
-    }
-    feature_list = {
-        "project": "eval-ref",
-        "features": [{"id": "phase-01", "name": "P", "dependencies": [],
-                      "status": "active", "verification": "true", "evidence": ""}],
-    }
-
-    tmp = tempfile.TemporaryDirectory()
-    tmp_path = Path(tmp.name)
-    (tmp_path / "deny-list.json").write_text(json.dumps(deny))
-    (tmp_path / "mcp-allowlist.json").write_text(json.dumps(allowlist))
-    (tmp_path / "feature_list.json").write_text(json.dumps(feature_list))
-
-    originals = (permission_mod.DENY_LIST_PATH, permission_mod.ALLOWLIST_PATH,
-                 permission_mod.FEATURE_LIST_PATH)
-    permission_mod.DENY_LIST_PATH = tmp_path / "deny-list.json"
-    permission_mod.ALLOWLIST_PATH = tmp_path / "mcp-allowlist.json"
-    permission_mod.FEATURE_LIST_PATH = tmp_path / "feature_list.json"
-    check = permission_mod.make_permission_check()
-
-    class _Block:
-        def __init__(self, name, input_data):
-            self.name = name
-            self.input = input_data
+    fixtures_dir = PROJECT_ROOT / "claims" / "tests" / "fixtures"
+    cases = []
+    for path in sorted(fixtures_dir.glob("*.json")):
+        fixture = json.loads(path.read_text())
+        expected = fixture.get("expected")
+        if not isinstance(expected, dict):
+            continue  # a fixture with no oracle can't be graded — skip it
+        # The record fed to decide() is the fixture MINUS the oracle block, so
+        # the expected answer never reaches the decision logic.
+        record = {k: v for k, v in fixture.items() if k != "expected"}
+        cases.append({"record": record, "oracle": _oracle_string(expected)})
 
     def decide_fn(case: dict) -> str:
-        allowed, _reason = check(_Block(case["tool"], case["input"]))
-        return "ALLOWED" if allowed else "DENIED"
+        outcome = claims_decide(case["record"])
+        return f"{outcome.outcome}/{outcome.reason_code}"
 
     def cleanup():
-        (permission_mod.DENY_LIST_PATH, permission_mod.ALLOWLIST_PATH,
-         permission_mod.FEATURE_LIST_PATH) = originals
-        tmp.cleanup()
+        pass  # no global state mutated — nothing to restore
 
-    return cases, decide_fn, "expected_decision", cleanup
+    return cases, decide_fn, "oracle", cleanup
 
 
 def _fill_snapshot(metrics: dict, target: str, out_dir: Path) -> Path:
@@ -252,8 +235,8 @@ def main(argv: list[str] | None = None) -> int:
                         help="directory to write a filled SNAPSHOT.md into")
     args = parser.parse_args(argv)
 
-    cases, decide_fn, oracle_key, cleanup = _gate_decide_fn()
-    target = "permission gate (governance/permission.py) over tests/fixtures.json"
+    cases, decide_fn, oracle_key, cleanup = _claims_decide_fn()
+    target = "claims decision engine (claims.decide) over claims/tests/fixtures/*.json"
     try:
         metrics = evaluate(cases, decide_fn, oracle_key, repeats=3)
     finally:
@@ -266,7 +249,7 @@ def main(argv: list[str] | None = None) -> int:
         print(f"\nSnapshot written: {path}")
 
     # Exit non-zero only if the reference target regressed — accuracy and
-    # reproducibility of the gate should both be 100%.
+    # reproducibility of the deterministic engine should both be 100%.
     ok = metrics["accuracy_pct"] == 100.0 and metrics["reproducibility_pct"] == 100.0
     return 0 if ok else 1
 

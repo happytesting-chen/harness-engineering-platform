@@ -20,21 +20,22 @@ judge effectiveness, cost-effectiveness, and accuracy — and sign off a snapsho
 | **Latency** | wall-clock per case | ✅ yes |
 | **Cost** | tokens / USD | ⚠️ **N/A until a real provider is wired** — never fabricated |
 
-> **Honesty rule.** With the reference wiring (the permission gate, `FakeModel`)
-> there is no real model, so there are no tokens and no dollars. `eval.py` prints
-> `N/A (no real provider wired)` rather than inventing a number. Cost becomes real
-> only when you pass a `usage_fn` that reports actual provider usage.
+> **Honesty rule.** With the reference wiring (the deterministic `claims.decide`
+> engine) there is no real model, so there are no tokens and no dollars. `eval.py`
+> prints `N/A (no real provider wired)` rather than inventing a number. Cost becomes
+> real only when you pass a `usage_fn` that reports actual provider usage.
 
 ## Run it
 
 ```bash
-python3 evaluation/eval.py                          # measure the gate, print report
+python3 evaluation/eval.py                          # measure claims.decide, print report
 python3 evaluation/eval.py --snapshot evaluation/build-a   # also write a filled SNAPSHOT.md
 ```
 
-The reference target is the project's **own** `governance/permission.py` evaluated
-over `tests/fixtures.json` — zero deps, no API key, meaningful number. Exit is
-non-zero only if the gate regresses below 100% accuracy or reproducibility.
+The reference target is the project's **own** deterministic decision engine,
+`claims.decide`, evaluated over the committed labeled fixtures in
+`claims/tests/fixtures/*.json` — zero deps, no API key, meaningful number. Exit is
+non-zero only if the engine regresses below 100% accuracy or reproducibility.
 
 ## Evaluate your real task
 

@@ -34,9 +34,10 @@ route → exactly one minimal local result; terminal outcomes APPROVED / REJECTE
 ## How to Run
 
 ```bash
-./init.sh                       # Verify environment, check placeholders, run tests
-python3 demo/demo.py            # Run enforcement demo
-python3 demo/demo.py --nogate   # Same model, no enforcement (proves harness matters)
+./init.sh                          # Verify environment, check placeholders, run tests
+python3 demo/claims_demo.py          # Enforcement demo over the REAL claims tool (claims_runner)
+python3 demo/claims_demo.py --nogate # Same model, no enforcement (proves harness matters)
+# demo/demo.py is a generic (pentest) illustration of the same gate — not the claims path.
 ```
 
 ## How to Verify

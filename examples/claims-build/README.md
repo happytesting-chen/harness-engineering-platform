@@ -406,9 +406,13 @@ truth that loads in every runtime.
 Run the demo to *see* enforcement (no agent needed):
 
 ```bash
-python3 demo/demo.py            # with enforcement (shows ✓ allow / ⛔ block)
-python3 demo/demo.py --nogate   # same model, no gate — proves the harness matters
+python3 demo/claims_demo.py            # gate governs the REAL claims tool (✓ allow / ⛔ block)
+python3 demo/claims_demo.py --nogate   # same model, no gate — proves the harness matters
 ```
+
+`demo/claims_demo.py` drives the actual `claims_runner` tool through the gate, so
+an allow runs a real deterministic decision. `demo/demo.py` is the generic
+(pentest) illustration of the same three gates — kept as a template reference.
 
 ---
 
