@@ -11,3 +11,4 @@ venv/
 
 # Runtime artifacts (regenerated; not source of truth)
 Harness-Best-Practice/observability/audit.log
+Security-kit/eval/recorded/
