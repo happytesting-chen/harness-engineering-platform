@@ -1,0 +1,14 @@
+{
+  "schema_version": "1.0",
+  "fixture_id": "SYN-FIXTURE-002",
+  "claim": {
+    "claim_id": "SYN-CLAIM-002",
+    "submitted_amount": "200.00",
+    "covered_amount": "150.00",
+    "currency": "USD",
+    "documentation_complete": true,
+    "trusted": true,
+    "safety_flags": []
+  },
+  "expected": {"outcome": "REJECTED", "reason_code": "COVERAGE_SHORTFALL"}
+}

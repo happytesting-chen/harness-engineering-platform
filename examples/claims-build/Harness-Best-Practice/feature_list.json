@@ -1,0 +1,42 @@
+{
+  "project": "Claims Agent — Core Harness Evaluation",
+  "description": "Feature list — the harness primitive. Each item has the triple: behavior + verification + state. Only one feature may be ACTIVE at a time. Transition to PASSING requires verification exit 0 + human sign-off.",
+  "features": [
+    {
+      "id": "phase-01",
+      "name": "Build A readiness review",
+      "behavior": "The filled harness passes init.sh and all enforcement tests while Claims implementation and executable domain fixtures remain absent; a human records approval before any Claims code is written.",
+      "dependencies": [],
+      "status": "passing",
+      "verification": "./init.sh && test -z \"$(find claims -type f ! -name '.gitkeep' -print -quit 2>/dev/null)\"",
+      "evidence": "2026-08-04: ./init.sh clean PASS (exit 0); no claims implementation present (verification exit 0); enforcement demo denies phase-gated tool until sign-off. Human sign-off recorded."
+    },
+    {
+      "id": "phase-02",
+      "name": "Deterministic Build A implementation",
+      "behavior": "After recorded human approval, reviewed synthetic fixtures flow through validate → normalize → deterministic route → exactly one minimal local result, with terminal outcomes APPROVED/REJECTED/PENDING_REVIEW and no prohibited effect.",
+      "dependencies": ["phase-01"],
+      "status": "passing",
+      "verification": "./init.sh && python3 -m pytest tests claims/tests -v",
+      "evidence": "2026-08-04: ./init.sh clean PASS (exit 0) && python3 -m pytest tests claims/tests -v => 38 passed (19 retained core unchanged + 19 claims incl. runner). Stdlib-only; no network/provider/subprocess imports in claims/. All three terminal outcomes exercised; determinism + fail-closed writer proven. Fix #1: claims_runner bound to real claims/runner.py; demo/claims_demo.py shows gate DENY (phase-01 unsigned) then ALLOW (post sign-off) running the REAL runner. Routing rule (covered<submitted=>REJECTED, covered>submitted=>PENDING_REVIEW, exact=>APPROVED) human-confirmed. Human sign-off recorded 2026-08-04."
+    },
+    {
+      "id": "phase-03",
+      "name": "Build A evaluation and snapshot",
+      "behavior": "A fresh-session evaluation records correctness, local reproducibility, traceability, and verification evidence, then proposes a human-reviewable snapshot without starting new work.",
+      "dependencies": ["phase-02"],
+      "status": "passing",
+      "verification": "./init.sh && python3 -m pytest tests claims/tests -v",
+      "evidence": "Human sign-off recorded 2026-08-04. 2026-08-04 (UTC 03:42Z): fresh-session eval. ./init.sh exit 0 (all green); python3 -m pytest tests claims/tests -q => 38 passed, exit 0 (retained core unchanged). Correctness: all 3 terminals reached over 5 SYN fixtures (APPROVED/EXACT_COVERAGE, REJECTED/COVERAGE_SHORTFALL, PENDING_REVIEW x3: UNTRUSTED/MALFORMED_AMOUNT/SAFETY_FLAGGED). Traceability: 5/5 actual==oracle; expected-block independence proven; gate DENY->ALLOW over REAL claims_runner shown in demo. Reproducibility: byte-identical result sha256=e738d75f...4fc354 across fresh boundaries; duplicate write refused (exit 2, 1 file). Isolation: stdlib-only guard clean (no network/provider/subprocess in claims/). Reusable evaluation primitive added: evaluation/eval.py (generic accuracy/reproducibility/latency/cost; cost N/A until real provider) + SNAPSHOT.template.md + README; wired into init.sh (non-fatal check) and AGENTS.md verify. Reference target (the gate over tests/fixtures.json): accuracy 100% (7/7), reproducibility 100% (7/7). Snapshot PROPOSED: evaluation/build-a/SNAPSHOT.md (metrics) + EVALUATION-REPORT.md (narrative). Awaiting human sign-off (agent did NOT self-transition)."
+    },
+    {
+      "id": "phase-04",
+      "name": "Build C — LLM extraction front-end",
+      "behavior": "An extract() stage turns raw email text into a claim record dict via a Bedrock small/fast model (minimal SDK, IAM-role creds), which flows UNCHANGED through validate -> normalize -> route -> write. The LLM proposes; the deterministic router disposes. Malformed extraction -> PENDING_REVIEW; the coverage amount comes from a trusted policy lookup, never the email. Authorized by the Build C amendment in Context/claims-architecture.md.",
+      "dependencies": ["phase-03"],
+      "status": "active",
+      "verification": "./init.sh && python3 -m pytest tests claims/tests extraction/tests -v && python3 evaluation/eval.py --snapshot evaluation/build-c",
+      "evidence": "Phase opened 2026-08-04 (human 'yes' + Build C amendment signed). Decisions: Bedrock IAM-role / small-fast model / minimal raw SDK. GATING PREREQUISITE before any extractor code or egress: data-processing/compliance review (PII crosses to provider). egress_hosts stays [] until that review passes. No LLM code, credential, or egress change made at phase open."
+    }
+  ]
+}

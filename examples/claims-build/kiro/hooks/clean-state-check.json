@@ -1,0 +1,12 @@
+{
+  "name": "Clean State Check",
+  "version": "1.0.0",
+  "description": "When agent execution stops, verifies progress.md was updated this session. Warns if stale.",
+  "when": {
+    "type": "agentStop"
+  },
+  "then": {
+    "type": "askAgent",
+    "prompt": "Before ending this session, verify: (1) progress.md has been updated with what was done and decisions made, (2) no temporary or debug files remain, (3) init.sh would pass if run now. If progress.md was NOT updated, update it now with current state before stopping."
+  }
+}
