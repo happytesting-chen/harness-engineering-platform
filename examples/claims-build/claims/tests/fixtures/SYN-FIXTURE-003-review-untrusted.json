@@ -1,0 +1,14 @@
+{
+  "schema_version": "1.0",
+  "fixture_id": "SYN-FIXTURE-003",
+  "claim": {
+    "claim_id": "SYN-CLAIM-003",
+    "submitted_amount": "80.00",
+    "covered_amount": "80.00",
+    "currency": "USD",
+    "documentation_complete": true,
+    "trusted": false,
+    "safety_flags": []
+  },
+  "expected": {"outcome": "PENDING_REVIEW", "reason_code": "UNTRUSTED"}
+}

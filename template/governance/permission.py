@@ -70,8 +70,18 @@ def check_phase_gate(tool_name: str) -> str | None:
     features = _load_json(FEATURE_LIST_PATH).get("features", [])
     active = [f for f in features if f.get("status") == "active"]
     if not active:
-        return "no active phase — cannot determine tool permissions"
-    current_phase = active[0]["id"]
+        # No active phase. Distinguish two cases:
+        #   (a) STEADY-STATE — every phase is "passing". Feature work is complete
+        #       and human-signed-off; the harness should keep operating, not brick.
+        #       Deny-list and egress remain enforced by their own gates; any
+        #       phase-gated tool's `gated_until` phase is by definition passing,
+        #       so its gate is satisfied. Fall through to the allowlist check.
+        #   (b) UNDEFINED — some phase is not-started/other. State is genuinely
+        #       ambiguous; fail closed.
+        if features and all(f.get("status") == "passing" for f in features):
+            pass  # steady-state; continue to allowlist/gate check below
+        else:
+            return "no active phase — cannot determine tool permissions"
 
     allowlist = _load_json(ALLOWLIST_PATH)
     for tool in allowlist.get("tools", []):

@@ -25,6 +25,9 @@
 11. If the phase is complete (all tasks done, verification passes):
     - Report to the user: "Phase X verification passes. Requesting sign-off."
     - **Do NOT self-transition** — wait for human to update feature_list.json
+11b. Before requesting sign-off, if this phase added a tool, egress host, data flow,
+     retrieval, or untrusted input: re-run **`/security-tailor`** and resolve any new
+     `applies` control (fill its Verification). `./init.sh` will fail until coverage is complete.
 12. If ending mid-task: fill the Session Handoff section in `progress.md`
 
 ## Exit Condition

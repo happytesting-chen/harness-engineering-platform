@@ -1,0 +1,14 @@
+{
+  "name": "Governance Permission Gate",
+  "version": "1.0.0",
+  "description": "Runs deny-list + phase-gate + egress checks before tool execution. Blocks if permission.py returns exit 2.",
+  "when": {
+    "type": "preToolUse",
+    "toolTypes": ["write", "shell"]
+  },
+  "_fix_note": "G-BA-002: previously sent tool_input:{} so deny/egress could not inspect the command. Now forwards the tool payload. Kiro variable syntax varies by runtime version — VERIFY in a real Kiro session that {{tool_name}}/{{tool_input}} expand to the actual call before relying on this as enforcement.",
+  "then": {
+    "type": "runCommand",
+    "command": "echo '{\"tool_name\": \"{{tool_name}}\", \"tool_input\": {{tool_input}}}' | python3 governance/permission.py"
+  }
+}

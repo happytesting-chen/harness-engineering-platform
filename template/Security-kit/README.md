@@ -25,3 +25,14 @@ The Security Kit is the template's security navigation and review layer. It does
 - Keep executable mechanisms in their functional directories; do not duplicate them here.
 - Keep review decisions and non-sensitive evidence in Git; do not commit runtime audit logs, caches, sandbox output, or secrets.
 - Treat a control as mechanical only when its execution path enforces it and tests prove that path.
+
+## Tailored controls (security-tailor)
+
+`/security-tailor` reads `Context/` and writes `coverage.json` — which OWASP-AI controls
+apply to THIS product — plus a tailored `active-controls.md` the agent loads every session.
+`check_coverage.py` gates `init.sh`: every `applies` control must map to a `control-matrix.md`
+row with a real Verification.
+
+**Boundary:** the gate enforces **completeness** (a verification is mapped), NOT **adequacy**
+(that it is a good check). Adequacy stays with human review + sign-off. The skill decides
+*applicability*; you supply the *verification*. Selection quality is measured in `Security-kit/eval/`.
