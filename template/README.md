@@ -339,7 +339,7 @@ my-agent/
 │
 ├── Security-kit/          ← SECURITY KIT (generic, not domain-specific)
 │   ├── README.md
-│   ├── SECURITY.md         ·  40-control reference (source-tagged)
+│   ├── SECURITY.md         ·  41-control reference (source-tagged)
 │   ├── owasp-crosswalk.md  ·  OWASP LLM/Agentic → mechanism map
 │   ├── SECURITY-MANIFEST.md·  what is security vs non-security
 │   ├── control-matrix.md   ·  control → code → test → evidence             [FILL rows]

@@ -23,7 +23,7 @@ These exist only for security. A no-security build deletes them.
 | `governance/deny-list.json` | Hard-blocked patterns (policy) | ASI05 |
 | `governance/mcp-allowlist.json` | Tool + egress allowlist (policy) | LLM03, ASI02/03/04 |
 | `Harness-Best-Practice/observability/audit_hook.py` | PostToolUse audit adapter | ASI09/10 |
-| `Security-kit/SECURITY.md` | 40-control reference (source-tagged) | all |
+| `Security-kit/SECURITY.md` | 41-control reference (source-tagged) | all |
 | `Security-kit/` (this dir) | Kit navigation, control matrix, crosswalk | all |
 | `tests/test_fixtures.py`, `tests/fixtures.json` | Gate ground-truth tests | LLM06 |
 | `tests/test_e2e.py` | End-to-end enforcement proof | LLM06 |

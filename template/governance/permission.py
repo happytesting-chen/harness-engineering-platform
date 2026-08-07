@@ -3,7 +3,9 @@ Generic permission gate — the foundation layer.
 Sits OUTSIDE the model. The model cannot see, edit, or route around this.
 
 Three gates, evaluated in order (fail-closed):
-  1. Hard deny-list (loaded from deny-list.json)
+  1. Hard deny — command patterns (deny-list.json `patterns`) AND write targets
+     (deny-list.json `protected_paths`, enforcing S2.4: the agent may not edit
+     the mechanism or policy that constrains it)
   2. Phase gate (checks feature_list.json — is this tool allowed in the current phase?)
   3. Egress control (default-deny outbound to unlisted hosts)
 
@@ -11,6 +13,7 @@ To customise: edit deny-list.json and governance/mcp-allowlist.json.
 Do NOT modify this file per project — it's the mechanism, not the policy.
 """
 import json
+import os
 import re
 from pathlib import Path
 
@@ -63,6 +66,79 @@ def check_deny_list(command: str) -> str | None:
     return None
 
 
+# Write-target fields used by Claude Code's file-editing tools. A Write/Edit call
+# carries no "command", so the command-pattern loop above cannot see it — these are
+# where the *target* of a write lives.
+WRITE_TARGET_FIELDS = ("file_path", "notebook_path", "path")
+
+# Enforced even if deny-list.json omits `protected_paths` or is missing entirely.
+# S2.4 is a mechanism guarantee, so it must not be silently removable by editing
+# policy — that would be the very bypass this gate exists to prevent.
+BUILTIN_PROTECTED_PATHS = (
+    "governance/permission.py",
+    "governance/deny-list.json",
+    "governance/mcp-allowlist.json",
+    ".claude/settings.json",
+    "Security-kit/secret_scan.py",
+    "Security-kit/content_trust.py",
+    "Harness-Best-Practice/observability/audit_hook.py",
+    "Harness-Best-Practice/observability/audit.log",
+)
+
+
+def _resolve(path_str: str) -> Path:
+    """Resolve a possibly-relative, possibly-traversing path without touching disk.
+
+    `strict=False` + os.path.normpath means "../governance/permission.py" and an
+    absolute path to the same file both normalize to one comparable form, so
+    traversal cannot smuggle a write past the check. Non-existent parents are fine
+    — we are judging the *target*, which by definition may not exist yet.
+    """
+    raw = os.path.expanduser(path_str.strip())
+    p = Path(raw)
+    if not p.is_absolute():
+        p = PROJECT_ROOT / p
+    return Path(os.path.normpath(str(p)))
+
+
+def check_protected_paths(tool_input: dict) -> str | None:
+    """Gate 1b: block writes that target the harness's own mechanism or policy.
+
+    Implements S2.4. `check_deny_list` only inspects shell command strings, so a
+    Write/Edit/MultiEdit/NotebookEdit call — whose payload carries `file_path`
+    rather than `command` — was previously invisible to every gate. That let the
+    agent rewrite `permission.py` or `deny-list.json`, i.e. edit its own
+    constraints. This closes that path.
+
+    Matching is on resolved paths, so `../`, `./` and absolute forms all collapse
+    to the same target. Returns a reason string if denied, None if allowed.
+    """
+    if not isinstance(tool_input, dict):
+        return None
+
+    targets = [tool_input.get(f) for f in WRITE_TARGET_FIELDS]
+    targets = [t for t in targets if isinstance(t, str) and t.strip()]
+    if not targets:
+        return None
+
+    data = _load_json(DENY_LIST_PATH)
+    configured = data.get("protected_paths", [])
+    if not isinstance(configured, list):
+        configured = []
+    # Union, never override: policy may ADD protected paths but cannot remove the
+    # built-ins. Mechanism guarantees are not up for negotiation by policy.
+    patterns = list(BUILTIN_PROTECTED_PATHS) + [
+        p for p in configured if isinstance(p, str) and p.strip()
+    ]
+
+    for target in targets:
+        resolved = _resolve(target)
+        for rel in patterns:
+            if resolved == _resolve(rel):
+                return f"protected path (S2.4): refusing to write '{rel}'"
+    return None
+
+
 def check_phase_gate(tool_name: str) -> str | None:
     """Gate 2: is this tool allowed in the current active phase?
     Reads feature_list.json to find the active phase, then checks
@@ -111,11 +187,19 @@ def check_egress(command: str) -> str | None:
 def make_permission_check(auto_deny_on_ask=True):
     """Returns a permission_check(block) -> (allowed: bool, reason: str)."""
     def permission_check(block):
-        cmd = block.input.get("command", "")
+        tool_input = block.input if isinstance(block.input, dict) else {}
+        cmd = tool_input.get("command", "")
         tool = block.name
 
-        # Gate 1: hard deny
+        # Gate 1: hard deny — command patterns
         reason = check_deny_list(cmd)
+        if reason:
+            return False, reason
+
+        # Gate 1b: hard deny — write targets (S2.4). Runs for every tool: a
+        # write can arrive as Write/Edit/MultiEdit/NotebookEdit or as an MCP
+        # tool carrying a path, and none of those carry a "command".
+        reason = check_protected_paths(tool_input)
         if reason:
             return False, reason
 

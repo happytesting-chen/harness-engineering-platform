@@ -47,7 +47,7 @@ Sources (verified 2026-08-03):
 | ASI07 | Insecure Inter-Agent Communication | **[GAP]** base template is single-agent | Declare N/A; add controls in `control-matrix.md` if you add multi-agent |
 | ASI08 | Cascading Failures | **[MECH/APP]** fail-closed gates + 3-strike stop + `max_turns`; human sign-off between phases | `permission.py` (fail-closed), `CLAUDE.md` escalation, `Security-kit/SECURITY.md` §7 |
 | ASI09 | Human-Agent Trust Exploitation | **[MECH]** three human-in-the-loop checkpoints (phase sign-off, escalation, policy update); append-only audit | `feature_list.json` sign-off, `Harness-Best-Practice/observability/audit.py`, `Security-kit/SECURITY.md` §6 |
-| ASI10 | Rogue Agents | **[MECH]** append-only audit trail + agent cannot modify its own governance files; **[GUIDE]** review audit for drift | `Harness-Best-Practice/observability/audit.py`, `governance/` (immutable per policy), `Security-kit/SECURITY.md` S6.4–S6.5 |
+| ASI10 | Rogue Agents | **[MECH]** append-only audit trail; **[GAP]** the agent's own governance files are **not** write-protected in this build — S2.4 is advisory here (the template's Gate 1b closes this; not back-ported, see SECURITY.md S2.4 note); **[GUIDE]** review audit for drift | `Harness-Best-Practice/observability/audit.py`, `Security-kit/SECURITY.md` S2.4, S6.4–S6.5 |
 
 ---
 

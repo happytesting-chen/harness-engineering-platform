@@ -37,11 +37,23 @@ This document provides security guidance for developing AI agent systems. Each c
 | S2.1 | Tools are only available when explicitly listed in `mcp-allowlist.json` — default deny for unknown tools | `[AWS-LENS]` `[HARNESS]` |
 | S2.2 | Phase-gated tools require prerequisite phases to pass before unlocking — enforces sequential workflow | `[CSA-ADD]` `[HARNESS]` |
 | S2.3 | Limit agent to one active task at a time (WIP=1) — prevents unbounded scope expansion | `[CSA-ADD]` |
-| S2.4 | Agent cannot modify its own governance files (permission.py, deny-list.json, settings.json, hooks) — mechanism is immutable | `[AWS-LENS]` `[HARNESS]` |
+| S2.4 | Agent cannot modify its own governance files (permission.py, deny-list.json, mcp-allowlist.json, settings.json, hooks) — write targets are hard-denied by Gate 1b | `[AWS-LENS]` `[HARNESS]` |
 | S2.5 | Scope credentials per session — use short-lived tokens, not long-lived keys | `[AWS-LENS]` |
 | S2.6 | Limit transitive tool chains — if tool A can invoke tool B, both must be in the allowlist | `[CSA-ADD]` |
 
 **Template enforcement:** `governance/permission.py` Gate 2 (phase-gate) + `governance/mcp-allowlist.json` enforce tool boundaries mechanically. `[HARNESS]`
+
+**S2.4 enforcement and its limits.** Gate 1b (`check_protected_paths`) hard-denies any tool call whose write target resolves to a mechanism or policy file. Paths are compared **after** resolution, so `../`, `./` and absolute forms collapse to the same target; `Write`, `Edit`, `MultiEdit` and `NotebookEdit` are all covered (`file_path`, `notebook_path`, `path`). The protected list in `deny-list.json` is **additive only** — `BUILTIN_PROTECTED_PATHS` in `permission.py` is enforced even if the policy key is emptied or the file is deleted, so S2.4 cannot be switched off by editing policy. Proven by `tests/test_protected_paths.py`. `[HARNESS]`
+
+> **Residual gap — read before relying on this.** The shell vector is covered by
+> *pattern matching*, which is incomplete by construction. `deny-list.json` blocks the
+> common forms (`>`/`>>` redirect, `sed -i`, `tee`, `truncate`, `dd of=`, `chmod`/`mv`/`rm`),
+> but a determined bypass via an interpreter — e.g. `python3 -c` opening the file for
+> write — is **not** blocked, for the same reason the egress gate misses `urllib`
+> (see §3). Treat S2.4 as *strong against the file-editing tools and casual shell
+> writes, advisory against a scripting runtime*. Closing it properly requires
+> OS-level file ownership or Claude Code `permissions.deny` rules outside this gate.
+> `init.sh`'s integrity check detects tampering after the fact; it does not prevent it.
 
 ---
 

@@ -37,11 +37,28 @@ This document provides security guidance for developing AI agent systems. Each c
 | S2.1 | Tools are only available when explicitly listed in `mcp-allowlist.json` — default deny for unknown tools | `[AWS-LENS]` `[HARNESS]` |
 | S2.2 | Phase-gated tools require prerequisite phases to pass before unlocking — enforces sequential workflow | `[CSA-ADD]` `[HARNESS]` |
 | S2.3 | Limit agent to one active task at a time (WIP=1) — prevents unbounded scope expansion | `[CSA-ADD]` |
-| S2.4 | Agent cannot modify its own governance files (permission.py, deny-list.json, settings.json, hooks) — mechanism is immutable | `[AWS-LENS]` `[HARNESS]` |
+| S2.4 | Agent should not modify its own governance files (permission.py, deny-list.json, settings.json, hooks) — **advisory in this build**, see the note below | `[AWS-LENS]` |
 | S2.5 | Scope credentials per session — use short-lived tokens, not long-lived keys | `[AWS-LENS]` |
 | S2.6 | Limit transitive tool chains — if tool A can invoke tool B, both must be in the allowlist | `[CSA-ADD]` |
 
 **Template enforcement:** `governance/permission.py` Gate 2 (phase-gate) + `governance/mcp-allowlist.json` enforce tool boundaries mechanically. `[HARNESS]`
+
+> **S2.4 is NOT enforced in this build — it is advisory.** The row above previously read
+> "mechanism is immutable" and was tagged `[HARNESS]`, which was false: `check_deny_list`
+> inspects the shell *command* string, but a `Write`/`Edit`/`MultiEdit`/`NotebookEdit`
+> payload carries `file_path` and no `command`, so a file-editing call targeting
+> `governance/permission.py` was invisible to every gate. The `[HARNESS]` tag has been
+> removed rather than left overclaiming.
+>
+> The template has since closed this with **Gate 1b** (`check_protected_paths` +
+> `protected_paths` in `deny-list.json`; see `template/governance/permission.py` and
+> `template/tests/test_protected_paths.py`). It is deliberately **not** back-ported here:
+> phases 01–03 are human-signed-off against a frozen `38 passed` baseline, and changing
+> the mechanism would invalidate that evidence. Back-porting is a phase-04 decision
+> requiring sign-off — the agent does not self-promote a mechanism change.
+>
+> Until then, treat S2.4 in this build as a *steering* instruction, and rely on
+> `init.sh`'s integrity check, which detects tampering after the fact.
 
 ---
 

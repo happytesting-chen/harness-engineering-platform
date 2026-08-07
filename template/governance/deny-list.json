@@ -1,5 +1,5 @@
 {
-  "_comment": "Hard-deny patterns. Blocked regardless of phase or authorization. Add domain-specific patterns below.",
+  "_comment": "Hard-deny policy. Two independent keys: `patterns` matches shell COMMAND strings; `protected_paths` matches the TARGET of a file write (Write/Edit/MultiEdit/NotebookEdit). Both are checked by Gate 1. Add domain-specific entries below.",
   "_guidance": "These are catastrophic-only defaults. Review and extend for your domain.",
   "patterns": [
     "rm -rf /",
@@ -7,6 +7,34 @@
     "> /dev/",
     ":(){ :|:& };:",
     "shutdown",
-    "reboot"
+    "reboot",
+    {
+      "_note": "S2.4 shell vector: a file_path check cannot see a shell redirect or in-place edit, so block the obvious command forms that target the harness's own mechanism/policy. Pattern-based and therefore incomplete by nature - see SECURITY.md S2.4 for the residual gap.",
+      "pattern": ">>?\\s*[^|;&]*(governance/(permission\\.py|deny-list\\.json|mcp-allowlist\\.json)|\\.claude/settings\\.json)",
+      "mode": "regex"
+    },
+    {
+      "pattern": "(sed|perl|awk)\\s+[^|;&]*-i[^|;&]*(governance/|\\.claude/settings\\.json|Security-kit/)",
+      "mode": "regex"
+    },
+    {
+      "pattern": "(tee|truncate|dd\\s+of=)\\s*[^|;&]*(governance/|\\.claude/settings\\.json|Security-kit/)",
+      "mode": "regex"
+    },
+    {
+      "pattern": "(chmod|chown|rm|mv)\\s+[^|;&]*(governance/|\\.claude/settings\\.json|Security-kit/(secret_scan|content_trust)\\.py)",
+      "mode": "regex"
+    }
+  ],
+  "_protected_paths_note": "Write targets the agent may never modify - the mechanism and policy that constrain it (S2.4). Paths are project-root-relative and compared AFTER resolution, so '../', './' and absolute forms cannot smuggle a write past the check. ADDITIVE: permission.py enforces BUILTIN_PROTECTED_PATHS unconditionally, so deleting an entry here (or this whole key) does not unprotect it. Add project-specific files you want frozen.",
+  "protected_paths": [
+    "governance/permission.py",
+    "governance/deny-list.json",
+    "governance/mcp-allowlist.json",
+    ".claude/settings.json",
+    "Security-kit/secret_scan.py",
+    "Security-kit/content_trust.py",
+    "Harness-Best-Practice/observability/audit_hook.py",
+    "Harness-Best-Practice/observability/audit.log"
   ]
 }

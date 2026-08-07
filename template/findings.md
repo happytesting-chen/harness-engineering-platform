@@ -6,7 +6,7 @@ Make Security-kit an *active* part of the template that connects the AI product
 tailors controls to the specific product rather than sitting passive.
 
 ## How Security-kit works TODAY (verified by reading files, 2026-08-04)
-- **Passive reference:** `SECURITY.md` (40 controls, source-tagged AWS/CSA/OWASP/HARNESS),
+- **Passive reference:** `SECURITY.md` (41 controls, source-tagged AWS/CSA/OWASP/HARNESS),
   `owasp-crosswalk.md` (LLM01-10 + ASI01-10 → mechanism, tagged [MECH]/[GUIDE]/[APP]/[GAP]),
   `SECURITY-MANIFEST.md` (security vs non-security inventory, 3 tiers).
 - **Manual evidence:** `control-matrix.md` — human fills rows: Control ID | objective |
@@ -17,7 +17,7 @@ tailors controls to the specific product rather than sitting passive.
   PostToolUse → audit. `init.sh` has a "Security-kit integrity" gate (block 5b).
 - **Closest existing integration:** `/init-project` command reads Context/, drafts harness
   files, touches control-matrix "one row per trust boundary." But does NOT reason about
-  WHICH of the 40 controls apply — that's the gap.
+  WHICH of the 41 controls apply — that's the gap.
 
 ## Gap this addresses
 Nothing actively maps "this product" → "these controls apply / these are gaps." The

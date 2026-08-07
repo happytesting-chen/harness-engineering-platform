@@ -108,12 +108,14 @@ Stated plainly, because a security control you misunderstand is worse than none.
 - **Only write/exec tools are gated.** The `PreToolUse` matcher covers
   `Bash|Write|Edit|MultiEdit|NotebookEdit`. `Read`, `Grep`, `Glob`, `WebFetch` and `Task`
   are **not** gated.
-- **The deny-list only inspects shell command strings.** `check_deny_list` reads the
-  `command` field, which `Write`/`Edit` calls do not have — so deny-list patterns cannot
-  protect a *file path*. Nothing in the default gate stops the agent from editing
-  `permission.py` or the policy JSON. Protecting those needs a permission rule or file
-  ownership outside this gate; `init.sh`'s integrity check detects tampering after the
-  fact rather than preventing it.
+- **The agent cannot edit its own gate — except through a scripting runtime.** Writes
+  targeting `permission.py`, the policy JSON, `settings.json` or the hook scripts are
+  hard-denied by Gate 1b, on the *resolved* path (so `../` and absolute forms cannot
+  smuggle one past), and the built-in list is enforced even if the policy key is emptied
+  or `deny-list.json` is deleted. The shell route is covered only by patterns
+  (`>`/`>>`, `sed -i`, `tee`, `chmod`, `mv`, …), and one vector is measured as open:
+  `python3 -c` opening the file for write — the same hole as Gate 3's `urllib` bypass.
+  Closing it needs OS file ownership or Claude Code `permissions.deny`.
 - **Gate 3 is a command-string check, not network enforcement.** It looks for five tokens
   (`curl `, `wget `, `nc `, `ssh `, `nmap `) in a `Bash` command and allows the call if an
   allowlisted host appears as a substring. A Python one-liner using `urllib`, or a
