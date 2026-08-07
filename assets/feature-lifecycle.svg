@@ -1,0 +1,103 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1100" height="440" viewBox="0 0 1100 440" role="img" aria-labelledby="t d">
+  <title id="t">The feature triple and phase state machine: an agent cannot self-declare a phase passing</title>
+  <desc id="d">Every feature carries a triple: an observable behavior, an exact verification command, and a state. States move from not-started to active to passing, with active and blocked able to swap. The edge from active to passing is guarded by two conditions: the verification command must exit 0, and a human sign-off must be recorded in the evidence field. A struck-through arrow from the agent directly to passing is labelled: the agent cannot do this. A side panel shows the real phase-02 triple from the claims-build example.</desc>
+
+  <rect width="1100" height="440" fill="#ffffff"/>
+
+  <defs>
+    <marker id="a2" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse">
+      <path d="M 0 0 L 10 5 L 0 10 z" fill="#57606a"/>
+    </marker>
+    <marker id="a2g" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse">
+      <path d="M 0 0 L 10 5 L 0 10 z" fill="#1a7f37"/>
+    </marker>
+    <marker id="a2r" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse">
+      <path d="M 0 0 L 10 5 L 0 10 z" fill="#cf222e"/>
+    </marker>
+  </defs>
+
+  <style>
+    text { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Helvetica, Arial, sans-serif; fill: #1f2328; }
+    .h  { font-size: 16px; font-weight: 700; }
+    .b  { font-size: 12.5px; font-weight: 700; }
+    .st { font-size: 13px; font-weight: 700; }
+    .s  { font-size: 11px; fill: #57606a; }
+    .m  { font-size: 10.5px; font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace; fill: #57606a; }
+    .g  { font-size: 10.5px; fill: #1a7f37; font-weight: 700; }
+    .r  { font-size: 11px; fill: #cf222e; font-weight: 700; }
+    .idle  { fill: #f6f8fa; stroke: #57606a; stroke-width: 1.4; }
+    .act   { fill: #ddf4ff; stroke: #0969da; stroke-width: 1.8; }
+    .blk   { fill: #fff8c5; stroke: #9a6700; stroke-width: 1.6; }
+    .pass  { fill: #dafbe1; stroke: #1a7f37; stroke-width: 2; }
+    .panel { fill: #f6f8fa; stroke: #d0d7de; stroke-width: 1.2; }
+    .trip  { fill: #ffffff; stroke: #0969da; stroke-width: 1.4; }
+    .flow  { stroke: #57606a; stroke-width: 1.6; fill: none; }
+    .gflow { stroke: #1a7f37; stroke-width: 2; fill: none; }
+    .kill  { stroke: #cf222e; stroke-width: 1.6; fill: none; stroke-dasharray: 5 4; }
+  </style>
+
+  <text class="h" x="20" y="30">A feature is not a memo. It is a triple the scheduler, verifier and handoff all read.</text>
+
+  <!-- the triple -->
+  <rect class="trip" x="20" y="50" width="200" height="46" rx="4"/>
+  <text class="b" x="120" y="70" text-anchor="middle">behavior</text>
+  <text class="s" x="120" y="87" text-anchor="middle">observable outcome</text>
+
+  <text class="b" x="234" y="79" text-anchor="middle">·</text>
+
+  <rect class="trip" x="248" y="50" width="220" height="46" rx="4"/>
+  <text class="b" x="358" y="70" text-anchor="middle">verification command</text>
+  <text class="s" x="358" y="87" text-anchor="middle">exact shell command, exit 0 = pass</text>
+
+  <text class="b" x="482" y="79" text-anchor="middle">·</text>
+
+  <rect class="trip" x="496" y="50" width="160" height="46" rx="4"/>
+  <text class="b" x="576" y="70" text-anchor="middle">state</text>
+  <text class="s" x="576" y="87" text-anchor="middle">machine-readable</text>
+
+  <!-- state machine -->
+  <rect class="idle" x="40" y="176" width="140" height="56" rx="28"/>
+  <text class="st" x="110" y="200" text-anchor="middle">not-started</text>
+  <text class="s" x="110" y="217" text-anchor="middle">queued</text>
+
+  <rect class="act" x="260" y="176" width="140" height="56" rx="28"/>
+  <text class="st" x="330" y="200" text-anchor="middle">active</text>
+  <text class="s" x="330" y="217" text-anchor="middle">WIP = 1</text>
+
+  <rect class="blk" x="260" y="300" width="140" height="52" rx="26"/>
+  <text class="st" x="330" y="323" text-anchor="middle">blocked</text>
+  <text class="s" x="330" y="340" text-anchor="middle">reason in progress.md</text>
+
+  <rect class="pass" x="600" y="176" width="140" height="56" rx="28"/>
+  <text class="st" x="670" y="200" text-anchor="middle">passing</text>
+  <text class="s" x="670" y="217" text-anchor="middle">evidence recorded</text>
+
+  <line class="flow" x1="180" y1="204" x2="256" y2="204" marker-end="url(#a2)"/>
+  <text class="s" x="218" y="196" text-anchor="middle">one at a time</text>
+
+  <path class="flow" d="M 312 232 L 312 296" marker-end="url(#a2)"/>
+  <path class="flow" d="M 348 296 L 348 232" marker-end="url(#a2)"/>
+  <text class="s" x="410" y="270">blocked and back — never</text>
+  <text class="s" x="410" y="285">silently skipped</text>
+
+  <line class="gflow" x1="400" y1="204" x2="596" y2="204" marker-end="url(#a2g)"/>
+  <text class="g" x="498" y="168" text-anchor="middle">GUARD — both required</text>
+  <text class="g" x="498" y="196" text-anchor="middle">verification exits 0</text>
+  <text class="g" x="498" y="226" text-anchor="middle">AND human sign-off in evidence</text>
+
+  <!-- the forbidden edge -->
+  <rect class="idle" x="600" y="300" width="140" height="52" rx="4"/>
+  <text class="b" x="670" y="323" text-anchor="middle">the agent</text>
+  <text class="s" x="670" y="340" text-anchor="middle">wants to say "done"</text>
+
+  <path class="kill" d="M 670 300 L 670 236" marker-end="url(#a2r)"/>
+  <line x1="640" y1="280" x2="700" y2="256" stroke="#cf222e" stroke-width="2.4"/>
+  <line x1="640" y1="256" x2="700" y2="280" stroke="#cf222e" stroke-width="2.4"/>
+  <text class="r" x="756" y="272">the agent cannot do this</text>
+  <text class="s" x="756" y="290">the model's standard is not your standard</text>
+
+  <!-- side panel: real example -->
+  <rect class="panel" x="20" y="374" width="1060" height="52" rx="4"/>
+  <text class="b" x="34" y="393">Real example — <tspan font-family="ui-monospace, SFMono-Regular, Menlo, Consolas, monospace" font-size="11.5">examples/claims-build</tspan> phase-02, status <tspan fill="#1a7f37">passing</tspan></text>
+  <text class="m" x="34" y="411">verification: ./init.sh &amp;&amp; python3 -m pytest tests claims/tests -v   ·   evidence: "38 passed … Human sign-off recorded 2026-08-04."</text>
+</svg>
