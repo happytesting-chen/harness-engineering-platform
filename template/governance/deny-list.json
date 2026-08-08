@@ -1,5 +1,5 @@
 {
-  "_comment": "Hard-deny policy. Two independent keys: `patterns` matches shell COMMAND strings; `protected_paths` matches the TARGET of a file write (Write/Edit/MultiEdit/NotebookEdit). Both are checked by Gate 1. Add domain-specific entries below.",
+  "_comment": "Hard-deny policy. Two independent keys: `patterns` matches shell COMMAND strings; `protected_paths` matches the TARGET of a file write (Write/Edit/MultiEdit/NotebookEdit). `protected_paths` is Gate 1a, `patterns` is Gate 1b. Add domain-specific entries below.",
   "_guidance": "These are catastrophic-only defaults. Review and extend for your domain.",
   "patterns": [
     "rm -rf /",
@@ -26,7 +26,7 @@
       "mode": "regex"
     }
   ],
-  "_protected_paths_note": "Write targets the agent may never modify - the mechanism and policy that constrain it (S2.4). Paths are project-root-relative and compared AFTER resolution, so '../', './' and absolute forms cannot smuggle a write past the check. ADDITIVE: permission.py enforces BUILTIN_PROTECTED_PATHS unconditionally, so deleting an entry here (or this whole key) does not unprotect it. Add project-specific files you want frozen.",
+  "_protected_paths_note": "Write targets the agent may never modify - the mechanism and policy that constrain it (S2.4). Paths are project-root-relative and compared by file IDENTITY, so '../', './', absolute forms, symlinks and (on macOS/Windows) case variants all resolve to the same target and cannot smuggle a write past the check. ADDITIVE: permission.py enforces BUILTIN_PROTECTED_PATHS unconditionally, so deleting an entry here (or this whole key) does not unprotect it. Add project-specific files you want frozen.",
   "protected_paths": [
     "governance/permission.py",
     "governance/deny-list.json",

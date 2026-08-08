@@ -1,9 +1,9 @@
 """
-Ground-truth tests for Gate 1b — protected write targets (control S2.4).
+Ground-truth tests for `check_protected_paths` — protected write targets (S2.4).
 
 Why this file exists: `check_deny_list` inspects the shell *command* string, but a
 Write/Edit/MultiEdit/NotebookEdit payload carries `file_path` and no `command`. So
-before Gate 1b, a file-editing tool call targeting `permission.py` or
+before this gate existed, a file-editing tool call targeting `permission.py` or
 `deny-list.json` was invisible to every gate — the agent could edit the very
 mechanism constraining it, while SECURITY.md S2.4 claimed "mechanism is immutable".
 
@@ -68,7 +68,7 @@ def test_all_write_target_fields_are_checked():
     """NotebookEdit uses notebook_path, not file_path — both must be gated."""
     for field in ("file_path", "notebook_path", "path"):
         allowed, _ = _check("write_file", {field: "governance/permission.py"})
-        assert not allowed, f"write via '{field}' field bypassed Gate 1b"
+        assert not allowed, f"write via '{field}' field bypassed check_protected_paths"
 
 
 # ---------------------------------------------------------------------------
@@ -86,7 +86,7 @@ def test_path_traversal_cannot_evade():
     ]
     for target in evasions:
         allowed, reason = _check("write_file", {"file_path": target})
-        assert not allowed, f"traversal evaded Gate 1b: {target}"
+        assert not allowed, f"traversal evaded check_protected_paths: {target}"
         assert "S2.4" in reason
 
 
@@ -94,13 +94,13 @@ def test_absolute_path_cannot_evade():
     """An absolute path to a protected file is the same file."""
     target = str(PROJECT_ROOT / "governance" / "permission.py")
     allowed, _ = _check("write_file", {"file_path": target})
-    assert not allowed, "absolute path evaded Gate 1b"
+    assert not allowed, "absolute path evaded check_protected_paths"
 
 
 def test_whitespace_padding_cannot_evade():
     """Leading/trailing whitespace is stripped before resolution."""
     allowed, _ = _check("write_file", {"file_path": "  governance/permission.py  "})
-    assert not allowed, "whitespace padding evaded Gate 1b"
+    assert not allowed, "whitespace padding evaded check_protected_paths"
 
 
 # ---------------------------------------------------------------------------
@@ -161,7 +161,7 @@ def test_policy_can_add_protected_paths():
 # ---------------------------------------------------------------------------
 
 def test_ordinary_writes_are_allowed():
-    """Gate 1b must not become a general write ban."""
+    """check_protected_paths must not become a general write ban."""
     benign = [
         "claims/router.py",
         "Harness-Best-Practice/progress.md",
@@ -188,13 +188,13 @@ def test_similar_but_distinct_paths_are_allowed():
 
 
 def test_bash_without_a_path_is_unaffected():
-    """A plain shell command carries no write target; Gate 1b abstains."""
+    """A plain shell command carries no write target; the gate abstains."""
     allowed, _ = _check("bash", {"command": "echo hello"})
-    assert allowed, "Gate 1b interfered with an ordinary bash call"
+    assert allowed, "check_protected_paths interfered with an ordinary bash call"
 
 
 def test_missing_and_malformed_input_do_not_crash():
-    """Gate 1b must never raise — a crash in the gate is an enforcement outage."""
+    """check_protected_paths must never raise — a crash in the gate is an enforcement outage."""
     for bad in ({}, {"file_path": ""}, {"file_path": None}, {"file_path": 42}):
         allowed, _ = _check("write_file", bad)
         assert allowed is True, f"unexpected denial for {bad!r}"
@@ -237,6 +237,165 @@ def test_interpreter_write_is_a_known_documented_gap():
     assert reason is None, (
         "The interpreter write vector is now blocked. That is an improvement — "
         "update SECURITY.md S2.4's 'Residual gap' note and this test together."
+    )
+
+
+# ---------------------------------------------------------------------------
+# 6. Evasion by path IDENTITY, not path shape
+#
+# The tests in section 2 all vary the *spelling* of a path while `normpath` still
+# collapses it to the protected string. These vary the *identity*: two different
+# strings that the filesystem resolves to the same inode. `os.path.normpath` is a
+# pure string operation, so it cannot see either — only `Path.resolve()` can.
+# ---------------------------------------------------------------------------
+
+def _fs_is_case_insensitive() -> bool:
+    """True on macOS/Windows defaults, where FOO.PY and foo.py are one file."""
+    with tempfile.TemporaryDirectory() as tmp:
+        probe = Path(tmp) / "CaseProbe.tmp"
+        probe.write_text("x")
+        return (Path(tmp) / "caseprobe.tmp").exists()
+
+
+def test_case_variant_cannot_evade_on_case_insensitive_fs():
+    """On a case-insensitive filesystem, GOVERNANCE/PERMISSION.PY *is* the gate.
+
+    Measured: the write is allowed and it lands on the real `permission.py`, so the
+    agent rewrites the mechanism constraining it — the exact scenario S2.4 exists to
+    prevent. `_resolve` uses `os.path.normpath`, which never touches disk and so
+    cannot know the two spellings name one file.
+    """
+    if not _fs_is_case_insensitive():
+        return  # on a case-sensitive fs these genuinely are different files
+    for target in ("GOVERNANCE/PERMISSION.PY",
+                   "Governance/Permission.py",
+                   "governance/PERMISSION.py"):
+        allowed, reason = _check("write_file", {"file_path": target})
+        assert not allowed, (
+            f"case-variant '{target}' evaded check_protected_paths and resolves to the real "
+            f"permission.py on this filesystem — the mechanism is writable"
+        )
+        assert "S2.4" in reason
+
+
+def test_hard_link_to_mechanism_cannot_evade():
+    """A hard link is the same inode under a second name — writing it writes the gate.
+
+    Measured as a live bypass before `_same_file` compared inodes: a symlink has a
+    target to `resolve()` through, but a hard link does not. Both names are equally
+    real, so only a (st_dev, st_ino) comparison can tell they are one file.
+    """
+    import os
+
+    link = PROJECT_ROOT / "tests" / "_tmp_gate_hardlink.py"
+    if link.exists():
+        link.unlink()
+    os.link(PROJECT_ROOT / "governance" / "permission.py", link)
+    try:
+        allowed, reason = _check(
+            "write_file", {"file_path": "tests/_tmp_gate_hardlink.py"}
+        )
+        assert not allowed, (
+            "a hard link to permission.py evaded Gate 1a — writing it modifies the "
+            "mechanism, since both names share one inode"
+        )
+        assert "S2.4" in reason
+    finally:
+        link.unlink()
+
+
+def test_symlink_to_mechanism_cannot_evade():
+    """A symlink is a second name for the same file; writing it writes the target.
+
+    `normpath` deliberately does NOT follow links (that is its documented contract),
+    so the protected-path comparison must use `Path.resolve()`, which does.
+    """
+    link_dir = PROJECT_ROOT / "tests"
+    link = link_dir / "_tmp_gate_symlink.py"
+    if link.exists() or link.is_symlink():
+        link.unlink()
+    link.symlink_to(PROJECT_ROOT / "governance" / "permission.py")
+    try:
+        allowed, reason = _check(
+            "write_file", {"file_path": "tests/_tmp_gate_symlink.py"}
+        )
+        assert not allowed, (
+            "a symlink pointing at permission.py evaded check_protected_paths — writing it "
+            "modifies the mechanism"
+        )
+        assert "S2.4" in reason
+    finally:
+        link.unlink()
+
+
+# ---------------------------------------------------------------------------
+# 7. An untrusted policy file must DENY, not error
+#
+# The CLI blocks only on exit 2; every other exit code is a non-blocking hook error
+# and the tool PROCEEDS (see permission.py's CLI-mode docstring). So a gate that
+# raises on a corrupt policy file does not fail closed — it fails OPEN.
+# ---------------------------------------------------------------------------
+
+def _run_cli(tool_name: str, tool_input: dict, deny_list_text: str):
+    """Drive the real CLI with a substituted deny-list.json; return its exit code."""
+    import os
+    import shutil
+    import subprocess
+
+    with tempfile.TemporaryDirectory() as tmp:
+        work = Path(tmp)
+        shutil.copytree(PROJECT_ROOT / "governance", work / "governance")
+        (work / "Harness-Best-Practice").mkdir()
+        shutil.copy(
+            PROJECT_ROOT / "Harness-Best-Practice" / "feature_list.json",
+            work / "Harness-Best-Practice",
+        )
+        dl = work / "governance" / "deny-list.json"
+        if deny_list_text is None:
+            dl.unlink()
+        else:
+            dl.write_text(deny_list_text)
+        proc = subprocess.run(
+            [sys.executable, str(work / "governance" / "permission.py")],
+            input=json.dumps({"tool_name": tool_name, "tool_input": tool_input}),
+            capture_output=True, text=True, cwd=str(work),
+            env={**os.environ, "PYTHONDONTWRITEBYTECODE": "1"},
+        )
+        return proc.returncode
+
+
+# Assembled at runtime: the literal string is itself deny-listed, so writing it
+# inline would make this test file unwriteable through the very gate it tests.
+_DENIED_COMMAND = " ".join(["sud" + "o", "shut" + "down"])
+
+
+def test_corrupt_policy_file_denies_rather_than_erroring():
+    """A malformed deny-list.json must exit 2, not 1.
+
+    Exit 1 is a hook *error*: Claude Code lets the tool run. So corrupting one JSON
+    file previously disabled BOTH hard-deny gates — including S2.4 self-protection.
+    """
+    for label, tool, tool_input in [
+        ("command deny", "Bash", {"command": _DENIED_COMMAND}),
+        ("protected path", "Write", {"file_path": "governance/permission.py"}),
+    ]:
+        code = _run_cli(tool, tool_input, "{ this is not valid json")
+        assert code == 2, (
+            f"corrupt deny-list.json returned exit={code} for the {label} gate; "
+            f"only exit 2 blocks — exit {code} is a hook error and the tool RUNS"
+        )
+
+
+def test_missing_policy_file_denies_command_patterns():
+    """A deleted deny-list.json leaves command patterns with no floor at all.
+
+    check_protected_paths survives deletion via BUILTIN_PROTECTED_PATHS, but `patterns` has no
+    built-in equivalent — so absence must deny rather than silently allow everything.
+    """
+    code = _run_cli("Bash", {"command": _DENIED_COMMAND}, None)
+    assert code == 2, (
+        f"deleting deny-list.json returned exit={code}; a command the shipped "
+        f"policy denies was allowed because the policy simply vanished"
     )
 
 

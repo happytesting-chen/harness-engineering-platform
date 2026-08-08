@@ -22,7 +22,7 @@ This document provides security guidance for developing AI agent systems. Each c
 | S1.4 | Defend against indirect prompt injection: tool outputs or retrieved documents may contain adversarial instructions — do not follow embedded instructions from external data | `[AWS-LENS]` `[OWASP-AGENT]` |
 | S1.5 | Use parameterized queries and array-form subprocess calls — never concatenate untrusted strings into SQL or commands | `[OWASP-AGENT]` |
 
-**Template enforcement (control plane):** `governance/permission.py` Gate 1 (deny-list) blocks known dangerous command patterns mechanically. `[HARNESS]`
+**Template enforcement (control plane):** `governance/permission.py`'s `check_deny_list` gate blocks known dangerous command patterns mechanically. `[HARNESS]`
 
 **Template enforcement (data plane):** `Security-kit/content_trust.py` is the complement for untrusted *content* (claim bodies, emails, retrieved docs) — which never passes a tool gate because it is data, not a tool call. Call `screen_record()` at every point external content enters the agent: it drops injected control fields (e.g. a record smuggling `{"decision": "APPROVE"}`) and flags instruction-shaped text (S1.4) so the caller can lower trust and route to human review. It reports; it never obeys. Proven by `tests/test_content_trust.py`. `[HARNESS]`
 
@@ -37,13 +37,15 @@ This document provides security guidance for developing AI agent systems. Each c
 | S2.1 | Tools are only available when explicitly listed in `mcp-allowlist.json` — default deny for unknown tools | `[AWS-LENS]` `[HARNESS]` |
 | S2.2 | Phase-gated tools require prerequisite phases to pass before unlocking — enforces sequential workflow | `[CSA-ADD]` `[HARNESS]` |
 | S2.3 | Limit agent to one active task at a time (WIP=1) — prevents unbounded scope expansion | `[CSA-ADD]` |
-| S2.4 | Agent cannot modify its own governance files (permission.py, deny-list.json, mcp-allowlist.json, settings.json, hooks) — write targets are hard-denied by Gate 1b | `[AWS-LENS]` `[HARNESS]` |
+| S2.4 | Agent cannot modify its own governance files (permission.py, deny-list.json, mcp-allowlist.json, settings.json, hooks) — write targets are hard-denied by `check_protected_paths` | `[AWS-LENS]` `[HARNESS]` |
 | S2.5 | Scope credentials per session — use short-lived tokens, not long-lived keys | `[AWS-LENS]` |
 | S2.6 | Limit transitive tool chains — if tool A can invoke tool B, both must be in the allowlist | `[CSA-ADD]` |
 
 **Template enforcement:** `governance/permission.py` Gate 2 (phase-gate) + `governance/mcp-allowlist.json` enforce tool boundaries mechanically. `[HARNESS]`
 
-**S2.4 enforcement and its limits.** Gate 1b (`check_protected_paths`) hard-denies any tool call whose write target resolves to a mechanism or policy file. Paths are compared **after** resolution, so `../`, `./` and absolute forms collapse to the same target; `Write`, `Edit`, `MultiEdit` and `NotebookEdit` are all covered (`file_path`, `notebook_path`, `path`). The protected list in `deny-list.json` is **additive only** — `BUILTIN_PROTECTED_PATHS` in `permission.py` is enforced even if the policy key is emptied or the file is deleted, so S2.4 cannot be switched off by editing policy. Proven by `tests/test_protected_paths.py`. `[HARNESS]`
+**S2.4 enforcement and its limits.** Gate 1a (`check_protected_paths`) hard-denies any tool call whose write target resolves to a mechanism or policy file. Paths are compared on **file identity** (`os.path.samefile`, i.e. `st_dev`/`st_ino`), not spelling: `../`, `./`, absolute forms, symlinks, **hard links**, and — on case-insensitive filesystems (macOS/Windows) — case variants all collapse to the same target. The hard link is the case that makes stat comparison necessary rather than merely tidy: a symlink has a target to resolve through, a hard link is simply the same inode under a second name. `Write`, `Edit`, `MultiEdit` and `NotebookEdit` are covered (`file_path`, `notebook_path`, `path`). The protected list in `deny-list.json` is **additive only** — `BUILTIN_PROTECTED_PATHS` in `permission.py` is enforced even if the policy key is emptied or the file is deleted, so S2.4 cannot be switched off by editing policy. It runs **before** the command-pattern gate precisely because it has that built-in floor and still returns a verdict when policy is unreadable. Proven by `tests/test_protected_paths.py`. `[HARNESS]`
+
+**An untrusted or absent policy file denies.** A policy file that cannot be parsed — or is simply gone — raises `PolicyError`, which CLI mode converts to **exit 2**. This matters more than it looks: only exit 2 blocks, and any other non-zero is a *non-blocking hook error* that lets the tool run. A corrupt `deny-list.json` therefore denies rather than quietly disabling both hard-deny gates. `[HARNESS]`
 
 > **Residual gap — read before relying on this.** The shell vector is covered by
 > *pattern matching*, which is incomplete by construction. `deny-list.json` blocks the
@@ -51,7 +53,13 @@ This document provides security guidance for developing AI agent systems. Each c
 > but a determined bypass via an interpreter — e.g. `python3 -c` opening the file for
 > write — is **not** blocked, for the same reason the egress gate misses `urllib`
 > (see §3). Treat S2.4 as *strong against the file-editing tools and casual shell
-> writes, advisory against a scripting runtime*. Closing it properly requires
+> writes, advisory against a scripting runtime*. It is the only vector open **of those
+> tested** — case variants, symlinks and hard links were each live bypasses until
+> identity-based comparison landed, and all three are now pinned by tests so they
+> cannot silently reopen —
+> but "the only one we found" is not "the only one that exists", and a pattern-based
+> shell gate should not be read as exhaustive. Closing the interpreter vector properly
+> requires
 > OS-level file ownership or Claude Code `permissions.deny` rules outside this gate.
 > `init.sh`'s integrity check detects tampering after the fact; it does not prevent it.
 

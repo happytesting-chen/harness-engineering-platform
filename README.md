@@ -93,13 +93,18 @@ audit flush and a stale-`progress.md` warning).
 
 | Gate | What it reads | Scope | On denial |
 |---|---|---|---|
-| **1 — deny-list** | `governance/deny-list.json` | shell **command strings** only | exit 2, unconditional |
+| **1a — protected paths** | `BUILTIN_PROTECTED_PATHS` + `protected_paths` in `governance/deny-list.json` | the **write target** of any tool (`file_path`, `notebook_path`, `path`) | exit 2, and **not disableable by policy** |
+| **1b — deny-list** | `patterns` in `governance/deny-list.json` | shell **command strings** only | exit 2, unconditional |
 | **2 — phase-gate** | `Harness-Best-Practice/feature_list.json` + `governance/mcp-allowlist.json` | all 5 gated tools | exit 2 until the prerequisite phase is signed off |
 | **3 — egress** | `egress_hosts` in `governance/mcp-allowlist.json` | **`Bash` commands only** | exit 2 if the target host is not allowlisted |
 
-First denial wins. The gate fails closed on empty or malformed input. Policy lives in
-JSON, mechanism lives in `permission.py`, and the two are kept separate so a project
-tailors policy without ever touching the enforcement code.
+First denial wins. The gate fails closed on empty or malformed input, and on an
+unreadable policy file: a corrupt or deleted `deny-list.json` exits 2 rather than
+silently matching nothing. (That distinction is load-bearing — Claude Code blocks
+*only* on exit 2 and lets the tool run on any other non-zero, so a gate that crashed
+would fail open.) Policy lives in JSON, mechanism lives in `permission.py`, and the two
+are kept separate so a project tailors policy without ever touching the enforcement
+code.
 
 ### The feature triple
 
@@ -123,7 +128,7 @@ promote its own phase.** "Mostly done" is not representable.
 - **Mechanism is separated from policy** — `permission.py` is the engine, the JSON files
   are the policy, and `init.sh` verifies the kit is still wired so it cannot be *silently*
   stripped while the health check still reports PASS.
-- **The agent cannot rewrite its own gate** — Gate 1b hard-denies writes whose target
+- **The agent cannot rewrite its own gate** — Gate 1a hard-denies writes whose target
   resolves to the mechanism or policy (`permission.py`, the policy JSON, `settings.json`,
   the hook scripts), and the built-in list stays enforced even if the policy key is emptied
   or deleted, so it cannot be switched off by editing policy. One measured exception is in
@@ -152,8 +157,9 @@ Stated plainly, because a security control you misunderstand is worse than none.
   are **not** gated.
 - **The agent cannot edit its own gate — except through a scripting runtime.** Writes
   targeting `permission.py`, the policy JSON, `settings.json` or the hook scripts are
-  hard-denied by Gate 1b, on the *resolved* path (so `../` and absolute forms cannot
-  smuggle one past), and the built-in list is enforced even if the policy key is emptied
+  hard-denied by Gate 1a, matched on the target's *identity* rather than its spelling —
+  `../`, absolute forms, symlinks, hard links and (on macOS/Windows) case variants all
+  resolve to the same file — and the built-in list is enforced even if the policy key is emptied
   or `deny-list.json` is deleted. The shell route is covered only by patterns
   (`>`/`>>`, `sed -i`, `tee`, `chmod`, `mv`, …), and one vector is measured as open:
   `python3 -c` opening the file for write — the same hole as Gate 3's `urllib` bypass.
