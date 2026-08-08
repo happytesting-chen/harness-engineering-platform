@@ -58,7 +58,8 @@ def _load_case(case_dir: Path) -> tuple:
 
 if __name__ == "__main__":
     recorded = Path(sys.argv[1]) if len(sys.argv) > 1 else Path(__file__).parent / "recorded"
-    cases = [_load_case(d) for d in sorted(recorded.iterdir()) if (d / "coverage.json").is_file()]
+    cases = ([_load_case(d) for d in sorted(recorded.iterdir()) if (d / "coverage.json").is_file()]
+             if recorded.is_dir() else [])
     if not cases:
         print(f"no recorded cases in {recorded} — run the skill and record outputs first")
         sys.exit(2)
