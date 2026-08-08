@@ -1,6 +1,6 @@
 <svg xmlns="http://www.w3.org/2000/svg" width="1100" height="620" viewBox="0 0 1100 620" role="img" aria-labelledby="t d">
-  <title id="t">Harness architecture: control plane with three gates, data plane content boundary, and a planned sub-agent layer</title>
-  <desc id="d">A tool call proposed by the Claude Code session passes through the PreToolUse hook, then Gate 1 (deny-list), Gate 2 (phase-gate) and Gate 3 (egress, Bash only) in series. Any gate can exit 2 and block the call. If all pass, the tool executes and PostToolUse appends to audit.log. Separately, untrusted input passes through content_trust.py before reaching agent context. A dashed lane at the bottom shows a planned, not-yet-implemented sub-agent layer.</desc>
+  <title id="t">Harness architecture: control plane with four hard gates, data plane content boundary, and a planned sub-agent layer</title>
+  <desc id="d">A tool call proposed by the Claude Code session passes through the PreToolUse hook, then four gates in series: Gate 1a (protected write targets, enforcing control S2.4), Gate 1b (deny-list command patterns), Gate 2 (phase-gate) and Gate 3 (egress, Bash only). Any gate can exit 2 and block the call; the first denial wins. Gate 1a's built-in list lives in permission.py and cannot be disabled by editing policy. A missing or corrupt policy file also exits 2. If all gates pass, the tool executes and PostToolUse appends to audit.log. Separately, untrusted input passes through content_trust.py before reaching agent context. A dashed lane at the bottom shows a planned, not-yet-implemented sub-agent layer.</desc>
 
   <rect width="1100" height="620" fill="#ffffff"/>
 
@@ -27,6 +27,7 @@
     .box  { fill: #f6f8fa; stroke: #57606a; stroke-width: 1.2; }
     .gate { fill: #ddf4ff; stroke: #0969da; stroke-width: 1.6; }
     .pol  { fill: #fff8c5; stroke: #9a6700; stroke-width: 1.2; }
+    .mech { fill: #eaeef2; stroke: #424a53; stroke-width: 1.5; }
     .bad  { fill: #ffebe9; stroke: #cf222e; stroke-width: 1.6; }
     .good { fill: #dafbe1; stroke: #1a7f37; stroke-width: 1.6; }
     .plan { fill: #f6f8fa; stroke: #8c959f; stroke-width: 1.2; stroke-dasharray: 5 4; }
@@ -38,128 +39,145 @@
   <text class="h" x="20" y="28">Control plane — every tool call is checked at the tool boundary, not in the prompt</text>
 
   <!-- policy band -->
-  <text class="sh" x="20" y="97">POLICY</text>
-  <text class="sh" x="20" y="112">(data)</text>
-  <rect class="pol" x="390" y="70" width="130" height="44" rx="4"/>
-  <text class="m" x="455" y="88" text-anchor="middle">deny-list.json</text>
-  <text class="lbl" x="455" y="103" text-anchor="middle">blocked patterns</text>
+  <text class="sh" x="20" y="86">POLICY</text>
+  <text class="sh" x="20" y="101">(read by</text>
+  <text class="sh" x="20" y="116">the gates)</text>
 
-  <rect class="pol" x="545" y="70" width="160" height="44" rx="4"/>
-  <text class="m" x="625" y="88" text-anchor="middle">feature_list.json</text>
-  <text class="m" x="625" y="103" text-anchor="middle">mcp-allowlist.json</text>
+  <rect class="mech" x="333" y="66" width="128" height="46" rx="4"/>
+  <text class="m" x="397" y="85" text-anchor="middle">protected_paths</text>
+  <text class="lbl" x="397" y="101" text-anchor="middle">policy may only add</text>
 
-  <rect class="pol" x="730" y="70" width="130" height="44" rx="4"/>
-  <text class="m" x="795" y="88" text-anchor="middle">egress_hosts</text>
-  <text class="lbl" x="795" y="103" text-anchor="middle">(allowlist)</text>
+  <rect class="pol" x="473" y="66" width="128" height="46" rx="4"/>
+  <text class="m" x="537" y="85" text-anchor="middle">deny-list.json</text>
+  <text class="lbl" x="537" y="101" text-anchor="middle">patterns</text>
 
-  <line class="data" x1="455" y1="114" x2="455" y2="146" marker-end="url(#arw)"/>
-  <line class="data" x1="625" y1="114" x2="625" y2="146" marker-end="url(#arw)"/>
-  <line class="data" x1="795" y1="114" x2="795" y2="146" marker-end="url(#arw)"/>
+  <rect class="pol" x="613" y="66" width="128" height="46" rx="4"/>
+  <text class="m" x="677" y="85" text-anchor="middle">feature_list.json</text>
+  <text class="m" x="677" y="101" text-anchor="middle">mcp-allowlist.json</text>
+
+  <rect class="pol" x="753" y="66" width="128" height="46" rx="4"/>
+  <text class="m" x="817" y="85" text-anchor="middle">egress_hosts</text>
+  <text class="lbl" x="817" y="101" text-anchor="middle">(allowlist)</text>
+
+  <line class="data" x1="397" y1="112" x2="397" y2="146" marker-end="url(#arw)"/>
+  <line class="data" x1="537" y1="112" x2="537" y2="146" marker-end="url(#arw)"/>
+  <line class="data" x1="677" y1="112" x2="677" y2="146" marker-end="url(#arw)"/>
+  <line class="data" x1="817" y1="112" x2="817" y2="146" marker-end="url(#arw)"/>
 
   <!-- main pipeline -->
-  <rect class="box" x="20" y="150" width="140" height="64" rx="4"/>
-  <text class="b" x="90" y="176" text-anchor="middle">Claude Code</text>
-  <text class="s" x="90" y="192" text-anchor="middle">proposes a</text>
-  <text class="s" x="90" y="205" text-anchor="middle">tool call</text>
+  <rect class="box" x="20" y="150" width="125" height="64" rx="4"/>
+  <text class="b" x="82" y="176" text-anchor="middle">Claude Code</text>
+  <text class="s" x="82" y="192" text-anchor="middle">proposes a</text>
+  <text class="s" x="82" y="205" text-anchor="middle">tool call</text>
 
-  <rect class="box" x="200" y="150" width="150" height="64" rx="4"/>
-  <text class="b" x="275" y="174" text-anchor="middle">PreToolUse hook</text>
-  <text class="m" x="275" y="190" text-anchor="middle">Bash|Write|Edit|</text>
-  <text class="m" x="275" y="203" text-anchor="middle">MultiEdit|NotebookEdit</text>
+  <rect class="box" x="165" y="150" width="150" height="64" rx="4"/>
+  <text class="b" x="240" y="174" text-anchor="middle">PreToolUse hook</text>
+  <text class="m" x="240" y="190" text-anchor="middle">Bash|Write|Edit|</text>
+  <text class="m" x="240" y="203" text-anchor="middle">MultiEdit|NotebookEdit</text>
 
-  <rect class="gate" x="390" y="150" width="130" height="64" rx="4"/>
-  <text class="b" x="455" y="174" text-anchor="middle">Gate 1</text>
-  <text class="s" x="455" y="190" text-anchor="middle">deny-list</text>
-  <text class="lbl" x="455" y="205" text-anchor="middle">command strings</text>
+  <rect class="gate" x="338" y="150" width="118" height="64" rx="4"/>
+  <text class="b" x="397" y="174" text-anchor="middle">Gate 1a</text>
+  <text class="s" x="397" y="190" text-anchor="middle">protected paths</text>
+  <text class="lbl" x="397" y="205" text-anchor="middle">write targets (S2.4)</text>
 
-  <rect class="gate" x="560" y="150" width="130" height="64" rx="4"/>
-  <text class="b" x="625" y="174" text-anchor="middle">Gate 2</text>
-  <text class="s" x="625" y="190" text-anchor="middle">phase-gate</text>
-  <text class="lbl" x="625" y="205" text-anchor="middle">all 5 gated tools</text>
+  <rect class="gate" x="478" y="150" width="118" height="64" rx="4"/>
+  <text class="b" x="537" y="174" text-anchor="middle">Gate 1b</text>
+  <text class="s" x="537" y="190" text-anchor="middle">deny-list</text>
+  <text class="lbl" x="537" y="205" text-anchor="middle">command strings</text>
 
-  <rect class="gate" x="730" y="150" width="130" height="64" rx="4"/>
-  <text class="b" x="795" y="174" text-anchor="middle">Gate 3</text>
-  <text class="s" x="795" y="190" text-anchor="middle">egress</text>
-  <text class="lbl" x="795" y="205" text-anchor="middle">Bash only</text>
+  <rect class="gate" x="618" y="150" width="118" height="64" rx="4"/>
+  <text class="b" x="677" y="174" text-anchor="middle">Gate 2</text>
+  <text class="s" x="677" y="190" text-anchor="middle">phase-gate</text>
+  <text class="lbl" x="677" y="205" text-anchor="middle">all 5 gated tools</text>
 
-  <rect class="good" x="900" y="150" width="140" height="64" rx="4"/>
-  <text class="b" x="970" y="174" text-anchor="middle">exit 0 — allow</text>
-  <text class="s" x="970" y="190" text-anchor="middle">the tool</text>
-  <text class="s" x="970" y="203" text-anchor="middle">actually runs</text>
+  <rect class="gate" x="758" y="150" width="118" height="64" rx="4"/>
+  <text class="b" x="817" y="174" text-anchor="middle">Gate 3</text>
+  <text class="s" x="817" y="190" text-anchor="middle">egress</text>
+  <text class="lbl" x="817" y="205" text-anchor="middle">Bash only</text>
 
-  <line class="flow" x1="160" y1="182" x2="196" y2="182" marker-end="url(#arw)"/>
-  <line class="flow" x1="350" y1="182" x2="386" y2="182" marker-end="url(#arw)"/>
-  <line class="flow" x1="520" y1="182" x2="556" y2="182" marker-end="url(#arw)"/>
-  <line class="flow" x1="690" y1="182" x2="726" y2="182" marker-end="url(#arw)"/>
-  <line class="flow" x1="860" y1="182" x2="896" y2="182" marker-end="url(#arw)"/>
+  <rect class="good" x="898" y="150" width="142" height="64" rx="4"/>
+  <text class="b" x="969" y="174" text-anchor="middle">exit 0 — allow</text>
+  <text class="s" x="969" y="190" text-anchor="middle">the tool</text>
+  <text class="s" x="969" y="203" text-anchor="middle">actually runs</text>
+
+  <line class="flow" x1="145" y1="182" x2="161" y2="182" marker-end="url(#arw)"/>
+  <line class="flow" x1="315" y1="182" x2="334" y2="182" marker-end="url(#arw)"/>
+  <line class="flow" x1="456" y1="182" x2="474" y2="182" marker-end="url(#arw)"/>
+  <line class="flow" x1="596" y1="182" x2="614" y2="182" marker-end="url(#arw)"/>
+  <line class="flow" x1="736" y1="182" x2="754" y2="182" marker-end="url(#arw)"/>
+  <line class="flow" x1="876" y1="182" x2="894" y2="182" marker-end="url(#arw)"/>
 
   <!-- second band -->
-  <rect class="box" x="180" y="252" width="190" height="56" rx="4"/>
-  <text class="m" x="275" y="274" text-anchor="middle">Security-kit/secret_scan.py</text>
-  <text class="lbl" x="275" y="292" text-anchor="middle">second PreToolUse hook</text>
-  <line class="flow" x1="275" y1="214" x2="275" y2="248" marker-end="url(#arw)"/>
+  <rect class="box" x="145" y="250" width="190" height="62" rx="4"/>
+  <text class="m" x="240" y="274" text-anchor="middle">secret_scan.py</text>
+  <text class="lbl" x="240" y="294" text-anchor="middle">second PreToolUse hook</text>
+  <line class="flow" x1="240" y1="214" x2="240" y2="246" marker-end="url(#arw)"/>
 
-  <rect class="bad" x="380" y="252" width="460" height="56" rx="4"/>
-  <text class="b" x="610" y="274" text-anchor="middle">exit 2 — BLOCKED · first denial wins · the call never executes</text>
-  <text class="s" x="610" y="292" text-anchor="middle">fails closed on empty or malformed input — limits and one documented exception in the README</text>
-  <line class="kill" x1="455" y1="214" x2="455" y2="248" marker-end="url(#arwRed)"/>
-  <line class="kill" x1="625" y1="214" x2="625" y2="248" marker-end="url(#arwRed)"/>
-  <line class="kill" x1="795" y1="214" x2="795" y2="248" marker-end="url(#arwRed)"/>
+  <rect class="bad" x="350" y="250" width="530" height="62" rx="4"/>
+  <text class="b" x="615" y="275" text-anchor="middle">exit 2 — BLOCKED · first denial wins · the call never executes</text>
+  <text class="s" x="615" y="296" text-anchor="middle">fails closed on empty or malformed input — and on a policy file that is missing or corrupt</text>
+  <line class="kill" x1="397" y1="214" x2="397" y2="246" marker-end="url(#arwRed)"/>
+  <line class="kill" x1="537" y1="214" x2="537" y2="246" marker-end="url(#arwRed)"/>
+  <line class="kill" x1="677" y1="214" x2="677" y2="246" marker-end="url(#arwRed)"/>
+  <line class="kill" x1="817" y1="214" x2="817" y2="246" marker-end="url(#arwRed)"/>
 
-  <rect class="box" x="860" y="252" width="220" height="56" rx="4"/>
-  <text class="b" x="970" y="273" text-anchor="middle">PostToolUse — every tool</text>
-  <text class="m" x="970" y="291" text-anchor="middle">→ audit.log (append-only)</text>
-  <line class="flow" x1="970" y1="214" x2="970" y2="248" marker-end="url(#arw)"/>
+  <rect class="box" x="890" y="250" width="190" height="62" rx="4"/>
+  <text class="b" x="985" y="274" text-anchor="middle">PostToolUse — every tool</text>
+  <text class="m" x="985" y="294" text-anchor="middle">→ audit.log (append-only)</text>
+  <line class="flow" x1="969" y1="214" x2="969" y2="246" marker-end="url(#arw)"/>
 
   <!-- data plane -->
-  <line x1="20" y1="330" x2="1080" y2="330" stroke="#d0d7de" stroke-width="1"/>
-  <text class="h" x="20" y="356">Data plane — untrusted content never arrives unlabelled</text>
+  <line x1="20" y1="334" x2="1080" y2="334" stroke="#d0d7de" stroke-width="1"/>
+  <text class="h" x="20" y="358">Data plane — untrusted content never arrives unlabelled</text>
 
-  <rect class="box" x="20" y="372" width="260" height="52" rx="4"/>
-  <text class="b" x="150" y="393" text-anchor="middle">untrusted input</text>
-  <text class="s" x="150" y="410" text-anchor="middle">claim email, fetched page, tool output</text>
+  <rect class="box" x="20" y="374" width="260" height="52" rx="4"/>
+  <text class="b" x="150" y="395" text-anchor="middle">untrusted input</text>
+  <text class="s" x="150" y="412" text-anchor="middle">claim email, fetched page, tool output</text>
 
-  <rect class="box" x="320" y="372" width="280" height="52" rx="4"/>
-  <text class="m" x="460" y="392" text-anchor="middle">Security-kit/content_trust.py</text>
-  <text class="s" x="460" y="410" text-anchor="middle">screen_record() — tag, quarantine, strip</text>
+  <rect class="box" x="320" y="374" width="280" height="52" rx="4"/>
+  <text class="m" x="460" y="394" text-anchor="middle">Security-kit/content_trust.py</text>
+  <text class="s" x="460" y="412" text-anchor="middle">screen_record() — tag, quarantine, strip</text>
 
-  <rect class="box" x="640" y="372" width="260" height="52" rx="4"/>
-  <text class="b" x="770" y="393" text-anchor="middle">agent context</text>
-  <text class="s" x="770" y="410" text-anchor="middle">marked DATA, never instructions</text>
+  <rect class="box" x="640" y="374" width="260" height="52" rx="4"/>
+  <text class="b" x="770" y="395" text-anchor="middle">agent context</text>
+  <text class="s" x="770" y="412" text-anchor="middle">marked DATA, never instructions</text>
 
-  <line class="flow" x1="280" y1="398" x2="316" y2="398" marker-end="url(#arw)"/>
-  <line class="flow" x1="600" y1="398" x2="636" y2="398" marker-end="url(#arw)"/>
+  <line class="flow" x1="280" y1="400" x2="316" y2="400" marker-end="url(#arw)"/>
+  <line class="flow" x1="600" y1="400" x2="636" y2="400" marker-end="url(#arw)"/>
 
   <!-- planned lane -->
-  <rect class="plan" x="20" y="446" width="1060" height="104" rx="6"/>
-  <text class="sh" x="36" y="468" fill="#8c959f">PLANNED — NOT IMPLEMENTED · this repo ships no .claude/agents/ today</text>
+  <rect class="plan" x="20" y="444" width="1060" height="98" rx="6"/>
+  <text class="sh" x="36" y="464" fill="#8c959f">PLANNED — NOT IMPLEMENTED · this repo ships no .claude/agents/ today</text>
 
-  <rect class="plan" x="40" y="478" width="190" height="52" rx="4"/>
-  <text class="s" x="135" y="500" text-anchor="middle">phase builder</text>
-  <text class="lbl" x="135" y="516" text-anchor="middle">scoped to active phase</text>
+  <rect class="plan" x="40" y="474" width="190" height="52" rx="4"/>
+  <text class="s" x="135" y="496" text-anchor="middle">phase builder</text>
+  <text class="lbl" x="135" y="512" text-anchor="middle">scoped to active phase</text>
 
-  <rect class="plan" x="250" y="478" width="190" height="52" rx="4"/>
-  <text class="s" x="345" y="500" text-anchor="middle">verifier</text>
-  <text class="lbl" x="345" y="516" text-anchor="middle">runs the exact command</text>
+  <rect class="plan" x="250" y="474" width="190" height="52" rx="4"/>
+  <text class="s" x="345" y="496" text-anchor="middle">verifier</text>
+  <text class="lbl" x="345" y="512" text-anchor="middle">runs the exact command</text>
 
-  <rect class="plan" x="460" y="478" width="190" height="52" rx="4"/>
-  <text class="s" x="555" y="500" text-anchor="middle">security reviewer</text>
-  <text class="lbl" x="555" y="516" text-anchor="middle">control-matrix delta</text>
+  <rect class="plan" x="460" y="474" width="190" height="52" rx="4"/>
+  <text class="s" x="555" y="496" text-anchor="middle">security reviewer</text>
+  <text class="lbl" x="555" y="512" text-anchor="middle">control-matrix delta</text>
 
-  <rect class="plan" x="670" y="478" width="190" height="52" rx="4"/>
-  <text class="s" x="765" y="500" text-anchor="middle">evaluator</text>
-  <text class="lbl" x="765" y="516" text-anchor="middle">writes SNAPSHOT.md</text>
+  <rect class="plan" x="670" y="474" width="190" height="52" rx="4"/>
+  <text class="s" x="765" y="496" text-anchor="middle">evaluator</text>
+  <text class="lbl" x="765" y="512" text-anchor="middle">writes SNAPSHOT.md</text>
 
-  <line class="plan" x1="860" y1="504" x2="896" y2="504" fill="none" marker-end="url(#arwGrey)"/>
-  <rect class="plan" x="880" y="478" width="180" height="52" rx="4"/>
-  <text class="s" x="970" y="500" text-anchor="middle">no privilege escape —</text>
-  <text class="s" x="970" y="516" text-anchor="middle">same three gates</text>
+  <line class="plan" x1="860" y1="500" x2="896" y2="500" fill="none" marker-end="url(#arwGrey)"/>
+  <rect class="plan" x="880" y="474" width="180" height="52" rx="4"/>
+  <text class="s" x="970" y="496" text-anchor="middle">no privilege escape —</text>
+  <text class="s" x="970" y="512" text-anchor="middle">the same four gates</text>
 
   <!-- legend -->
-  <rect class="box" x="20" y="576" width="16" height="12" rx="2"/>
-  <text class="lbl" x="44" y="586">solid = shipped and wired in template/.claude/settings.json</text>
-  <rect class="plan" x="440" y="576" width="16" height="12" rx="2"/>
-  <text class="lbl" x="464" y="586">dashed grey = planned, not in the repo</text>
-  <rect class="bad" x="770" y="576" width="16" height="12" rx="2"/>
-  <text class="lbl" x="794" y="586">red = the call is blocked before it runs</text>
+  <rect class="box" x="20" y="554" width="16" height="12" rx="2"/>
+  <text class="lbl" x="44" y="564">solid = shipped and wired in template/.claude/settings.json</text>
+  <rect class="mech" x="390" y="554" width="16" height="12" rx="2"/>
+  <text class="lbl" x="414" y="564">grey = built into permission.py, not disableable by policy</text>
+
+  <rect class="plan" x="20" y="576" width="16" height="12" rx="2"/>
+  <text class="lbl" x="44" y="586">dashed grey = planned, not in the repo</text>
+  <rect class="bad" x="390" y="576" width="16" height="12" rx="2"/>
+  <text class="lbl" x="414" y="586">red = the call is blocked before it runs</text>
 </svg>

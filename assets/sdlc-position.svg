@@ -93,17 +93,18 @@
   <path class="loop" d="M 636 248 L 636 266 L 453 266 L 453 250" marker-end="url(#a)" stroke="#1a7f37"/>
   <text class="s" x="545" y="281" text-anchor="middle" fill="#1a7f37">phase fails verification → stays active, never self-promoted</text>
 
-  <text class="s" x="220" y="312">Every tool call in this box passes the three gates. The agent works one phase at a time (WIP = 1) and cannot mark its own work done.</text>
-  <text class="s" x="220" y="330">What it is <tspan font-weight="700">not</tspan>: a runtime guardrail for a deployed agent, and not a replacement for pre-deployment review — it is what makes that review evidence-based.</text>
+  <text class="s" x="220" y="300">Every tool call in this box passes the four gates. WIP = 1, and the agent cannot mark its own work done.</text>
+  <text class="s" x="220" y="317">What it is <tspan font-weight="700">not</tspan>: a runtime guardrail for a deployed agent, or a replacement for</text>
+  <text class="s" x="220" y="333">pre-deployment review — it is what makes that review evidence-based.</text>
 
   <!-- handoff arrows -->
-  <path class="hand" d="M 257 104 L 257 130 L 300 130 L 300 184" marker-end="url(#ab)"/>
+  <path class="hand" d="M 257 104 L 257 140 L 453 140 L 453 184" marker-end="url(#ab)"/>
   <text class="ann" x="20" y="378">IN from Design &amp; Plan</text>
   <text class="s" x="20" y="395">product spec, architecture,</text>
   <text class="s" x="20" y="410">AI stack, threat model</text>
   <text class="m" x="20" y="426">→ Context/ and Security-kit/</text>
 
-  <path class="hand" d="M 850 248 L 960 248 L 960 372" marker-end="url(#ab)"/>
+  <path class="hand" d="M 850 248 L 1020 248 L 1020 360 L 968 360" marker-end="url(#ab)"/>
   <text class="ann" x="700" y="378">OUT to Pre-deployment review</text>
   <text class="s" x="700" y="395">audit.log — every tool call and verdict</text>
   <text class="s" x="700" y="410">evaluation SNAPSHOT.md — measured, not asserted</text>

@@ -36,7 +36,7 @@
     .kill  { stroke: #cf222e; stroke-width: 1.6; fill: none; stroke-dasharray: 5 4; }
   </style>
 
-  <text class="h" x="20" y="30">A feature is not a memo. It is a triple the scheduler, verifier and handoff all read.</text>
+  <text class="h" x="20" y="30">A feature is not a memo. It is a triple that the scheduler, verifier and handoff all read.</text>
 
   <!-- the triple -->
   <rect class="trip" x="20" y="50" width="200" height="46" rx="4"/>
