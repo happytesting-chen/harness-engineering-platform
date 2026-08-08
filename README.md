@@ -27,17 +27,55 @@ evaluates it. Pure Python standard library, zero runtime dependencies.
 This is a **build-time** harness. It takes over after Design & Plan has settled the
 product and threat model, and it hands evidence forward to pre-deployment review.
 
-It is **not** a runtime guardrail for an already-deployed agent, and it is **not** a
-replacement for a pre-deployment security review. It is what makes that review
-evidence-based instead of conversational: the reviewer gets an append-only audit log of
-every tool call and verdict, a measured evaluation snapshot, and a control matrix mapping
-each trust boundary to the mechanism covering it.
+It hands evidence forward to pre-deployment review rather than replacing it: the reviewer
+gets an append-only audit log of every tool call and verdict, a measured evaluation
+snapshot, and a control matrix mapping each trust boundary to the mechanism covering it.
+
+### Two harnesses, one principle
+
+There are **two** agents in this story, and they need separate enforcement:
+
+| | **Build-time** (shipped here) | **Runtime** (in progress) |
+|---|---|---|
+| Which agent | the coding agent that *builds* your product | the agent you *deploy* to users |
+| Runs | on a developer's laptop, human watching | in production, 3am, nobody watching |
+| Enforced by | `PreToolUse` hooks → `governance/permission.py` | an in-process chokepoint your app calls |
+| Boundary | Claude Code's tool call | your framework's tool dispatch |
+| Status | **working, tested** | **being implemented** |
+
+Both follow the same rule: **reasoning proposes, mechanism enforces.** A non-deterministic
+component processing attacker-influenceable text cannot be a control surface, because
+whatever persuades it disables the control. So enforcement sits *outside* the model in both
+harnesses — the model proposes and deterministic code vetoes.
+
+What changes between them is the mechanism's *shape*. A build-time hook is a subscription
+to someone else's event loop — Claude Code emits `PreToolUse` and you attach. A deployed
+LangChain or Strands app has no hook system, so "add hooks" there means writing the
+dispatcher yourself, in-process: a chokepoint that replaces the tool, so bypassing it is
+unrepresentable rather than merely forbidden.
+
+Runtime also faces threats that no per-call check can see, because the harm lives in the
+*sequence* rather than any single call — twenty $500 refunds each under a $10k ceiling,
+a `read_customer` → `send_email` chain where both calls are individually in scope, or
+injected text that gets persisted to memory and re-arms every future session. Those need
+session-cumulative state, delegation narrowing, and a gated memory write. The build-time
+gate is stateless per call and does not attempt them.
+
+> **Status, plainly.** The runtime layer is **designed and under implementation** — the
+> design is
+> [`Runtime Security Architecture`](template/docs/superpowers/specs/2026-08-04-runtime-tool-mediation-design.md),
+> but no `Security-kit/runtime/` module exists in this repo yet, so nothing here enforces
+> anything at runtime today. The build-time harness is what currently works. Treat the
+> table's right-hand column as direction, not a shipped feature.
 
 ---
 
 ## How it works
 
 ![Control plane, data plane, and the planned sub-agent layer](assets/architecture.svg)
+
+This section describes the **build-time** harness — the one that works today. The runtime
+counterpart is covered above.
 
 Follow one tool call. The coding agent proposes, say, a `Bash` command. Claude Code's
 `PreToolUse` hook fires **before** the command runs and pipes it to
@@ -84,8 +122,12 @@ promote its own phase.** "Mostly done" is not representable.
   cannot.
 - **Mechanism is separated from policy** — `permission.py` is the engine, the JSON files
   are the policy, and `init.sh` verifies the kit is still wired so it cannot be *silently*
-  stripped while the health check still reports PASS. (Note the limit below: the gate does
-  not itself write-protect its own files.)
+  stripped while the health check still reports PASS.
+- **The agent cannot rewrite its own gate** — Gate 1b hard-denies writes whose target
+  resolves to the mechanism or policy (`permission.py`, the policy JSON, `settings.json`,
+  the hook scripts), and the built-in list stays enforced even if the policy key is emptied
+  or deleted, so it cannot be switched off by editing policy. One measured exception is in
+  the limits below.
 - **Untrusted content is labelled before it reaches context** —
   `Security-kit/content_trust.py` screens fetched pages, emails and tool output so they
   arrive as *data*, never as instructions.
@@ -173,7 +215,31 @@ Each example is self-contained: `cd` in and run `./init.sh`.
 
 ---
 
-## Roadmap — the sub-agent layer
+## Roadmap
+
+### Runtime enforcement (in progress)
+
+The larger piece of active work. A deployed agent needs its own mechanism, because the
+build-time hooks do not exist in production — see
+[Two harnesses, one principle](#two-harnesses-one-principle) above for the split. The design
+covers a hook dispatcher called from inside a chokepoint wrapper (coverage *and* integrity —
+each alone fails a different way), a tiered policy returning ALLOW / REQUIRE_APPROVAL / DENY,
+human-in-the-loop for high-risk actions, and the session-stateful mechanisms that catch
+cumulative abuse, delegation escape and memory poisoning.
+
+The seam is a reviewed `policy.json`: a setup-time step drafts it from your product docs and
+a **human signs it**, then the runtime library only ever reads it. A model may decide things
+a human reviews before they take effect; it may not decide at request time when nobody is
+watching.
+
+**→ Full design:
+[`docs/superpowers/specs/2026-08-04-runtime-tool-mediation-design.md`](template/docs/superpowers/specs/2026-08-04-runtime-tool-mediation-design.md)**
+— threat model (the eight threats a per-call gateway structurally cannot see), the mechanism
+inventory split into generic and agent-specific tiers, and the delivery plan separating the
+enforcing library from the setup skill from the demo. It is a **design under
+implementation**, not a description of shipped code.
+
+### The sub-agent layer
 
 **There are no sub-agents in this repo today.** `template/.claude/` ships 4 slash commands
 (`init-project`, `security-tailor`, `session-cycle`, `domain-workflow`) and no
@@ -194,7 +260,8 @@ escalation: a sub-agent would pass the same three gates as its parent.
 |---|---|
 | How do I actually use this? | [`template/README.md`](template/README.md) |
 | Why is it built this way? | [`template/Harness-Best-Practice/BEST-PRACTICES.md`](template/Harness-Best-Practice/BEST-PRACTICES.md) |
-| What security controls exist? | [`template/Security-kit/SECURITY.md`](template/Security-kit/SECURITY.md) · [`owasp-crosswalk.md`](template/Security-kit/owasp-crosswalk.md) |
+| What security controls exist? | [`template/Security-kit/SECURITY.md`](template/Security-kit/SECURITY.md) · [`owasp-crosswalk.md`](template/Security-kit/owasp-crosswalk.md) — both **build-time** framed |
+| How will the *deployed* agent be secured? | [`Runtime Security Architecture`](template/docs/superpowers/specs/2026-08-04-runtime-tool-mediation-design.md) — design under implementation |
 | How is a claim of "good" measured? | [`template/evaluation/`](template/evaluation/) |
 | Where did this come from? | [`.kiro/specs/harness-engineering-platform/`](.kiro/specs/harness-engineering-platform/) — origin spec, not current design |
 
