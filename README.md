@@ -79,9 +79,9 @@ counterpart is covered above.
 
 Follow one tool call. The coding agent proposes, say, a `Bash` command. Claude Code's
 `PreToolUse` hook fires **before** the command runs and pipes it to
-`governance/permission.py`, which applies three gates in a fixed order and stops at the
+`governance/permission.py`, which applies four gates in a fixed order and stops at the
 first denial. If any gate denies, the hook exits **2** and the command never executes —
-the agent sees a denial, not a result. If all three pass, the hook exits 0, the tool runs,
+the agent sees a denial, not a result. If all four pass, the hook exits 0, the tool runs,
 and a `PostToolUse` hook appends the call and its verdict to an append-only `audit.log`.
 
 The template wires **5 hooks across 3 events** in `template/.claude/settings.json`: two
@@ -89,7 +89,7 @@ The template wires **5 hooks across 3 events** in `template/.claude/settings.jso
 matching **every** tool — so the log is wider than the gate), and two `Stop` hooks (a final
 audit flush and a stale-`progress.md` warning).
 
-### The three gates
+### The four gates
 
 | Gate | What it reads | Scope | On denial |
 |---|---|---|---|
@@ -256,7 +256,7 @@ The intended direction: decompose the session loop into phase-scoped sub-agents 
 builder confined to the active phase, a verifier that only runs the declared verification
 command, a security reviewer that diffs the control matrix, and an evaluator that writes
 the snapshot. The hard requirement is that delegation must not become privilege
-escalation: a sub-agent would pass the same three gates as its parent.
+escalation: a sub-agent would pass the same four gates as its parent.
 
 ---
 

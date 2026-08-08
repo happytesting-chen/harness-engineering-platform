@@ -104,7 +104,7 @@
   <text class="s" x="20" y="410">AI stack, threat model</text>
   <text class="m" x="20" y="426">→ Context/ and Security-kit/</text>
 
-  <path class="hand" d="M 850 248 L 1020 248 L 1020 360 L 968 360" marker-end="url(#ab)"/>
+  <path class="hand" d="M 850 248 L 1020 248 L 1020 374 L 884 374" marker-end="url(#ab)"/>
   <text class="ann" x="700" y="378">OUT to Pre-deployment review</text>
   <text class="s" x="700" y="395">audit.log — every tool call and verdict</text>
   <text class="s" x="700" y="410">evaluation SNAPSHOT.md — measured, not asserted</text>
