@@ -1,0 +1,22 @@
+{
+  "_comment": "Permitted tools and egress hosts. Edit per domain — permission.py reads this on every check.",
+  "tools": [
+    {
+      "name": "bash",
+      "description": "Shell commands (always available)",
+      "version": "1.0"
+    },
+    {
+      "name": "write_file",
+      "description": "Write files to project directory",
+      "version": "1.0"
+    },
+    {
+      "name": "claims_runner",
+      "description": "Deterministic claims-processing entrypoint — locked until phase-01 (Build A readiness) is human-signed to passing",
+      "version": "1.0",
+      "gated_until": "phase-01"
+    }
+  ],
+  "egress_hosts": []
+}

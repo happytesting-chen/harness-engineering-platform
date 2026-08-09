@@ -1,0 +1,14 @@
+{
+  "schema_version": "1.0",
+  "fixture_id": "SYN-FIXTURE-004",
+  "claim": {
+    "claim_id": "SYN-CLAIM-004",
+    "submitted_amount": "1000",
+    "covered_amount": "1000.00",
+    "currency": "USD",
+    "documentation_complete": true,
+    "trusted": true,
+    "safety_flags": []
+  },
+  "expected": {"outcome": "PENDING_REVIEW", "reason_code": "MALFORMED_AMOUNT"}
+}

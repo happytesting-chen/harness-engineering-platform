@@ -1,0 +1,22 @@
+{
+  "_comment": "Hard-deny patterns. Blocked regardless of phase or authorization. Add domain-specific patterns below.",
+  "_guidance": "Catastrophic defaults first, then Claims-domain prohibited effects (no LLM/provider, cloud, network exfil, email, deploy). Word/regex modes avoid false positives on local dev commands like pytest.",
+  "patterns": [
+    "rm -rf /",
+    "mkfs",
+    "> /dev/",
+    ":(){ :|:& };:",
+    "shutdown",
+    "reboot",
+    {"pattern": "curl", "mode": "word"},
+    {"pattern": "wget", "mode": "word"},
+    {"pattern": "ssh", "mode": "word"},
+    {"pattern": "scp", "mode": "word"},
+    {"pattern": "aws", "mode": "word"},
+    {"pattern": "gcloud", "mode": "word"},
+    {"pattern": "openai", "mode": "regex"},
+    {"pattern": "anthropic", "mode": "regex"},
+    {"pattern": "sendmail", "mode": "word"},
+    {"pattern": "git push", "mode": "substring"}
+  ]
+}

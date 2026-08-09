@@ -84,6 +84,7 @@ Repo is truth; one lean entry file; knowledge next to code; feature list = behav
 | Pass-gated | `permission.py` reads feature_list.json; human sign-off for status=passing |
 | State is ACID | `progress.md` (durable), `init.sh` (consistency check), one-phase-active (isolation) |
 | Fresh Session Test | `init.sh` checks all 5 questions are answerable |
+| Measure, don't just assert | `evaluation/eval.py` quantifies accuracy/reproducibility/latency/cost → `SNAPSHOT.md` for human sign-off |
 
 ---
 
@@ -98,3 +99,4 @@ Repo is truth; one lean entry file; knowledge next to code; feature list = behav
 | Free-form progress notes | New sessions can't parse state | Structured feature_list.json + machine-readable states |
 | Agent edits its own constraints | Fox guarding the henhouse | permission.py is mechanism (never modified); policy is separate JSON |
 | Stale documentation | Worse than no docs — sends agent wrong direction | init.sh staleness detection + docs-next-to-code principle |
+| "It works" with no numbers | Effectiveness/cost/accuracy are claims, not vibes | `evaluation/eval.py` measures against an oracle; cost is `N/A` until a real model is wired, never fabricated |

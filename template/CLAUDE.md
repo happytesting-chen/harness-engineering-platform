@@ -7,6 +7,9 @@
      Claude loads it too, rather than duplicating it here. This CLAUDE.md adds the
      Claude-specific session workflow. Import path is relative to this file (root). -->
 @Harness-Best-Practice/AGENTS.md
+<!-- Tailored, product-specific security controls (layer D). Ships as a stub; /security-tailor
+     regenerates it from coverage.json. Stripped by install.sh --no-security. -->
+@Security-kit/active-controls.md
 
 ## Startup Workflow
 
