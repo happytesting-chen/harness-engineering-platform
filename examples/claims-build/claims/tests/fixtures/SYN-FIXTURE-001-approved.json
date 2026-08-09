@@ -1,0 +1,14 @@
+{
+  "schema_version": "1.0",
+  "fixture_id": "SYN-FIXTURE-001",
+  "claim": {
+    "claim_id": "SYN-CLAIM-001",
+    "submitted_amount": "125.00",
+    "covered_amount": "125.00",
+    "currency": "USD",
+    "documentation_complete": true,
+    "trusted": true,
+    "safety_flags": []
+  },
+  "expected": {"outcome": "APPROVED", "reason_code": "EXACT_COVERAGE"}
+}

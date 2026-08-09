@@ -24,9 +24,11 @@
 │   ├── AGENTS.md                     ← Identity, run/verify (this file)
 │   ├── progress.md                   ← Session journal + handoff
 │   ├── feature_list.json             ← Phase DAG (tracks workflow progression)
-│   └── Harness-Best-Practice/observability/audit.py        ← Append-only audit log
+│   └── observability/
+│       └── audit.py                   ← Append-only audit log
 ├── tests/                            ← Fixture-driven tests + E2E + hook + content-trust proofs
-└── demo/                             ← Scripted evaluation harness (not production path)
+├── demo/                             ← Scripted enforcement demo (gate vs --nogate; not production path)
+└── evaluation/                       ← Quantifies task quality (accuracy/reproducibility/latency/cost) → SNAPSHOT.md
 ```
 
 ## How to Run
@@ -43,6 +45,7 @@ python3 demo/demo.py --nogate   # Same model, no enforcement (proves harness mat
 {{PRIMARY_VERIFICATION_COMMAND}}
 python3 tests/test_fixtures.py  # Permission gate ground-truth tests
 python3 tests/test_e2e.py       # Day 4 enforcement proof
+python3 evaluation/eval.py      # Quantify accuracy/reproducibility/latency/cost
 ./init.sh                       # Full project health check
 ```
 

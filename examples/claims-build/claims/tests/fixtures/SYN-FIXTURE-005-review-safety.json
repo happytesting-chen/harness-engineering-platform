@@ -1,0 +1,14 @@
+{
+  "schema_version": "1.0",
+  "fixture_id": "SYN-FIXTURE-005",
+  "claim": {
+    "claim_id": "SYN-CLAIM-005",
+    "submitted_amount": "300.00",
+    "covered_amount": "300.00",
+    "currency": "USD",
+    "documentation_complete": true,
+    "trusted": true,
+    "safety_flags": ["MANUAL_HOLD"]
+  },
+  "expected": {"outcome": "PENDING_REVIEW", "reason_code": "SAFETY_FLAGGED"}
+}

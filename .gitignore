@@ -3,6 +3,9 @@
 
 # Include platform content
 !.gitignore
+!LICENSE
+!assets/
+!assets/*.svg
 !template/
 !template/**
 !examples/

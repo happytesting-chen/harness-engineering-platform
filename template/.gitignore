@@ -1,0 +1,14 @@
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+.pytest_cache/
+.venv/
+venv/
+
+# OS
+.DS_Store
+
+# Runtime artifacts (regenerated; not source of truth)
+Harness-Best-Practice/observability/audit.log
+Security-kit/eval/recorded/

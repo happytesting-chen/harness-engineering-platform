@@ -63,6 +63,9 @@ TIER1=(
   "governance" "Security-kit" "tests"
   "Harness-Best-Practice/observability/audit_hook.py"
   "kiro/steering/security.md" "kiro/steering/security-review.md" "kiro/hooks"
+  "kiro/steering/security-tailor.md"
+  ".claude/commands/security-tailor.md"
+  "docs/superpowers" "progress.md"
 )
 echo "▶ Deleting Tier 1 (pure security)..."
 for p in "${TIER1[@]}"; do
@@ -85,9 +88,106 @@ PY"
 fi
 
 # init.sh → drop REQUIRED_FILES governance entries (integrity block self-skips when governance/ is gone)
+#          → also drop the dead /security-tailor error-message line (guard file is gone)
 if [ -f "init.sh" ]; then
   run "sed -i.bak 's#\"governance/deny-list.json\" \"governance/mcp-allowlist.json\"##' init.sh && rm -f init.sh.bak"
-  echo "  ~ init.sh (removed governance JSON from REQUIRED_FILES; integrity block auto-skips)"
+  run "sed -i.bak '/run \/security-tailor and fill verifications/d' init.sh && rm -f init.sh.bak"
+  echo "  ~ init.sh (removed governance JSON from REQUIRED_FILES; stripped dead /security-tailor error line)"
+fi
+
+# CLAUDE.md → strip the layer-D comment block AND the import (its target is deleted with Security-kit/)
+if [ -f "CLAUDE.md" ]; then
+  run "python3 - <<'PY'
+p = 'CLAUDE.md'
+lines = open(p).readlines()
+out = []
+i = 0
+while i < len(lines):
+    line = lines[i]
+    if '@Security-kit/active-controls.md' in line:
+        i += 1
+        continue
+    stripped = line.strip()
+    if stripped.startswith('<!--'):
+        block = [line]
+        j = i
+        if '-->' not in line:
+            j = i + 1
+            while j < len(lines) and '-->' not in lines[j]:
+                block.append(lines[j])
+                j += 1
+            if j < len(lines):
+                block.append(lines[j])
+        block_text = ''.join(block)
+        if any(kw in block_text for kw in ['layer D', 'security-tailor', 'active-controls']):
+            i = j + 1
+            continue
+        else:
+            out.extend(block)
+            i = j + 1
+            continue
+    out.append(line)
+    i += 1
+open(p, 'w').writelines(out)
+PY"
+  echo "  ~ CLAUDE.md (removed layer-D comment + @Security-kit/active-controls.md import)"
+fi
+
+# .claude/commands/init-project.md → remove Step 2b (/security-tailor invocation)
+if [ -f ".claude/commands/init-project.md" ]; then
+  run "python3 - <<'PY'
+p = '.claude/commands/init-project.md'
+lines = open(p).readlines()
+out = []
+i = 0
+while i < len(lines):
+    if lines[i].startswith('## Step 2b'):
+        while i < len(lines) and not lines[i].startswith('## Step 3'):
+            i += 1
+    else:
+        out.append(lines[i])
+        i += 1
+open(p, 'w').writelines(out)
+PY"
+  echo "  ~ .claude/commands/init-project.md (removed /security-tailor reference)"
+fi
+
+# .claude/commands/session-cycle.md → remove step 11b (/security-tailor re-run)
+if [ -f ".claude/commands/session-cycle.md" ]; then
+  run "python3 - <<'PY'
+p = '.claude/commands/session-cycle.md'
+lines = open(p).readlines()
+out = []
+i = 0
+while i < len(lines):
+    if lines[i].startswith('11b.'):
+        while i < len(lines) and not lines[i].startswith('12.'):
+            i += 1
+    else:
+        out.append(lines[i])
+        i += 1
+open(p, 'w').writelines(out)
+PY"
+  echo "  ~ .claude/commands/session-cycle.md (removed /security-tailor reference)"
+fi
+
+# kiro/steering/session-cycle.md → remove step 11b (/security-tailor re-run)
+if [ -f "kiro/steering/session-cycle.md" ]; then
+  run "python3 - <<'PY'
+p = 'kiro/steering/session-cycle.md'
+lines = open(p).readlines()
+out = []
+i = 0
+while i < len(lines):
+    if lines[i].startswith('11b.'):
+        while i < len(lines) and not lines[i].startswith('12.'):
+            i += 1
+    else:
+        out.append(lines[i])
+        i += 1
+open(p, 'w').writelines(out)
+PY"
+  echo "  ~ kiro/steering/session-cycle.md (removed /security-tailor reference)"
 fi
 
 echo ""

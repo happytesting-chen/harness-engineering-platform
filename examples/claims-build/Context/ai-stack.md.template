@@ -1,0 +1,34 @@
+# AI Stack — <PROJECT_NAME>
+
+> Rename to `ai-stack.md` and fill. Records the AI-development choices for this agent
+> and *why*. Link it from CLAUDE.md's Domain Context.
+
+## Agent framework
+
+- **Choice:** <e.g. LangChain / LangGraph / Strands / LlamaIndex / custom loop>
+- **Why:** <what this project needs that drove the choice — tool orchestration,
+  multi-agent, streaming, graph control flow, minimal deps, …>
+- **Version pin:** <exact version — see supply-chain guidance in security/SECURITY.md §5>
+
+## Model
+
+- **Provider / model:** <e.g. Claude Opus 4.x, via Bedrock / API>
+- **Why this tier:** <reasoning depth vs cost/latency for this task>
+- **Fallback / secondary:** <cheaper model for classification/validation sub-tasks, if any>
+- **Pinned:** <do not silently switch models mid-project — record the pin>
+
+## Tools the agent can call
+
+| Tool | Purpose | In `tools/mcp-allowlist.json`? | Egress? |
+|------|---------|-------------------------------|---------|
+| <tool> | <what it does> | yes/gated_until phase-XX | none / host |
+
+> Every tool the agent uses must be in the allowlist. New tools need human approval.
+
+## Key libraries / dependencies
+
+- <lib> — <purpose> — <exact version pin>
+
+## Open questions / decisions pending
+
+- <anything not yet decided>
