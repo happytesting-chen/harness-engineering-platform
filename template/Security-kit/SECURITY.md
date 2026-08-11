@@ -24,7 +24,9 @@ This document provides security guidance for developing AI agent systems. Each c
 
 **Template enforcement (control plane):** `governance/permission.py`'s `check_deny_list` gate blocks known dangerous command patterns mechanically. `[HARNESS]`
 
-**Template enforcement (data plane):** `Security-kit/content_trust.py` is the complement for untrusted *content* (claim bodies, emails, retrieved docs) — which never passes a tool gate because it is data, not a tool call. Call `screen_record()` at every point external content enters the agent: it drops injected control fields (e.g. a record smuggling `{"decision": "APPROVE"}`) and flags instruction-shaped text (S1.4) so the caller can lower trust and route to human review. It reports; it never obeys. Proven by `tests/test_content_trust.py`. `[HARNESS]`
+**Data plane — LIBRARY, NOT ENFORCEMENT.** `Security-kit/content_trust.py` is the complement for untrusted *content* (claim bodies, emails, retrieved docs) — which never passes a tool gate because it is data, not a tool call. `screen_record()` drops injected control fields (e.g. a record smuggling `{"decision": "APPROVE"}`) and flags instruction-shaped text (S1.4) so the caller can lower trust and route to human review. It reports; it never obeys.
+
+**But nothing in this template calls it.** The only non-test references are `init.sh` (which runs its tests) and the protected-path lists. `tests/test_content_trust.py` proves the function is *correct*, not that any path *uses* it — so S1.4 is currently unenforced, and this row is `LIBRARY` in `control-matrix.md` (`SEC-CONTENT-001`). You must call it yourself at each ingestion point. Note also that even when wired it is a **screen, not a guarantee**: it pattern-matches, and a paraphrase defeats a pattern. `[HARNESS]`
 
 ---
 
