@@ -1,11 +1,24 @@
 # Security-Kit Mechanism Inventory — One Source of Truth, Checked by Code
 
-**Status:** Draft for review
-**Date:** 2026-08-11
+**Status:** Draft for review (rev 2 — supersedes rev 1)
+**Date:** 2026-08-11 (rev 2: 2026-08-11)
 **Author:** brainstormed with Yuan Shi
 **Scope:** Make the Security-Kit's *own* status claims machine-checked, and document the
 procedure that turns a product design document into per-component security
 implementation. Adds one data file and one checker function. Builds no new enforcement.
+
+> **Rev 2 changes.** Rev 1's design stands — the asymmetry in §1 is real and the fix is
+> right. Rev 2 fixes what re-measuring found: **I1 as written is a no-op**, **I3 as written
+> fails on the shipped tree**, and four stated numbers are wrong.
+>
+> | # | Change | Why |
+> |---|---|---|
+> | (a) | **I1 rewritten.** Its join key — the `SEC-` id — appears in only one document. Measured: outside `control-matrix.md`, the *whole repo* contains 4 `SEC-` id mentions, and 3 of those are `SEC-COVER-GAP-001`. I1 would scan two files, match nothing, and pass forever (§5.I1) | a green check that verifies nothing is worse than no check — it converts an unknown into a false assurance |
+> | (b) | **I3 relaxed to "reachable from a named runner", and the reachability gap recorded as a finding.** `tests/test_protected_paths.py` (19 tests) and `tests/test_steady_state.py` (5 tests) are **not invoked by `init.sh`** — yet `test_protected_paths.py` is the cited proof for `SEC-SELF-001` and `SEC-POLICY-001`, the two rows that protect the mechanism itself (§5.I3) | I3 as written would fail on the shipped tree. That is I3 working — so the finding is recorded, not the invariant weakened away |
+> | (c) | **Row count 9 → 10.** `SEC-HOOK-001` is a `MECHANICAL` matrix row and was missing from §4.1, which I4 would have caught as an orphan — rev 1's own invariant, failing against rev 1's own table (§4.1) | the omission is evidence for the spec's thesis; fixing it silently would waste that |
+> | (d) | **Four measured numbers corrected** (§4.1, §6, §8) — GAP rows 7 → **8**; `README.md` gate mentions 16 → **23** (and `ARCHITECTURE.md` 4 → **6**); matrix rows parse to **20** ✓ confirmed; 46 tests ✓ confirmed | rev 1 stated four figures; two were wrong, and §9's last row is about exactly this rot |
+> | (e) | **`SEC-EGRESS-001` demoted from `MECHANICAL` to `OBSERVE`-at-best**, or its objective narrowed | its own matrix row's Verification cell reads "Egress fixture or E2E test" — prose, not a command — and `SEC-EGRESS-GAP-001` says egress is checked for `bash` only. Rev 1 gave it `MECHANICAL` + a `true` `can_deny`, which I2 should reject (§5.1) |
+> | (f) | **`mechanisms.json` added to `SECURITY-MANIFEST.md`**, and the manifest's unenforced status noted | measured: nothing in `init.sh` or `tests/` reads `SECURITY-MANIFEST.md`, so the tier list is itself an unchecked claim — the same defect class, one file over (§10) |
 
 > **What this is not.** This spec does not close any of the measured gaps
 > (`SEC-COVER-GAP-001`, `SEC-PROMPT-GAP-001`, `SEC-RESULT-GAP-001`,
@@ -44,17 +57,35 @@ vocabularies. Read 2026-08-10:
 | `Security-kit/README.md:238-248` | English sentences — "Mechanical.", "Library only.", "Gap.", "Does not exist." |
 | `docs/superpowers/specs/2026-08-04-runtime-tool-mediation-design.md` | `[MECH]` `[OBS]` `[APP]` |
 
-Nothing compares them, so they drift silently. Two instances found by reading:
+Nothing compares them, so they drift silently.
 
-- `Security-kit/README.md:51` describes `content_trust.py` as "data plane — screens
-  untrusted content" while `:56` of the same diagram says "LIBRARY — not wired into any
-  path yet". Both are in the same code block.
+> **Rev 2 withdraws rev 1's first example.** Rev 1 claimed `README.md:51` contradicts `:56`.
+> Re-read: lines 46–56 are a **two-column ASCII diagram**, and those two lines sit in
+> *different columns* — `:51`'s left column is `permission.py`, `:56`'s right column is
+> `content_trust.py`, which it correctly labels `LIBRARY — not wired into any path yet`. The
+> diagram is consistent. Rev 1 misread column-adjacent text as sequential prose.
+>
+> Recording the withdrawal rather than deleting it, because it is evidence for the same
+> thesis from the other direction: **a human reading carefully still got a cross-document
+> status claim wrong** — in a spec whose entire purpose is cross-document status agreement.
+> It also sets a design constraint: I1 must be **line-scoped** (§5.I1). A document-scoped
+> matcher would reproduce this exact false positive, mechanically and forever.
+
+The one confirmed instance:
+
 - `Security-kit/SECURITY.md:27` previously described `screen_record()` as enforcement
   ("Call it at every point external content enters"). It is called from `tests/` only.
-  Corrected by hand this session — exactly the failure mode a checker prevents.
+  Corrected by hand this session — exactly the failure mode a checker prevents. The
+  corrected text now reads "**Data plane — LIBRARY, NOT ENFORCEMENT**" and "**But nothing in
+  this template calls it**" (`SECURITY.md:26-30`, read 2026-08-11), consistent with
+  `SEC-CONTENT-001`.
 
-No test failed for either. **Adequacy review cannot catch this class of defect** because
-the reviewer reads one document at a time.
+And the one rev 2 found, which is stronger than either: **`SEC-EGRESS-001` claims "network
+actions stay within approved destinations" and no code implements destination control** (§5.1).
+
+No test failed for any of these. **Adequacy review cannot catch this class of defect** because
+the reviewer reads one document at a time — and, as the withdrawn example shows, may misread
+even the one document in front of them.
 
 ### 1.2 The asymmetry, stated once
 
@@ -129,15 +160,31 @@ tells you what carries to runtime and what must be rebuilt (`SEC-RUNTIME-GAP-001
 
 ### 3.1 Status is derived from the cells, not asserted
 
-| `decides` | `attaches_at` | `can_deny` | `proof` | ⇒ status |
-|---|---|---|---|---|
-| ✓ | ✓ | true | ✓ | `MECHANICAL` |
-| ✓ | ✓ | false | ✓ | `OBSERVE` |
-| ✓ | **null** | — | ✓ | `LIBRARY` |
-| null | — | — | — | `GAP` (lives in `control-matrix.md`, not here) |
+| `category` | `decides` | `attaches_at` | `can_deny` | `proof` | ⇒ status |
+|---|---|---|---|---|---|
+| GATE | ✓ | ✓ | true | ✓ | `MECHANICAL` |
+| RECORD | ✓ | ✓ | false | ✓ | `OBSERVE` |
+| SCREEN | ✓ | **null** | false | ✓ | `LIBRARY` |
+| **DOORWAY** | **null** | ✓ | **n/a** | ✓ | `MECHANICAL` |
+| CHECKER | ✓ | ✓ (a runner) | n/a | ✓ | `MECHANICAL` |
+| — | null | null | — | — | `GAP` (lives in `control-matrix.md`, not here) |
 
 Status becomes checkable rather than merely copied: it is either consistent or
 inconsistent with the other cells.
+
+**`category` is part of the key, not decoration** (rev 2). Rev 1 derived status from four
+cells and read `decides: null` as `GAP` — which mis-classifies `SEC-HOOK-001`, a wired
+doorway that decides nothing and is fully mechanical (§4.1). The distinction rev 1 lost:
+
+```
+  decides ✓ + attaches_at null  →  a decision nothing invokes   → LIBRARY
+  decides null + attaches_at ✓  →  an invocation point          → MECHANICAL (as a DOORWAY)
+  both null                     →  nothing                      → GAP
+```
+
+`can_deny` is `n/a`, not `false`, for DOORWAY and CHECKER — neither returns a verdict, so
+`false` would wrongly push them to `OBSERVE`. The schema must distinguish `null`/`n/a` from
+`false`; a JSON `false` and a missing key cannot mean the same thing here.
 
 ---
 
@@ -158,16 +205,39 @@ Hand-authored. One row per **existing** mechanism. Not generated, not model-writ
       "proof": "python3 -m pytest tests/test_protected_paths.py -q",
       "status": "MECHANICAL",
       "portable_to_runtime": true
+    },
+    {
+      "id": "SEC-HOOK-001",
+      "category": "DOORWAY",
+      "decides": null,
+      "attaches_at": ".claude/settings.json PreToolUse",
+      "can_deny": "n/a",
+      "proof": "python3 -m pytest tests/test_hooks.py -q",
+      "status": "MECHANICAL",
+      "portable_to_runtime": false
     }
   ]
 }
 ```
 
+**Field notes (rev 2).** Two cells carry meaning that a naive reading loses:
+
+- **`can_deny` is tri-valued** — `true`, `false`, or the string `"n/a"`. A DOORWAY and a
+  CHECKER return no verdict, so `false` would push them to `OBSERVE` via §3.1. `null` is not
+  used, because a missing key and "this question does not apply" must stay distinguishable.
+- **`decides: null` + `attaches_at` set is legal and means DOORWAY**, not `GAP` (§3.1). Both
+  null means `GAP`, and `GAP` rows do not live in this file at all (§4.2).
+- **`portable_to_runtime` is `false` for every DOORWAY** by definition — the pre-tool event is
+  a property of Claude Code (§3). It is not a judgement call per row; §3's table fixes it from
+  `category`, so `check_status()` could derive it. It stays an explicit column because the
+  runtime spec's port table reads it directly, and a derived value that is only ever read is a
+  worse trade than a stated one that I2 can contradict.
+
 ### 4.1 The rows
 
-Nine, not the "~6" estimated during brainstorming — the count rose because the gates
-inside `permission.py` are separate mechanisms with separate proofs, and
-`check_coverage.py` is a `CHECKER` row. All cells below were read from source on
+**Ten** (rev 1 said nine), up from the "~6" estimated during brainstorming — the gates
+inside `permission.py` are separate mechanisms with separate proofs, `check_coverage.py` is a
+`CHECKER` row, and rev 1 **omitted `SEC-HOOK-001`**. All cells below were read from source on
 2026-08-11.
 
 | id | category | decides | attaches_at | can_deny | status |
@@ -175,9 +245,10 @@ inside `permission.py` are separate mechanisms with separate proofs, and
 | `SEC-SELF-001` | GATE | `permission.py::check_protected_paths` | PreToolUse `pre:governance-check` | true | MECHANICAL |
 | `SEC-CMD-001` | GATE | `permission.py::check_deny_list` | PreToolUse `pre:governance-check` | true | MECHANICAL |
 | `SEC-PHASE-001` | GATE | `permission.py::check_phase_gate` | PreToolUse `pre:governance-check` | true | MECHANICAL |
-| `SEC-EGRESS-001` | GATE | `permission.py::check_egress` | PreToolUse `pre:governance-check` | true | MECHANICAL |
 | `SEC-POLICY-001` | GATE | `permission.py::_load_json` / `PolicyError` | PreToolUse `pre:governance-check` | true | MECHANICAL |
 | `SEC-SECRET-001` | GATE + DOORWAY | `Security-kit/secret_scan.py::main` | PreToolUse `pre:secret-block` | true | MECHANICAL |
+| **`SEC-HOOK-001`** | **DOORWAY** | **null — it decides nothing** | `.claude/settings.json` PreToolUse | n/a | MECHANICAL |
+| `SEC-EGRESS-001` | GATE | `permission.py::check_egress` | PreToolUse `pre:governance-check` | true | **see §5.1 — not MECHANICAL as-is** |
 | `SEC-AUDIT-001` | RECORD | `Harness-Best-Practice/observability/audit.py::record` | PostToolUse `post:audit-capture` | **false** | OBSERVE |
 | `SEC-CONTENT-001` | SCREEN | `Security-kit/content_trust.py::screen_record` | **null** | false | LIBRARY |
 | `SEC-COVERAGE-001` | CHECKER | `Security-kit/check_coverage.py::check` | `init.sh` — `python3 Security-kit/check_coverage.py` | n/a | MECHANICAL |
@@ -191,11 +262,29 @@ and `post:audit-capture` are as spelled in `.claude/settings.json`; `screen_reco
 denial is a decision the gate returns, not a separate attach point — it shares
 `pre:governance-check` with the other four.
 
+> #### `SEC-HOOK-001` — rev 1's omission is the spec's own thesis, in miniature
+>
+> It is a `MECHANICAL` row in `control-matrix.md:32` and it was missing from rev 1's table.
+> **I4 would have flagged it as a matrix orphan** — so rev 1's inventory failed rev 1's own
+> invariant, found not by review but by running the join by hand.
+>
+> It also forces a schema decision rev 1's §3.1 could not express: `SEC-HOOK-001` is a
+> **pure DOORWAY**. It decides nothing; it asserts *"the gate is actually wired."* So
+> `decides: null` must NOT imply `GAP` — §3.1's fourth row is wrong as stated, and §3.1 gains
+> the DOORWAY case. This row is why `category` and `status` cannot be collapsed into one
+> column: a doorway with no decision is fully mechanical, and a decision with no doorway is a
+> `LIBRARY`.
+>
+> Its `proof` is `tests/test_hooks.py`, which asserts the wiring rather than any verdict —
+> and which `init.sh` does invoke, so it satisfies I3 today.
+
 ### 4.2 What is deliberately excluded
 
-- **The runtime spec's 17 mechanisms** (M1–M12 G-tier, A1–A5 A-tier). Including them
-  would make 11+ rows read "not built" and turn the inventory into a roadmap. They belong
-  in `control-matrix.md` as `GAP` rows, which is where they already are.
+- **The runtime spec's 17 mechanisms** (M1–M12 G-tier, A1–A5 A-tier — counted from its §6
+  headings, 2026-08-11). **All 17 are unbuilt**: `Security-kit/runtime/` does not exist.
+  Including them would make every one of those rows read "not built" and turn a
+  what-is-shipped inventory into a roadmap. They belong in `control-matrix.md` under
+  `SEC-RUNTIME-GAP-001`, which is where they already are.
 - **`GAP` rows generally.** The inventory describes what is *built*. `control-matrix.md`
   describes what is *claimed, including gaps*. Different questions, different files.
 - **`demo/`.** `demo/ARCHITECTURE.md:3` states the demo is not the enforcement path.
@@ -213,9 +302,42 @@ gains a failure mode without gaining a new invocation.
 Every document that states a status for a mechanism states the **same** status as
 `mechanisms.json`.
 
-Implementation: for each row id, scan `control-matrix.md`, `owasp-crosswalk.md` and
-`Security-kit/README.md` for that id; extract any status token near it via the
-vocabulary map below; fail on disagreement.
+> #### ⚠ Rev 1's I1 was a no-op. Measured.
+>
+> Rev 1 said "for each row id, scan `control-matrix.md`, `owasp-crosswalk.md` and
+> `README.md` for that id." **The id is not in those documents.** Counted 2026-08-11:
+>
+> | Document | `SEC-` ids present |
+> |---|---|
+> | `Security-kit/control-matrix.md` | 20 — it is the id registry |
+> | `Security-kit/owasp-crosswalk.md` | 2, both `SEC-COVER-GAP-001` |
+> | `Security-kit/README.md` | 1, `SEC-COVER-GAP-001` |
+> | `Security-kit/SECURITY.md` | 1, `SEC-CONTENT-001` |
+>
+> So I1 would join on a key that exists in one file, match nothing in the other three, find
+> zero disagreements, and **report success for the rest of the project's life** — while the
+> `README.md:51` vs `:56` contradiction that motivated this spec sat untouched, because
+> neither of those lines contains a `SEC-` id.
+>
+> This is the worse failure mode. A missing check leaves a known unknown; a check that
+> passes vacuously manufactures confidence. §9 gains a row for it.
+
+**Rev 2 — I1 keys on the implementation path, not the id.** A path is what the prose
+actually contains. Measured co-occurrence of a status token and a `.py` path on the same
+line: `README.md` 4 lines, `owasp-crosswalk.md` 13 lines — real joins, not zero.
+
+```
+  for each mechanism row:
+      key = normalised(decides.split("::")[0])        # e.g. Security-kit/content_trust.py
+      for each doc in (control-matrix, owasp-crosswalk, README, SECURITY):
+          for each LINE mentioning key:
+              tokens = status_tokens(line)            # vocabulary map below
+              if tokens and canonical(tokens) != row.status:  → ERROR
+```
+
+**Line-scoped, not document-scoped.** A document mentioning a path and, 200 lines later,
+using the word "Mechanical" about something else is not a disagreement. The claim and its
+subject must sit on one line — which is how these tables are written anyway.
 
 | Canonical | Accepted synonyms found in the repo |
 |---|---|
@@ -224,9 +346,19 @@ vocabulary map below; fail on disagreement.
 | `LIBRARY` | `[LIB]`, `LIBRARY`, `Library only.` |
 | `GAP` | `[GAP]`, `GAP`, `Gap.` |
 
-`[GUIDE]` and `[APP]` are **not** statuses of a template mechanism — they describe
-advisory guidance and application responsibility. They are ignored by I1, which keys on
-the mechanism id, not on tag presence.
+`[GUIDE]` and `[APP]` are **not** statuses of a template mechanism — they describe advisory
+guidance and application responsibility, and a single row legitimately carries both a status
+and a `[GUIDE]` note (`owasp-crosswalk.md:78` is `[LIB]` + `[GUIDE]`). I1 ignores them
+rather than treating the pair as a conflict.
+
+**Known limit, stated rather than hidden.** `permission.py` appears on 35 lines across the
+four documents and hosts five separate mechanisms, so a path key cannot say *which* gate a
+line means. For those five rows I1 additionally requires the **function name** on the line
+(`check_egress`, `check_deny_list`, …); a line naming only `permission.py` is unattributable
+and skipped. Measured, 6 lines in `owasp-crosswalk.md` and 2 in `README.md` carry a status
+token with no path at all — also skipped. **I1 therefore checks agreement among
+attributable claims; it does not claim to see every sentence.** The skip count is printed,
+so shrinking coverage is visible rather than silent.
 
 ### I2 — Coherence
 
@@ -238,8 +370,54 @@ library as enforcement becomes a build failure rather than a review miss.
 
 ### I3 — Proof exists and runs
 
-Every non-null `proof` names a file that exists, and that file is reachable from
-`init.sh`. A proof nobody runs is not a proof.
+Every non-null `proof` names a file that exists, and that file is reachable from a named
+runner. A proof nobody runs is not a proof.
+
+> #### ⚠ I3 fails on the shipped tree today — and it is right to
+>
+> Measured 2026-08-11, per-file, with `init.sh` reachability:
+>
+> | Test file | Tests | Invoked by `init.sh`? |
+> |---|---|---|
+> | `tests/test_hooks.py` | 10 | ✓ |
+> | `tests/test_content_trust.py` | 6 | ✓ |
+> | `tests/test_e2e.py` | 3 | ✓ |
+> | `tests/test_fixtures.py` | 1 | ✓ |
+> | `tests/test_coverage.py` | 1 | ✓ |
+> | `tests/test_eval_selection.py` | 1 | ✓ |
+> | **`tests/test_protected_paths.py`** | **19** | **✗ NO** |
+> | **`tests/test_steady_state.py`** | **5** | **✗ NO** |
+>
+> `test_protected_paths.py` is the cited Verification for **`SEC-SELF-001` and
+> `SEC-POLICY-001`** (`control-matrix.md:27-28`) — the two rows asserting that the agent
+> cannot rewrite its own mechanism and that a bad policy denies. It is also the file pinning
+> `SEC-INTERP-GAP-001` so that gap "cannot close silently." **24 of the tree's 46 tests, and
+> the entire self-protection proof, run only if a human types the command.**
+>
+> `init.sh` invokes no `pytest` at all (measured: zero occurrences), while five matrix rows
+> cite `python3 -m pytest …` as their Verification. The commands are correct and pass — `46
+> passed` via `python3 -m pytest tests/ -q` — they are simply not what `./init.sh` runs.
+>
+> **This is I3 doing its job on its first run.** Do not weaken I3 to make it green.
+
+**Resolution — two steps, in this order:**
+
+1. **Record the finding.** New matrix row `SEC-PROOF-GAP-001`: *"the self-protection proof
+   is not in the default runner"* — measured, with the table above. It is a real gap in the
+   same sense as the other eight.
+2. **Then satisfy I3 mechanically.** `init.sh` gains one line —
+   `python3 -m pytest tests/ -q` — which makes every test file reachable, closes
+   `SEC-PROOF-GAP-001`, and lets I3 pass by *fixing the tree* rather than by lowering the
+   bar. Confirmed to pass as-is: `46 passed in 0.50s`.
+
+**Reachability is defined as: named in `init.sh`, or matched by a directory-wide runner
+`init.sh` invokes.** After step 2 the second clause covers all eight files, so I3 does not
+have to enumerate them and will not silently exempt a ninth file added later.
+
+`pytest` is a **runner**, not a dependency of the mechanism code: every test file also has a
+stdlib `__main__` block and passes under bare `python3`. The zero-external-deps rule binds
+mechanism code; step 2 must keep the `pytest` line non-fatal when `pytest` is absent, exactly
+as `init.sh` already degrades when `python3` is missing.
 
 ### I4 — No orphans, both directions
 
@@ -255,13 +433,37 @@ label, so these need a decision before it can run:
 
 - `SEC-XXX-001` is the per-project placeholder — **exempt**, matched by the existing
   `PLACEHOLDER_RE`.
-- `SEC-EGRESS-001` is a real mechanism and gets `MECHANICAL` plus the inventory row in
-  §4.1.
 - `SEC-TOOL-001` ("Only approved tools may execute") describes the same code as
   `SEC-PHASE-001` — `check_phase_gate` returning `not in allowlist`. Implementation
   **merges it into `SEC-PHASE-001`** rather than creating a second inventory row for one
   function. Two matrix ids pointing at one mechanism is precisely the duplication this
   spec exists to remove.
+- `SEC-EGRESS-001` — **rev 1 said "is a real mechanism and gets `MECHANICAL`". That is the
+  exact error this spec exists to prevent.** Three measurements say otherwise:
+
+  | Evidence | Reading |
+  |---|---|
+  | its Verification cell is `Egress fixture or E2E test` (`control-matrix.md:26`) | **prose, not a command.** No `proof` value can be honestly written, so I3 has nothing to check |
+  | `check_egress` matches five substrings — `curl `, `wget `, `nc `, `ssh `, `nmap ` (`permission.py:257`) | a token blocklist, not destination control. `ncat`, a tab separator, or `python3 -c "import urllib…"` all pass |
+  | it is reached only when `tool == "bash"`; `WebFetch` never routes to any gate (`SEC-COVER-GAP-001`, `SEC-EGRESS-GAP-001`) | the primary egress channel bypasses it entirely |
+
+  Its objective as written — *"Network actions stay within approved destinations"* — is
+  **false**, and rev 1 was about to make a checker certify it. Two honest options; pick one
+  in implementation:
+
+  1. **Narrow the objective to what the code does** — *"blocks five known network shell
+     tokens in `bash` commands"* — status `MECHANICAL`, `proof` a real fixture asserting
+     those five tokens deny. Defensible and small.
+  2. **Label it `OBSERVE`**, keeping the broad objective, with `SEC-EGRESS-GAP-001` carrying
+     the remainder.
+
+  **Option 1 is recommended**: `check_egress` genuinely denies, so `OBSERVE` understates it;
+  what was wrong was the *scope* of the claim, not its mechanism. Either way
+  `SEC-EGRESS-GAP-001` stays, because neither option makes `WebFetch` gated.
+
+  This row is the strongest evidence for the whole spec: a `MECHANICAL` label on a
+  destination-control claim that no code implements survived every prior review, and was
+  about to be promoted into a machine-checked file where it would have read as verified.
 
 I4 must therefore treat an unlabelled, non-placeholder row as an **error**, not a skip —
 otherwise the cheapest way to pass the checker is to delete a status.
@@ -289,7 +491,7 @@ mention becomes a reference.
 | Fact | Owner | Everyone else |
 |---|---|---|
 | Status of each shipped mechanism | `Security-kit/mechanisms.json` | reference the id; do not restate the adjective |
-| Gate mechanics, order, fail-closed behaviour | `governance/ARCHITECTURE.md` | link. `Security-kit/README.md` currently mentions the gates 16 times vs `ARCHITECTURE.md`'s 4 — inverted ownership |
+| Gate mechanics, order, fail-closed behaviour | `governance/ARCHITECTURE.md` | link. `Security-kit/README.md` says "gate" **23** times vs `ARCHITECTURE.md`'s **6** (measured 2026-08-11; rev 1 said 16 vs 4) — inverted ownership |
 | Control text (S1.1–S8.6) | `Security-kit/SECURITY.md` | cite the S-number |
 | Risk → mechanism, incl. gaps | `Security-kit/owasp-crosswalk.md` | cite the OWASP id |
 | Control → code → test → evidence, per project | `Security-kit/control-matrix.md` | cite the `SEC-` id |
@@ -318,7 +520,9 @@ styles — two different targets.
         ▼                                       You rent a chokepoint.
   ┌──────────────┐   permission.py reads JSON on stdin
   │  GATE (×5)   │   exit 2 → BLOCKED.  anything else → PROCEEDS
-  └──────────────┘
+  │  + secret    │   ①a protected-paths · ① deny-list · ② phase · ③ egress
+  │    scanner   │   · policy-load fail-closed;  then pre:secret-block
+  └──────────────┘   (two separate hooks, same matcher string)
         │
         ▼  tool runs → RECORD (append-only; cannot veto)
 
@@ -333,6 +537,9 @@ styles — two different targets.
   ./init.sh
         │
         ├─ tests/             is each GATE correct?
+        │                     measured: 6 of 8 files invoked — 22 of 46 tests.
+        │                     test_protected_paths.py (19) and test_steady_state.py
+        │                     (5) run only by hand.        (§5.I3 adds the missing line)
         ├─ check_coverage.py  is every "applies" control mapped to a
         │                      verification?               (completeness)
         └─ check_status()     do all status claims agree, and do they match
@@ -370,20 +577,42 @@ New file `tests/test_mechanisms.py`, following the existing style of
 | `case_i2_catches_unwired_mechanical` | `status: MECHANICAL` with `attaches_at: null` fails |
 | `case_i2_accepts_observe` | `can_deny: false` + wired + proof ⇒ `OBSERVE` passes |
 | `case_i3_catches_missing_proof_file` | a `proof` naming a nonexistent file fails |
-| `case_i4_catches_matrix_orphan` | a `MECHANICAL` matrix row with no inventory row fails |
-| `case_i4_exempts_gap_rows` | the seven `*-GAP-*` rows do not trigger I4 |
+| `case_i4_catches_matrix_orphan` | a `MECHANICAL` matrix row with no inventory row fails — the `SEC-HOOK-001` case, §4.1 |
+| `case_i4_exempts_gap_rows` | the **eight** `*-GAP-*` rows do not trigger I4 (rev 1 said seven) |
 | `case_path_spelling_normalised` | `content_trust.py` and `Security-kit/content_trust.py` compare equal |
 | `case_i4_rejects_unlabelled_row` | a non-placeholder matrix row with no status label fails (§5.1) |
 | `case_malformed_inventory_fails_closed` | unparseable `mechanisms.json` ⇒ error, never pass |
+| `case_i1_matches_on_path_not_id` | a fixture doc with a wrong status **and no `SEC-` id** is still caught — pins the rev-1 no-op (§5.I1) |
+| `case_i1_skips_unattributable_line` | a status token on a line naming only `permission.py` is skipped, and counted in the printed skip total |
+| `case_i1_ignores_guide_and_app` | a `[LIB]` + `[GUIDE]` line passes — both tags on one row is legal |
+| `case_i2_doorway_is_mechanical` | `decides: null` + `attaches_at` set ⇒ `MECHANICAL`, not `GAP` (§3.1) |
+| `case_i2_rejects_can_deny_false_for_doorway` | `can_deny: false` on a DOORWAY fails; `n/a` passes — `false` must not silently mean `OBSERVE` |
+| `case_i3_requires_named_runner` | a `proof` file existing but reachable from no runner fails (§5.I3) |
 
 Fail-closed matches `check()`: a missing or malformed `mechanisms.json` is an error, not a
 skip.
 
-**Regression baseline to preserve:** 46 tests passing; `control-matrix.md` parsing to 20
-rows through the real `parse_matrix`, with `SEC-XXX-001` the only placeholder. `init.sh`
-currently reports `FAIL — 5 error(s), 2 warning(s)` because `coverage.json` is absent;
-this spec must not change that count except by adding `check_status()` failures if the
-inventory is genuinely inconsistent.
+### 8.1 Regression baseline — measured 2026-08-11, not recalled
+
+| Fact | Value | How measured |
+|---|---|---|
+| Total tests | **46 passed** | `python3 -m pytest tests/ -q` |
+| Test files | **8** | `tests/test_*.py` |
+| Files `init.sh` invokes | **6 of 8** | `test_protected_paths.py` and `test_steady_state.py` excluded — §5.I3 |
+| `parse_matrix` rows | **20** | called on the real `control-matrix.md` |
+| Placeholder rows | **1** (`SEC-XXX-001`) | `PLACEHOLDER_RE` over parsed cells |
+| GAP rows | **8** | unique `SEC-*-GAP-001` ids (rev 1 said 7) |
+| `init.sh` result | `FAIL — 5 error(s), 2 warning(s)` | `./init.sh`, `coverage.json` absent |
+
+This spec must not change the error/warning counts except by adding `check_status()`
+failures where the inventory is genuinely inconsistent. Note the interaction with §5.I3: the
+`pytest tests/ -q` line raises the test count reachable from `init.sh` from 22 to 46 — a
+**coverage** change, not a pass/fail change, since all 46 already pass.
+
+`test_coverage.py` and `test_eval_selection.py` collect as **1 pytest test each** because
+they use internal `case_*` functions under one `test_all` — 10 and 4 cases respectively.
+`tests/test_mechanisms.py` follows that same style, so it will add **1** to the pytest count
+while carrying the 11 cases above.
 
 ---
 
@@ -392,18 +621,39 @@ inventory is genuinely inconsistent.
 | Mode | Consequence | Mitigation |
 |---|---|---|
 | A pipe character inside a new matrix cell | `parse_matrix` does `line.strip().strip("\|").split("\|")` and needs ≥5 cells, mapping col 0 → col 3 — any stray pipe silently corrupts the row | I4 turns silent corruption into a loud orphan error |
-| The inventory becomes a roadmap | 11 "not built" rows drown the 9 real ones | §4.2 excludes unbuilt mechanisms by rule |
-| A status is *agreed* everywhere and *wrong* everywhere | I1 passes; the claim is still false | I2 checks against structure, not against other prose. Beyond that, adequacy is human |
+| The inventory becomes a roadmap | 17 "not built" rows drown the 10 real ones | §4.2 excludes unbuilt mechanisms by rule |
+| A status is *agreed* everywhere and *wrong* everywhere | I1 passes; the claim is still false | I2 checks against structure, not against other prose. Beyond that, adequacy is human. **`SEC-EGRESS-001` is a live example** (§5.1) — every document agreed, and the objective was still false |
 | Synonym map goes stale as docs are reworded | I1 silently stops matching | `case_shipped_inventory_passes` runs against the real docs, so a rewording that breaks matching fails the suite |
+| **A check that passes vacuously** | worse than no check: it converts a known unknown into a false assurance. **This already happened** — rev 1's I1 joined on the `SEC-` id, which 3 of its 4 target documents do not contain, so it would have reported success forever (§5.I1) | every invariant states its **join key** and prints its **skip count**. A rising skip count means shrinking coverage, visibly. `case_i1_matches_on_path_not_id` pins it |
+| The scope of a claim is wrong while the mechanism is real | I2 passes — the cells are coherent — and the objective sentence still overstates. `check_egress` denies five shell tokens; its row claims "approved destinations" | no invariant reads objective prose. **Structural coherence is not scope correctness**, and pretending otherwise is how rev 1 nearly certified `SEC-EGRESS-001`. Scope stays with human sign-off |
+| The manifest listing security files is itself unchecked | measured: nothing in `init.sh` or `tests/` reads `SECURITY-MANIFEST.md`, so its tier assignments are unverified claims — the same defect class this spec fixes, one file over | out of scope here; recorded in §10 so it is a known gap rather than an assumption |
 | Line-number citations rot | already happened — `permission.py:99-101`, `:171-180`, `:26-29` are stale after Gate 1a was inserted | `mechanisms.json` cites `file::function`, never line numbers |
 
 ---
 
 ## 10. Scope Boundary
 
-**In:** `Security-kit/mechanisms.json`; `check_status()` + synonym map + path
+**In:** `Security-kit/mechanisms.json` (10 rows, §4.1); `check_status()` + synonym map + path
 normalisation in `check_coverage.py`; `tests/test_mechanisms.py`; the §6 doc
 reorganisation; a new `Security-kit/README.md` subsection for the §2 procedure.
+
+**Added by rev 2, in scope because each is a false-or-vacuous claim rather than new
+enforcement:**
+
+| Item | Change | Section |
+|---|---|---|
+| `SEC-EGRESS-001` scope correction | narrow the objective to the five shell tokens, or relabel `OBSERVE`; write a real `proof` command in place of the prose cell | §5.1 |
+| `SEC-PROOF-GAP-001` | new matrix row: the self-protection proof is not in the default runner | §5.I3 |
+| `init.sh` gains `python3 -m pytest tests/ -q` | non-fatal if `pytest` absent; makes all 8 test files reachable and closes the row above | §5.I3 |
+| `SEC-TOOL-001` merge | fold into `SEC-PHASE-001`; one mechanism, one row | §5.1 |
+| `SECURITY-MANIFEST.md` | add `Security-kit/mechanisms.json` as Tier 1 | below |
+
+The manifest edit is in scope for a reason worth stating: this spec adds a security file, and
+the manifest is what tells `install.sh --no-security` to remove it. Omitting the row would
+ship a kit whose `--no-security` install leaves an orphaned `mechanisms.json` behind and whose
+`check_status()` then fails on a tree that deliberately has no security kit. **Measured
+caveat:** nothing reads `SECURITY-MANIFEST.md` in `init.sh` or `tests/`, so this row is a
+convention, not a mechanism — recorded in §9 rather than fixed here.
 
 **Out — each already recorded, each its own commit:**
 
@@ -421,11 +671,27 @@ reorganisation; a new `Security-kit/README.md` subsection for the §2 procedure.
 
 ## 11. What This Buys, and What It Does Not
 
-**Buys:** a false status claim in any Security-Kit document becomes a build failure. The
-mechanism list stops being reconstructable only by reading five files. The dev-time →
-runtime port has a table saying which parts survive. The design-doc → implementation
-procedure is written down instead of implied.
+**Buys:** an *attributable* false status claim in any Security-Kit document becomes a build
+failure. The mechanism list stops being reconstructable only by reading five files. The
+dev-time → runtime port has a table saying which parts survive. The design-doc →
+implementation procedure is written down instead of implied.
 
 **Does not buy:** any new enforcement. Nothing that was a gap stops being a gap. The
 template remains, in the crosswalk's own words, "a well-built tool-boundary gate, not
 agentic-risk coverage."
+
+**Does not buy, specifically** — the limits rev 2 measured rather than assumed:
+
+- **Unattributable claims are skipped, not checked.** 8 lines carry a status token with no
+  path (§5.I1). The skip count is printed; it is not zero.
+- **Scope errors survive all four invariants.** `SEC-EGRESS-001` was structurally coherent
+  and substantively false. I2 checks cells against cells, never a claim against the code's
+  actual reach. Only human sign-off catches that.
+- **The manifest that classifies security files is itself unchecked** (§9, §10).
+
+**What rev 2 itself demonstrates.** Writing this spec's invariants down and then running them
+by hand against the tree found: one vacuous invariant, one invariant that fails on the shipped
+code for a real reason, one missing inventory row, one overclaimed control, one withdrawn
+example, and four wrong numbers — **before a line of `check_status()` existed.** The value is
+in stating the join key and the derivation rule precisely enough to be wrong. That is the
+argument for the artefact, made by the process of specifying it.
