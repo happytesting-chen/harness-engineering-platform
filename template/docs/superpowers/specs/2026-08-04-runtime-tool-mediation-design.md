@@ -1,21 +1,37 @@
 # Runtime Security Architecture — Deployed Agent Product
 
-**Status:** Draft for review (rev 3 — supersedes rev 2)
-**Date:** 2026-08-04 (rev 2: 2026-08-07 · rev 3: 2026-08-07)
+**Status:** Draft for review (rev 4 — supersedes rev 3; all rev-4 items below are **applied**)
+**Date:** 2026-08-04 (rev 2: 2026-08-07 · rev 3: 2026-08-07 · rev 4: 2026-08-11)
 **Author:** brainstormed with Yuan Shi
 **Scope:** The mechanisms that keep a *deployed* agent product secure at runtime —
 what they are, where each sits, how each works, and how each is **demonstrated**.
 Phase A implements the control chokepoint + audit; later phases extend the same
 dispatcher to the remaining boundaries.
 
-> **Rev 3 changes.** Rev 2 was a correct *API-gateway* design with an LLM drawn in the
-> middle: every mechanism M1–M12 is something you would build for a REST service.
-> Rev 3 (a) replaces the trust model — nothing entering the LLM is trusted; what differs
-> is **authority** and **attribution** (§2), (b) names the **agent-specific** threats
-> T1–T8 and the mechanisms A1–A5 that no per-call gateway can implement (§3–§4),
-> (c) changes the core signature to `decide(action, policy, session_state)` (§7),
-> (d) fixes three unimplementable invariants an audit of rev 2 found (§8, §16), and
-> (e) adds the **delivery + demonstration** plan — library vs skill vs demo (§11).
+**Read alongside** — three specs, three different questions; none subsumes another:
+| Spec | Question |
+|---|---|
+| [`2026-08-04-security-tailor-design.md`](2026-08-04-security-tailor-design.md) | Which controls apply to THIS product? (dev-time build gate) |
+| [`2026-08-11-security-kit-mechanism-inventory-design.md`](2026-08-11-security-kit-mechanism-inventory-design.md) | Are the kit's claims about itself true? (adds no enforcement) |
+| **this spec** | Is the DEPLOYED agent's tool call mediated? (0% built) |
+| [`2026-08-11-security-kit-build-reconciliation-design.md`](2026-08-11-security-kit-build-reconciliation-design.md) | **Read this first** — resolves the seams between the three and fixes the build order |
+
+> **Rev 4 changes — all applied.** Rev 3's architecture stands; rev 4 fixes what testing found
+> and splits what was too big to plan. (a) §6.M2's `_bind()` table had **one wrong row** —
+> `functools.partial` does *not* drop the bound argument (measured); replaced with the
+> actual invariant (§6.M2). (b) Two real defects: the A2 **check→call→observe race** that
+> reopens T4 under concurrency, and `session` passed **by reference** to a function the
+> spec calls pure (§6.A2, §7). (c) **Phase A split into A1/A2** — the original was 8
+> modules + 5 test files + 6 integration edits, too large for one plan (§14). (d) The §13
+> honesty fixes are **promoted ahead of Phase A** as Phase 0 — they correct claims that are
+> wrong *today* (§14). (e) `/runtime-harden` specified as a **second skill** with a
+> `validate_policy.py` backstop, closing the one vehicle whose output nothing checked
+> (§11.6, §11.8). (f) The **three-zone** determinism model — naming the
+> unattended-and-nondeterministic trap (§11.1). (g) D2 moved to a **Phase-A** decision:
+> the memory *schema* is Phase A even though A5 is Phase B (§15).
+> **(h) Rev 3's own headline defect claim withdrawn:** `_load_json`'s fail-open was **fixed in
+> `70a12a1`**; re-measured by driving the real hook, all three policy-file states exit 2. Two
+> stale line citations corrected with it (§8, §12, §13.4, §14).
 > Full changelog: §16.
 
 ---
@@ -380,21 +396,31 @@ reach — **bypass is not blocked, it is unrepresentable.**
 
 > ### ⚠ Argument binding must fail closed at wrap time
 >
-> Rev 2 said `inspect.signature(tool).bind(*a, **kw)`. Measured — it silently produces
-> argument dicts that **no `arg_rules` can ever match**:
+> Rev 2 said `inspect.signature(tool).bind(*a, **kw)` and rev 3 tabulated three tool shapes
+> that defeat it. **Re-measured on CPython 3.14 — one of those rows was wrong:**
 >
-> | tool shape | `.bind()` yields | consequence |
+> | tool shape | `.bind()` actually yields | verdict |
 > |---|---|---|
-> | `functools.partial(refund, customer_id=…)` | `customer_id` **absent** | a rule on `customer_id` never fires |
-> | builtin / C function | `ValueError`, or a single opaque param | no field names at all |
-> | `def tool(*args, **kw)` | `{'args': ('c1', 20000)}` | a rule on `amount` **can never fire** |
+> | `functools.partial(refund, customer_id="c1")` | `{'customer_id': 'c1', 'amount': 20000}` | **rev 3 was WRONG** — the bound arg is present; a rule on it fires correctly |
+> | `def tool(*args, **kw)` | `{'args': ('c1', 20000)}` | **real** — a rule on `amount` can never fire |
+> | builtin (`print`) | `{'args': ('x',)}` | same failure as the row above, not a distinct one |
+> | builtin (`len`) | signature `(obj, /)` introspects fine | not a failure at all |
 >
-> Every row is a **silent fail-open**: the gate runs, matches nothing, returns ALLOW.
+> So the danger is **not a list of tool shapes** — enumerating shapes is how rev 3 got a row
+> wrong and would miss the next shape anyway. The danger is one condition:
 >
-> `_bind()` therefore raises **at wrap time** (process start, not request time) if the
-> signature is unavailable or `*args`-only *and* the policy has `arg_rules` for that tool.
-> The host must then pass an explicit `arg_schema=`. A tool whose arguments cannot be named
-> cannot be argument-gated, and that must be a startup failure, not a runtime surprise.
+> > **A parameter named in this tool's `arg_rules` is absent from the bound argument dict.**
+>
+> When that holds, the gate runs, matches nothing, and returns ALLOW — a **silent
+> fail-open**. `_bind()` therefore checks exactly that condition **at wrap time** (process
+> start, not request time): for each `arg_rule` targeting this tool, every `field` it
+> references must appear in a probe binding, or `guard()` raises and the host must pass an
+> explicit `arg_schema=`.
+>
+> This is strictly better than the shape enumeration: it is checkable, it cannot be wrong
+> about a shape, and it fails for exactly the tools whose rules would not have fired.
+> A tool whose arguments cannot be named cannot be argument-gated, and that must be a
+> **startup failure, not a runtime surprise**.
 
 **Per-turn fan-out.** A single model turn may propose several tool calls. `guard()` wraps
 *each tool*, so each call is mediated independently — but A2 counters and the turn
@@ -568,6 +594,67 @@ A1 only records whether a read occurred (structural, `[MECH]`).
 `guard()` owns mutation, and only *after* a call succeeds — so a denied action does not
 consume budget.
 
+> ### ⚠ Two defects rev 3 shipped in this mechanism
+>
+> **(i) "By value" was a claim with nothing implementing it.** `SessionState` is mutable and
+> was passed as itself; nothing stopped `decide()` from reading a counter mid-update or —
+> worse — writing one, which would make a "pure" function the thing that consumes budget.
+> Rev 4 makes the boundary a type, not a promise:
+>
+> ```python
+> @dataclass(frozen=True)
+> class SessionSnapshot:                       # what decide() actually receives
+>     session_id: str
+>     turn_origins: frozenset[str]
+>     counters: MappingProxyType               # read-only view, ints only
+>
+> class SessionState:                          # mutable, guard()-owned
+>     def snapshot(self) -> SessionSnapshot: ...    # taken under the lock, below
+> ```
+>
+> `decide(action, policy, session: SessionSnapshot)`. Purity is now unforgeable: there is no
+> mutator on the object `decide()` holds. `test_session.py` asserts `snapshot()` output is
+> unaffected by later `observe()` calls.
+>
+> **(ii) The check→call→observe sequence is a race that reopens T4.** The A2 ceiling is read
+> at ⑤ and written at ⑫. Two concurrent turns in one session — trivial with an async agent,
+> parallel tool calls, or a sub-agent (T7) — both read `refund_usd_total = 9,500`, both see
+> `9,500 + 500 ≤ 10,000`, and both are allowed. Cumulative spend: $10,500 against a $10,000
+> ceiling. Every `session_sum_gt` rule has this hole, and it is exactly the threat A2 exists
+> to close.
+>
+> **Fix — reserve-then-commit under a per-session lock:**
+>
+> ```
+>   with session.lock:                 # per-session, re-entrant, held across ⑤ only
+>       snap = session.snapshot()
+>       decision = decide(action, policy, snap)
+>       if decision.outcome != "DENY":
+>           token = session.reserve(action)      # counters += contribution NOW
+>   ── lock released ──                          # the tool call is slow; do not hold it
+>   try:
+>       result = tool(**args)
+>       session.commit(token, result)            # reservation becomes permanent
+>   except BaseException:
+>       session.rollback(token)                  # failed call consumes no budget
+>       raise
+> ```
+>
+> This keeps the rev-3 property that a **denied** action costs nothing, and adds the property
+> rev 3 lacked: an **in-flight** action costs its budget for as long as it is in flight. The
+> lock is held across the decision only — never across the tool call — so a slow tool cannot
+> serialize the session.
+>
+> **Single-threaded hosts are not exempt from the fix, only from the bug.** An
+> `asyncio`-based agent has one thread and still interleaves at every `await`. The lock is
+> `threading.RLock` for the sync path; the async path takes an `asyncio.Lock` over the same
+> region. A host that never runs concurrent turns pays one uncontended lock acquisition per
+> tool call.
+>
+> `test_agentic_threats.py` gets the adversarial case: N concurrent `issue_refund` calls of
+> `ceiling/N + ε` in one session; **exactly one** may exceed the ceiling and be denied, and
+> the committed total must never exceed the ceiling.
+
 ### A3 — Plan anchoring `[OBS]`
 
 Record the declared objective at turn start; audit every action against it. **Honestly the
@@ -731,22 +818,44 @@ null-checks — it always receives a valid policy whose every lookup misses, so 
 falls through to unknown-tool DENY. **Malformed config cannot produce a code path that
 skips the gate.**
 
-> ### ⚠ Do not port the dev-time loader — it violates this
+> ### ✅ The dev-time loader now agrees — rev 3's warning is obsolete
 >
-> Rev 1 credited fail-closed policy loading to `permission.py:171-180`. That range is the
-> **stdin envelope** check, not policy loading. The real loader is `_load_json`
-> (`governance/permission.py:26-29`), which returns `{}` on a missing file. Measured, by
-> driving the real hook:
+> **Rev 4 correction.** Rev 1 credited fail-closed policy loading to `permission.py:171-180`
+> — the **stdin envelope** check, not policy loading. Rev 3 corrected the location but
+> reported the loader as **fail-open**, and told you not to port it. That was true when
+> measured and is **no longer true**: `_load_json` was rewritten in **`70a12a1`**
+> ("fix(security): Gate 1a — match protected paths by file identity, fail closed on bad
+> policy") and now lives at `governance/permission.py:76-91`, raising `PolicyError` on
+> unreadable, non-JSON, and non-object files, and on a missing file when `required=True`.
+> CLI mode converts it at `:366-369` — `except PolicyError → _deny()`, with a bare
+> `except Exception → _deny(... fail closed)` behind it.
 >
-> | `deny-list.json` | exit | result |
-> |---|---|---|
-> | valid, pattern hit | 2 | blocked ✓ |
-> | malformed JSON | 1 | **hook error → tool proceeds** |
-> | missing | 0 | **ALLOWED** |
+> Re-measured **by driving the real hook** (`python3 governance/permission.py` with a
+> `{"tool_name": "Bash", "tool_input": {"command": "rm -rf /"}}` envelope on stdin, against
+> a throwaway tree copy so the live policy was untouched):
 >
-> The dev-time gate silently stops enforcing if its policy file vanishes. The sentinel
-> design above is a deliberate **improvement**, not a port. Track `_load_json`'s fail-open
-> as its own dev-time bug (§12).
+> | `deny-list.json` | exit | result | stdout |
+> |---|---|---|---|
+> | valid, pattern hit | **2** | blocked ✓ | `deny-list hit: 'rm -rf /'` |
+> | malformed JSON | **2** | blocked ✓ | `permission gate: policy file is not valid JSON: deny-list.json (fail closed)` |
+> | missing | **2** | blocked ✓ | `permission gate: policy file missing: deny-list.json (fail closed)` |
+>
+> Exit 2 in all three states — the only code Claude Code treats as a block (`:311-313`).
+>
+> **What this changes for the runtime design: nothing.** The sentinel deny-all policy is
+> still the right shape here, and now it is *convergent* with the dev-time gate rather than
+> a correction of it. Both reach the same place from opposite directions: `permission.py`
+> **raises** and the CLI boundary converts to a denial; `policy_schema.py` **returns** a real
+> `Policy` whose every lookup misses. The runtime picks the latter because `decide()` is a
+> pure function with no CLI boundary to catch anything (§7), so there is nowhere to convert
+> an exception — the deny has to be *in the value*.
+>
+> Residual, and deliberately not a bug: `_load_json` without `required=True` still returns
+> `{}` for a missing file (`:79-82`). Measured, no current caller fails open on that —
+> `check_protected_paths` has its `BUILTIN_PROTECTED_PATHS` floor (`:212-214`),
+> `check_phase_gate` returns `"no active phase — cannot determine tool permissions"`, and
+> `check_egress` default-denies an unlisted host. Only `check_deny_list` passes
+> `required=True`, because it is the one gate with **no** built-in floor (`:97-99`).
 
 ### Blocked observations are data, not control flow
 
@@ -810,12 +919,14 @@ Security-kit/runtime/
 ├── approval.py         ← M5 cli_approval_fn reference implementation
 ├── screens.py          ← M6/M12 ON_CONTENT subscribers wrapping content_trust.py
 ├── monitor.py          ← M9 async sink (separate from M8 audit)
+├── validate_policy.py  ← §11.8 CHECKER: policy.json schema + coverage (build + load time)
 └── README.md           ← how to attach in the three host shapes
 tests/
 ├── test_runtime_hooks.py   ← M1 invariants                            [name † ]
 ├── test_policy_core.py     ← M4/§7 table-driven, incl. session ops
 ├── test_guard.py           ← M2 control flow + binding + coverage
 ├── test_session.py         ← A2 counters, A4 narrowing + inheritance
+├── test_validate_policy.py ← §11.8 one named case per rule class
 └── test_agentic_threats.py ← one named case per T1–T8
 demo/
 └── runtime_demo.py     ← A/B injection demo, gate vs --nogate (§11)
@@ -823,6 +934,26 @@ demo/
 
 † `tests/test_hooks.py` already exists for the **dev-time** Claude hook path — hence
 `test_runtime_hooks.py` for the runtime one.
+
+**Every `tests/test_*.py` above needs a row in `SECURITY-MANIFEST.md`'s Tier 1 table**
+(`:28-31` lists each test individually), or the manifest stops being a true inventory of what
+this kit ships. Their **execution** is a separate question, answered by §13.1: the inventory
+spec's pytest line discovers them; no per-file `init.sh` edit.
+
+Manifest rows are a **convention, not a mechanism** — and measurably so. `install.sh` does not
+parse the manifest; it hardcodes its own `TIER1` bash array (`install.sh:62-69`) and removes
+whole directories — `governance`, `Security-kit`, `tests`. So a new runtime file *is* deleted
+correctly by `--no-security` whether or not anyone writes its manifest row, and a missing row
+fails no gate. Two consequences worth stating plainly:
+
+- **Adding a row is documentation.** Do it anyway — the manifest is what a reviewer reads to
+  learn what ships, and it is cited as authoritative by `README.md:311`.
+- **The duplication is the real defect.** Two independent lists of the security surface, one
+  prose and one executable, with nothing checking that they agree. That is the inventory spec's
+  subject matter, not this spec's; it is recorded here so the runtime work does not widen the
+  gap. Directory-level deletion is what keeps the drift harmless *today* — a future file placed
+  outside those three directories would not be, exactly as `kiro/steering/security-tailor.md`
+  needed its own explicit entry (noted in the manifest's own line 44).
 
 ---
 
@@ -860,6 +991,37 @@ That one line is the whole split. At setup time a person reads the output and co
 so nondeterminism is contained. At request time nobody is watching, so it must be code.
 This is §1 ("reasoning proposes, mechanism enforces") applied to the *delivery* of the
 mechanism, not just its runtime shape.
+
+#### The three zones — and the one that is a trap
+
+Crossing "is it deterministic?" with "is a human present?" gives four cells, and only three
+of them are safe to ship. Naming the fourth is the point of the table.
+
+| | **Human present** | **Unattended** |
+|---|---|---|
+| **Deterministic** | Zone 1 — *review*. Tests, demo, `validate_policy.py`. Repeatable, so a reviewer can disagree and re-run | **Zone 2 — *enforcement*.** `decide()`, the gates, `guard.py`. The only cell allowed to rule on a live request |
+| **Nondeterministic** | Zone 3 — *drafting*. `/runtime-harden`, `/security-tailor`. A model proposes; the human is the gate | **☠ Zone 4 — the trap.** A model deciding a live request with nobody watching |
+
+**Zone 4 is not a performance problem; it is an accountability problem.** Two identical
+requests can get different verdicts, so no post-hoc review can establish what the policy
+*was* — the audit log records what happened but cannot reconstruct why, and "the model
+decided" is not a defensible answer to an auditor or a customer.
+
+Two Zone-4 shapes are easy to build by accident:
+
+1. **An LLM call inside `decide()`** — e.g. "ask the model whether this refund looks
+   fraudulent." §7's purity requirement forbids it structurally: `decide()` takes a frozen
+   `SessionSnapshot` and returns a `Decision`, with no I/O.
+2. **A skill writing policy straight into the running system.** `/runtime-harden` emits
+   `policy.json` as *data a human commits* (§11.6). If it could write live policy, a Zone-3
+   vehicle would be making Zone-2 decisions. `validate_policy.py` (§11.8) is the backstop:
+   even a hand-edited policy is schema-checked before it can load, and a policy that fails
+   validation loads as the deny-all sentinel rather than as nothing.
+
+The dev-time kit obeys the same rule and is worth citing as precedent:
+`/security-tailor` is Zone 3 — it classifies controls into `coverage.json`, and
+`check_coverage.py` (Zone 1) refuses the build if the result is missing or stale. Reasoning
+proposes; mechanism enforces; and the mechanism is always the deterministic one.
 
 ### 11.2 One agent, three vehicles, on a timeline
 
@@ -1033,6 +1195,53 @@ lesson from earlier: an inline regex ran against raw escaped JSON where the quot
 first. **A control that inconveniences its own author is not decorative.** Worth a short
 section in `Security-kit/README.md`.
 
+### 11.8 `validate_policy.py` — the one vehicle whose output nothing checked
+
+§11.6 lets `/runtime-harden` draft `policy.json`, and §11.1's Zone 3 says that is safe
+*because a human reviews it*. Human review is necessary and not sufficient: a reviewer
+reading a 60-rule policy will catch a wrong tier and miss a misspelled key that silently
+disables a rule. The dev-time kit has `check_coverage.py` standing behind
+`/security-tailor`; the runtime skill had **no equivalent**. This closes it.
+
+```
+Security-kit/runtime/validate_policy.py     # stdlib only, ~80 lines
+  python3 -m Security-kit.runtime.validate_policy policy.json
+    exit 0 → schema-valid, every tool in the registry has a tier
+    exit 1 → prints each error with its JSON path
+```
+
+**What it checks** — structure and completeness only, never adequacy (the same boundary
+`check_coverage.py` draws):
+
+| Rule | Rejects |
+|---|---|
+| Shape | unknown top-level keys; a tier that is not `read`/`write`/`danger`; a rule with no `tool` |
+| Completeness | a tool in the registry with **no** tier — the fail-open shape, since an untiered tool must not default to `read` |
+| Referential | an `arg_rule` naming a tool absent from the registry; a `session_sum_gt` naming a counter `session.py` does not maintain |
+| Monotonicity | a rule that *lowers* a tier — §11.6 forbids de-escalation, so a policy expressing it is malformed, not merely unusual |
+| Reachability | a rule shadowed by an earlier deny on the same tool: dead policy reads as coverage |
+
+**Two wiring points, and the second is the one that matters:**
+
+1. **Build time** — `validate_policy.py` runs in CI and as `/runtime-harden`'s final action,
+   the same way `/security-tailor` ends by calling `check_coverage.py --stamp`. A skill that
+   validates its own output cannot hand over a policy that fails to parse.
+2. **Load time** — `policy_schema.py` calls the *same* validator before returning a policy
+   object. This is the load-bearing half: a policy that fails validation yields the
+   **deny-all sentinel** (§8), never a partial policy and never `None`. Sharing one validator
+   between CI and the loader is deliberate — two implementations would drift, and the one
+   that drifts is always the one running in production.
+
+**Why a validator is not a Zone-2 mechanism.** It rules on a *document*, at load or in CI —
+not on a live request. In the inventory spec's vocabulary it is a `CHECKER`, the same
+category as `check_coverage.py`: it blocks a build or a startup, not a tool call. It earns a
+`mechanisms.json` row when it exists and its test passes, with
+`attaches_at: "Security-kit/runtime/policy_schema.py"` and `can_deny: "n/a"`.
+
+Test: `tests/test_validate_policy.py` — one case per table row above, plus the load-time
+assertion that an invalid policy produces deny-all rather than an exception that a caller
+might catch and ignore.
+
 ---
 
 ## 12. Dev-Time vs Runtime — and How the Hook Is Actually Implemented
@@ -1081,13 +1290,15 @@ Measured, six cases:
 Two lessons the reference implementation encodes:
 
 1. **Fail closed on the envelope, not just on policy.** Empty or malformed stdin exits 2
-   (`permission.py:171-180`). A crash-exit-1 would let the tool through.
+   (`permission.py:341-350`; rev 3 cited `:171-180`, stale). A crash-exit-1 would let the
+   tool through — `:311-313` records why: exit 2 is the *only* blocking code.
 2. **Decode before matching.** `secret_scan.py:10-12` — scanning the *raw* JSON string
    missed the credential because of the backslash escapes. Decode `tool_input` first.
 
 **The WebFetch row is a config gap, not a logic gap.** The gate's logic is right — unknown
-tools fail closed at `permission.py:96`. It is the `matcher` that never delivers the call.
-That makes the fix cheap:
+tools fail closed at `permission.py:254` (`return f"{tool_name} not in allowlist"`; rev 3
+cited `:96`, stale). It is the `matcher` that never delivers the call. That makes the fix
+cheap:
 
 **Dev-time fixes, live today, small:**
 
@@ -1097,7 +1308,9 @@ That makes the fix cheap:
   (persistence). Note `PostToolUse`/`Stop` already use `matcher: "*"`
   (`.claude/settings.json:35,49,61`) — only the two **preventive** hooks are narrow.
 - Add `UserPromptSubmit` — the only dev-time attach point for ②.
-- Fix `_load_json`'s fail-open (`permission.py:26-29`) — see §8.
+- ~~Fix `_load_json`'s fail-open (`permission.py:26-29`).~~ **Done in `70a12a1`** — the loader
+  is now at `:76-91` and raises `PolicyError`; all three policy-file states exit 2, verified by
+  driving the real hook. See the corrected §8 box.
 - `kiro/hooks/secret-block.json` is `"type": "askAgent"` — it asks the **LLM to police
   itself**, §1's anti-pattern with a hook's filename. `kiro/hooks/governance-check.json`
   carries its own `_fix_note` that Kiro `{{tool_name}}`/`{{tool_input}}` expansion is
@@ -1111,38 +1324,70 @@ That makes the fix cheap:
 
 Rev 1 omitted this entirely; the tests would have passed locally and gated nothing.
 
-1. **`init.sh` block 5b** (line 107) — add each new test **by name**. `init.sh` has **no
-   glob and no pytest runner**; it names `tests/test_hooks.py` explicitly. Live proof of the
-   failure mode: `tests/test_steady_state.py` is on disk with **zero** mentions in
-   `init.sh` — already orphaned.
-2. **`Security-kit/control-matrix.md`** — add `SEC-RUNTIME-*` rows in the existing
-   `SEC-TOOL-001` / `SEC-EGRESS-001` style, each with a real verification command. Without
-   rows, `check_coverage.py` can never account for any of this — it is already failing
-   closed (`coverage.json` absent, exit 1). Minimum set: one row per A1–A5, since those are
-   the claims a reviewer will not otherwise be able to check.
+> **Rev 4 note — items 4 and 5 shrank because the work landed.** Rev 3 listed a stale control
+> count and three crosswalk re-tags as pending; both were **committed in `f11a182`** and are
+> struck below. What survives is the part still genuinely missing. Ordering and ownership for
+> items 1, 2 and 6 are set by
+> [`2026-08-11-security-kit-build-reconciliation-design.md`](2026-08-11-security-kit-build-reconciliation-design.md)
+> §2–§3; this section defers to it rather than restating.
+
+1. **`init.sh` — nothing to do per-test.** The reconciliation spec assigns the test runner to
+   the inventory spec, which adds one `python3 -m pytest tests/ -q` line (non-fatal if
+   `pytest` is absent). New `tests/test_*.py` files are then **discovered automatically** — no
+   per-file `init.sh` edit. Verify with `./init.sh` after adding a test file.
+   *If Phase A somehow lands before the inventory spec*, add each new test by name and remove
+   those lines when the pytest line arrives: `init.sh` today has **6** named invocations
+   (`:79`, `:98`, `:130`, `:142`, `:182`, `:191`) and **zero** pytest calls. Rev 3's live proof
+   of the failure mode still holds — `tests/test_steady_state.py` and
+   `tests/test_protected_paths.py` are on disk and unreferenced by `init.sh`, recorded as
+   `SEC-PROOF-GAP-001`.
+2. **`Security-kit/control-matrix.md` — `GAP`-scoped rows only.** Do **not** add
+   `SEC-RUNTIME-*` rows at a non-`GAP` status: the inventory spec's **I4** requires every
+   `MECHANICAL`/`OBSERVE`/`LIBRARY` row to have a `mechanisms.json` row, and its §4.2 excludes
+   unbuilt runtime mechanisms from that file — so such a row fails `check_status()` the moment
+   it runs. The convention (reconciliation §2 Seam 1):
+   - today the whole surface is **`SEC-RUNTIME-GAP-001`**, one row, status `GAP`
+     (`control-matrix.md:51`) — where it already is;
+   - Phase A may add `SEC-RUNTIME-GAP-00N` rows at status `GAP` for mechanisms it is about to
+     build;
+   - a row flips **off** `GAP` in the **same commit** that adds its `mechanisms.json` row and
+     its passing named proof. Never before.
 3. **`Security-kit/SECURITY-MANIFEST.md`** — `Security-kit/runtime/` is inside
    `Security-kit/`, which line 44 notes is deleted wholesale by `install.sh --no-security`;
    so no new TIER1 entry is strictly required, but **add the new `tests/test_*.py` rows to
    the Tier 1 table** (lines 28-31 list each test individually) or the inventory stops
-   being honest.
-4. **`Security-kit/SECURITY.md` — new `§10 Runtime Enforcement`.** Its nine sections are
-   all *dev-time framed* (§1 Input Trust … §9 Agentic Workflow Threat Model); I checked
-   every control S1.1–S8.6 and none states "the deployed agent's tool calls are mediated at
-   runtime." A real hole in the reference, not paperwork.
-   Side note while counting: there are **41** S-numbered controls (S1.1–S8.6), but three
-   places call it a 40-control reference — `SECURITY-MANIFEST.md:26`, `README.md:342`, and
-   `findings.md:9`. Off by one in all three; worth a one-line fix each so the inventory is
-   exact.
-5. **`owasp-crosswalk.md`** — three honesty fixes plus a runtime column:
-   - line 41 ASI01 `[MECH]` → **`[OBS]`** for marker-flagging; the `[MECH]` claim belongs to
-     ⑤ + A1.
-   - line 46 ASI06 `[MECH/APP]` → **`[GAP]`** until A5 exists; "verify consistency" is
-     guidance, not a mechanism.
-   - line 47 ASI07 `[GAP] base template is single-agent` → **wrong**; `Agent`/`Workflow`
-     exist and are unmediated. Restate as a real gap closed by A4.
-   - line 43 ASI03 `[GAP] no identity broker` is **honest** — leave it.
-6. **`Security-kit/active-controls.md`** is still the `/security-tailor` stub. `/runtime-harden`
-   writes its runtime section, same review-then-commit flow.
+   being honest. Measured caveat: nothing reads the manifest in `init.sh` or `tests/`, so
+   these rows are a convention, not a mechanism.
+4. **`Security-kit/SECURITY.md` — new `§10 Runtime Enforcement`.** Still missing, and still
+   the real item here: the file has `## 1`–`## 9` plus `## References`, all *dev-time framed*
+   (§1 Input Trust … §9 Agentic Workflow Threat Model), and no control S1.1–S8.6 states "the
+   deployed agent's tool calls are mediated at runtime." A hole in the reference, not
+   paperwork.
+   ~~Side note: three places call it a 40-control reference.~~ **Withdrawn — measured wrong.**
+   `SECURITY.md` has 41 unique `S<n>.<n>` ids and all three sites already say 41:
+   `SECURITY-MANIFEST.md:26`, `Security-kit/README.md:24` (rev 3 cited `README.md:342` — wrong
+   file and wrong line), `findings.md:9`.
+5. ~~**`owasp-crosswalk.md`** — three honesty fixes.~~ **Done in `f11a182`**; verified against
+   `HEAD`: ASI01 `[LIB]`+`[GUIDE]` (`:78`), ASI06 `[GAP]` (`:83`), ASI07 a real gap that no
+   longer claims N/A on single-agent grounds (`:84`). ASI03 (`:80`) left `[MECH]`+`[GAP]`, still
+   honest. **What remains:** add the runtime column when Phase A builds something to put in
+   it — and keep each row's status token in agreement with `mechanisms.json`, or the inventory
+   spec's **I1** errors on it.
+6. **`Security-kit/active-controls.md` — write only between the markers.** The file is owned by
+   `/security-tailor` (still the stub today; the tailor spec's Phase 1 regenerates it).
+   `/runtime-harden` appends **only** inside a fenced region and preserves everything else
+   verbatim (reconciliation §2 Seam 5):
+
+   ```markdown
+   <!-- BEGIN runtime-harden — generated from Security-kit/runtime/policy.json -->
+   ## Runtime controls (deployed)
+   <!-- END runtime-harden -->
+   ```
+
+   `check_coverage.py:91-99` scans the whole file for each `applies` control id, so a second
+   section is safe — but a generator that rewrites the file wholesale would delete the
+   tailor's output and fail that check. If `/runtime-harden` ships before the marker
+   convention exists, it must not touch this file at all.
 
 ---
 
@@ -1150,35 +1395,126 @@ Rev 1 omitted this entirely; the tests would have passed locally and gated nothi
 
 | Phase | Mechanisms | Delivers |
 |---|---|---|
-| **A** | M1, M2, M3, M4, M5, M8, **A1, A2** | The chokepoint + audit + the two agent-specific mechanisms that need to be in the core signature (§7). Retrofitting `session` into `decide()` later means rewriting every subscriber. |
+| **0 — honesty** | none (docs only) | Everything in §13 that does not need Phase A to exist: add `SECURITY.md §10`, keep `SEC-RUNTIME-GAP-001` truthful, add the manifest Tier 1 rows. **Days, not weeks — and it is the prerequisite for reading any later claim.** |
+| **A1 — the decision** | M4, M3, **A1**, **A2**, §11.8 `validate_policy.py` | `decide(action, policy, session)` as a **pure** function, its policy loader, its labels, its session snapshot, its validator — plus `test_policy_core.py`, `test_session.py`, `test_validate_policy.py`. **No host, no hook, no I/O.** This is the part that ports to any runtime unchanged: the GATE. |
+| **A2 — the doorway** | M1, M2, M5, M8 | The dispatcher, the `guard.py` chokepoint and its fail-closed `_bind()`, the CLI approval fn, the audit sink — the machinery that makes A1 actually run on a live call, plus `test_guard.py`, `test_runtime_hooks.py`, and the demo. Host-shaped; **does not port**. |
 | **B** | M6@⑥, M10, **A5** | Closes the loop-amplification path (§9), bounds blast radius, stops cross-session persistence (T6). |
 | **C** | **A4**, M12@⑧, M9, A3 | Delegation (T7), output redaction, detection. |
 | **D** | M11, M7@⑦, M6@② | Deployment-shaped — needs hosting + data-classification decisions. |
 
-**A1 and A2 are Phase A, not later.** They are not features bolted onto ⑤; they are two of
-`decide()`'s three arguments. Everything else is additive.
+**A1 and A2 (the *mechanisms*) are in Phase A, not later.** They are not features bolted onto
+⑤; they are two of `decide()`'s three arguments. Retrofitting `session` into `decide()` later
+means rewriting every subscriber. Everything else is additive.
 
-Regardless of order: fix `_load_json`'s fail-open, add `SECURITY.md §10`, add
-`SEC-RUNTIME-*` rows, re-tag the three crosswalk lines.
+**Why Phase A splits into A1/A2** — the same reason the reconciliation spec keeps GATE and
+DOORWAY apart: *the decision travels; the doorway does not.* A1 is testable with no host at all
+and survives every future runtime; A2 is a property of whatever process the agent runs in and
+gets rewritten per host. Shipping them as one phase hides that boundary and invites host
+details into `decide()` — which is also how a Zone-4 shape (§11.1) sneaks in. Ship A1 with its
+tests green **before** A2 starts, and the port cost of a new host stays inside A2.
+*(Unfortunate collision: the phase names A1/A2 and the mechanism ids A1/A2 are unrelated.
+Mechanism ids are always written `**A1**` bold in the table above.)*
+
+**Phase 0 comes first, and not for tidiness.** Every later phase's claims are audited against
+`SECURITY.md`, `control-matrix.md` and the crosswalk. If those still overstate what exists,
+Phase A ships into a document that already lies about it, and no reviewer can tell new work
+from old paperwork.
+
+Phase 0 carries **no code fix**. Rev 3 put `_load_json`'s fail-open here; it was fixed in
+`70a12a1` and re-verified by driving the real hook (§8). Two other dev-time fixes from §13
+remain genuinely open and are **out of scope for this spec** — the `matcher: '*'` widening and
+`SEC-PHASE-GAP-001` both edit `governance/permission.py` or its policy, which are **protected
+paths**: they reach the tree as a human-reviewed patch, not an agent edit. Runtime Phase A does
+not depend on either.
 
 ---
 
 ## 15. Open Decisions
 
-Both are **assumed** above so the design is complete and buildable; both are cheap to flip
-now and expensive to flip after Phase A.
+Both are **assumed** above so the design is complete and buildable. Both get cheaper to flip
+the earlier they are flipped — and D2 stops being cheap the moment Phase A writes its first
+row, which is why the note below moves it into Phase A.
 
 | ID | Decision | Assumed | Alternatives | Cost of changing later |
 |---|---|---|---|---|
 | **D1** | Taint granularity | **Turn-level** (§2) — sound, coarse | *Value-level*: unsound across ④, do not. *Call-level*: finer, but reopens T1 within a turn | Low — it is a field on `Action` |
 | **D2** | May `EXTERNAL_CONTENT`-derived material be persisted to memory? | **Write-with-label** (§6.A5) — persist, tagged, re-labelled on read | *Never*: strictly safer, breaks legitimate summarization. *REQUIRE_APPROVAL*: safest, highest friction | **High** — unlabelled rows already written cannot be retro-labelled |
 
-D2 is the one worth deciding before Phase B ships: memory written under one policy cannot
-be re-classified afterward.
+**D2 is a Phase-A decision, not a Phase-B one.** Rev 3 said "decide it before Phase B ships,"
+which reads as *decide it later* — and that is wrong by its own "cost of changing later: High."
+The mechanism **A5** is Phase B; the **schema** it writes is Phase A. Once Phase A's audit sink
+(M8) and session snapshot (A2) exist, rows start being written, and whether a row carries an
+origin label is a **column**, not a policy setting. Add the label column in Phase A even though
+nothing reads it until Phase B: an unlabelled row cannot be retro-labelled, so the cheap move is
+to write the label from the first row and decide later what to *do* with it.
+
+Concretely, Phase A owes D2 exactly two things:
+- `labels.py` (A1) exports the origin label as a **serializable** value — a stable string, not
+  an enum member whose name may be renamed later.
+- every M8 audit row and any memory row carries `origin_label` and `turn_contains_origin`.
+
+The **policy** — never / write-with-label / require-approval — stays open into Phase B, where
+A5 enforces it. Deciding the policy late is cheap; writing unlabelled rows is not.
+
+This is the same shape as the A1/A2 split in §14: the durable artifact (the label in the row)
+is separated from the mechanism that acts on it (A5). Data schema is expensive to change
+retroactively; enforcement policy is not.
 
 ---
 
 ## 16. Changelog
+
+### rev 3 → rev 4
+
+**Corrections from measurement** — rev 3 asserted three things about the dev-time gate that
+re-measurement contradicted:
+- **`_load_json` is no longer fail-open.** Rev 3's §8 box carried a measured table showing
+  malformed JSON → exit 1 (tool proceeds) and a missing file → exit 0 (**ALLOWED**), and told
+  the reader not to port the loader. Fixed in **`70a12a1`**; the loader moved from `:26-29` to
+  **`:76-91`** and raises `PolicyError`, which CLI mode converts at `:366-369`. Re-measured by
+  driving the real hook against a throwaway tree: valid/malformed/missing all **exit 2**. The
+  §8 box now explains *convergence* — `permission.py` raises and the CLI boundary converts;
+  `policy_schema.py` returns a sentinel `Policy` because `decide()` is pure and has no boundary
+  to catch anything. The residual `{}`-on-missing for non-`required` callers is documented as
+  safe, with the floor that makes each caller safe.
+- Envelope fail-closed is at **`:341-350`**, not `:171-180`.
+- Unknown-tool denial is at **`:254`**, not `:96`.
+- The 40→41 control-count item is **withdrawn**: `SECURITY.md` has 41 unique `S<n>.<n>` ids and
+  all three sites already say 41 — `SECURITY-MANIFEST.md:26`, `Security-kit/README.md:24` (rev 3
+  cited `README.md:342`: wrong file, wrong line), `findings.md:9`.
+
+**Defects found and fixed in the design itself**
+- §6.M2 `_bind()`: `functools.partial` does not drop bound args — one row of the table was
+  wrong; replaced with the invariant actually checked at wrap time.
+- §6.A2 / §7: the **check→call→observe race** reopens T4 under concurrency; `session` was passed
+  by reference into a function the spec calls pure → frozen `SessionSnapshot` + `snapshot()`.
+
+**Added**
+- **§11.1 three zones** — deterministic/nondeterministic × human-present/unattended. Zone 2
+  (deterministic + unattended) is the only cell allowed to rule on a live request; **☠ Zone 4**
+  is the trap, and it is an *accountability* problem, not a performance one. Names two accidental
+  Zone-4 shapes and why §7's frozen snapshot forbids one structurally.
+- **§11.8 `validate_policy.py`** — the CHECKER that closes `/runtime-harden`'s open loop. Five
+  rule classes, two wiring points (CI/skill **and** load time), one shared validator so
+  production and CI cannot drift; load-time failure yields the §8 deny-all sentinel, never a
+  partial policy and never `None`.
+- **§10** — every new `tests/test_*.py` needs a `SECURITY-MANIFEST.md` Tier 1 row, with the
+  measured caveat that nothing reads the manifest, so a missing row fails no gate.
+
+**Restructured**
+- **§14: Phase 0 + A1/A2.** Phase 0 is honesty-only (no code fix — see (h)). Phase A splits into
+  **A1 the decision** (`decide()`, labels, session, validator — pure, ports to any runtime) and
+  **A2 the doorway** (dispatcher, chokepoint, approval, audit — host-shaped, does not port).
+  Same reason the reconciliation spec keeps GATE and DOORWAY apart: *the decision travels; the
+  doorway does not.*
+- **§15: D2 is a Phase-A decision.** The mechanism A5 is Phase B but the **schema** is Phase A —
+  an unlabelled row cannot be retro-labelled. Phase A writes `origin_label` +
+  `turn_contains_origin` from the first row; the policy stays open into Phase B.
+- **§13 defers to the reconciliation spec** on the three seams it shares: the test runner
+  (inventory owns one pytest line; no per-test `init.sh` edit), matrix-row naming
+  (`SEC-RUNTIME-GAP-00N` at status `GAP` only — a non-`GAP` row fails inventory **I4**), and
+  `active-controls.md` (write only between `BEGIN/END runtime-harden` markers). Items 4 and 5
+  shrank because the work **landed in `f11a182`**.
 
 ### rev 2 → rev 3
 
