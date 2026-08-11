@@ -235,16 +235,23 @@ it. There are two planes:
 ### Control plane — the permission gate (tool calls)
 
 Every `Bash`/`Write`/`Edit` is piped through `governance/permission.py` by a
-`.claude/settings.json` PreToolUse hook. Three gates run in order, **fail-closed** (first
-denial wins, and malformed/empty input is denied, not allowed):
+`.claude/settings.json` PreToolUse hook. Four gates run in order, **fail-closed** (first
+denial wins; malformed input, empty input and an unparseable policy file are all denied,
+not allowed):
 
 | # | Gate | Blocks when… | Config |
 |---|---|---|---|
-| 1 | **Deny-list** | command matches a hard-blocked pattern | `governance/deny-list.json` |
+| 1a | **Protected paths** | the write target *is* a mechanism or policy file (control S2.4) | built-in floor + `governance/deny-list.json` (additive only) |
+| 1b | **Deny-list** | command matches a hard-blocked pattern | `governance/deny-list.json` |
 | 2 | **Phase-gate** | tool isn't in the allowlist, or its `gated_until` phase isn't `passing` | `governance/mcp-allowlist.json` + `Harness-Best-Practice/feature_list.json` |
 | 3 | **Egress** | a network command targets a host not in `egress_hosts` | `governance/mcp-allowlist.json` |
 
-`exit 0` = allow, `exit 2` = **BLOCK**. Proven end-to-end by `tests/test_hooks.py`.
+`exit 0` = allow, `exit 2` = **BLOCK**. Proven end-to-end by `tests/test_hooks.py`; the
+S2.4 gate by `tests/test_protected_paths.py`.
+
+Gate 1a runs first because it has a built-in floor and can still answer when the policy
+file is unreadable — see [`Security-kit/README.md`](Security-kit/README.md) for why that
+ordering matters, and `governance/ARCHITECTURE.md` for the interface contract.
 
 ### Data plane — content trust (untrusted input)
 
