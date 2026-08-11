@@ -7,6 +7,17 @@
 >
 > **Status:** rev 1 · 2026-08-11 · all cross-claims below were measured against the tree on
 > 2026-08-11, not recalled.
+>
+> **Tree state — resolved.** Rev 1 was drafted against a **dirty** tree: five security docs
+> were modified and uncommitted, including `control-matrix.md` at **3 rows** where every
+> spec cited 20. That made `SEC-HOOK-001`, `SEC-CONTENT-001`, all 8 `*-GAP-*` rows and
+> `SEC-RUNTIME-GAP-001` absent from git history, so both this spec and the committed
+> inventory spec cited a tree that did not exist at `HEAD`. Those docs were reviewed and
+> committed as **`f11a182`**, and every citation below was then re-measured against the new
+> `HEAD`: 20 matrix rows, 8 GAP rows, `SEC-HOOK-001` at `control-matrix.md:32`,
+> `SEC-RUNTIME-GAP-001` present, crosswalk `:78` `[LIB]` / `:83` `[GAP]` / `:84` `[GAP]`.
+> The runtime spec remains uncommitted and rev-4-inconsistent (Seam 7) — that is deliberate,
+> not oversight.
 
 **Scope of authority.** Each source spec remains authoritative for its own domain. This
 document is authoritative for exactly three things: (1) the seam resolutions in §2, (2) the
@@ -98,9 +109,8 @@ calls are mediated at runtime — and it stays in scope for runtime Phase A.
 
 ### Seam 3 — runtime §13.5's crosswalk re-tags are already applied
 
-Runtime §13.5 (`:1212-1219`) asks for three honesty fixes. **Measured — all three are in the
-working tree already** (uncommitted, `git status` shows `M Security-kit/owasp-crosswalk.md`,
-+92/−10):
+Runtime §13.5 (`:1212-1219`) asks for three honesty fixes. **All three landed in `f11a182`**
+— re-measured against `HEAD` after that commit:
 
 | Ask | Actual state |
 |---|---|
@@ -337,7 +347,7 @@ touches mechanism code.
 | §13.1 | Replace per-test `init.sh` naming with "pytest runner added by the inventory spec; new tests are auto-discovered" | 4 |
 | §13.2 | Defer row naming to the inventory spec; `SEC-RUNTIME-GAP-00N` at `GAP` only | 1 |
 | §13.4 | Delete the 40→41 item (all three sites already say 41); keep `SECURITY.md §10` | 2 |
-| §13.5 | Replace the three re-tag asks with a pointer to current crosswalk lines `:78`, `:83`, `:84` and a note that they landed | 3 |
+| §13.5 | Replace the three re-tag asks with a pointer to the current crosswalk lines `:78`, `:83`, `:84` and a note that they landed in `f11a182` | 3 |
 | §13.6 | State the `BEGIN/END runtime-harden` marker rule for `active-controls.md` | 5 |
 | §10 | Note that `tests/test_*.py` additions need `SECURITY-MANIFEST.md` Tier 1 rows | §3 |
 
@@ -384,3 +394,18 @@ three specs against the tree and against each other — the stale control count,
 applied crosswalk re-tags, the I4-versus-§4.2 contradiction. None required running code,
 because none of the code exists yet. That is the same argument the inventory spec makes
 about itself, and it is the reason these seams were worth resolving on paper first.
+
+**And one failure worth recording, because it is this project's thesis turned on its author.**
+Rev 1 of this document measured everything against the *working tree* and reported it as
+measured fact. The tree was dirty: `control-matrix.md` had **3** committed rows while rev 1,
+the committed inventory spec, and `SECURITY-MANIFEST.md` all described **20**. Seventeen rows
+— including `SEC-HOOK-001`, the row the inventory spec calls "its own thesis in miniature" —
+existed only as unstaged edits. Two specs were therefore citing a tree with no git history,
+and it surfaced by accident while checking an unrelated line number.
+
+The lesson is not "run `git status`." It is that **`file:line` is not a citation unless the
+tree state is named.** A dirty working tree makes a document's evidence unreproducible for
+every future reader, which is the same defect class as a false status label — and neither
+`check_status()` nor any of I1–I4 can detect it, because all four read the working tree too.
+The fix applied here was to commit the docs (`f11a182`) and re-measure. The fix for next time
+is to state the tree state in the header, which this document now does.
