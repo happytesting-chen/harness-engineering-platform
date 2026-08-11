@@ -7,6 +7,17 @@
 procedure that turns a product design document into per-component security
 implementation. Adds one data file and one checker function. Builds no new enforcement.
 
+**Read alongside** — three specs, three different questions; none subsumes another:
+| Spec | Question |
+|---|---|
+| [`2026-08-04-security-tailor-design.md`](2026-08-04-security-tailor-design.md) | Which controls apply to THIS product? (dev-time build gate) |
+| **this spec** | Are the kit's claims about itself true? (adds no enforcement — §11) |
+| [`2026-08-04-runtime-tool-mediation-design.md`](2026-08-04-runtime-tool-mediation-design.md) | Is the DEPLOYED agent's tool call mediated? (0% built) |
+| [`2026-08-11-security-kit-build-reconciliation-design.md`](2026-08-11-security-kit-build-reconciliation-design.md) | **Read this first** — resolves the seams between the three and fixes the build order |
+
+This spec owns two things the other two defer to it for: the **`init.sh` test runner** (§10.1)
+and the **`SEC-RUNTIME-GAP-00N` naming convention** (§4.2).
+
 > **Rev 2 changes.** Rev 1's design stands — the asymmetry in §1 is real and the fix is
 > right. Rev 2 fixes what re-measuring found: **I1 as written is a no-op**, **I3 as written
 > fails on the shipped tree**, and four stated numbers are wrong.
@@ -288,6 +299,43 @@ denial is a decision the gate returns, not a separate attach point — it shares
 - **`GAP` rows generally.** The inventory describes what is *built*. `control-matrix.md`
   describes what is *claimed, including gaps*. Different questions, different files.
 - **`demo/`.** `demo/ARCHITECTURE.md:3` states the demo is not the enforcement path.
+
+#### The exclusion is about today's tree, not about runtime forever
+
+Stated as a rule so the runtime spec can rely on it (see
+[`2026-08-11-security-kit-build-reconciliation-design.md`](2026-08-11-security-kit-build-reconciliation-design.md)
+§2 Seam 1). The first bullet excludes those 17 mechanisms **because they are unbuilt**, not
+because they are runtime. Once one is built and proven it is an ordinary row like any other —
+`Security-kit/runtime/policy_core.py` is a path the same way `governance/permission.py` is.
+
+What makes this load-bearing rather than a nicety: **I4** requires every non-`GAP` row in
+`control-matrix.md` to have a `mechanisms.json` row, and this section excludes unbuilt runtime
+mechanisms from that file. A `SEC-RUNTIME-*` row at `MECHANICAL`, `OBSERVE` or `LIBRARY` would
+therefore fail `check_status()` the moment it is added. So, normatively:
+
+1. **Naming.** Unbuilt runtime surface uses `SEC-RUNTIME-GAP-00N`, status **`GAP`**. Today
+   `N = 1` covers the whole surface (`control-matrix.md:51`). The runtime spec's Phase A may add
+   `SEC-RUNTIME-GAP-002`, `-003`, … at status `GAP` for mechanisms it is about to build. `GAP`
+   rows are exempt from I4's second clause ("*a gap has no mechanism*", **I4** below), so any
+   number of them is safe. Note the exemption is only from *that* clause: I4's first clause
+   still binds, so a `GAP` row must not appear in `mechanisms.json` at all — which is the same
+   rule read from the other side.
+2. **Flipping off `GAP`.** A row leaves `GAP` in the **same commit** that adds its
+   `mechanisms.json` row and its passing named proof. Never in a commit of its own — a row that
+   claims `MECHANICAL` one commit before its proof exists is precisely the defect §1 measured,
+   and it would break `init.sh` for everyone in between.
+3. **Renaming.** When a row flips, drop the `-GAP-` infix: `SEC-RUNTIME-GAP-002` →
+   `SEC-RUNTIME-002`. The id encodes the claim, so the id changes when the claim does. Both
+   documents are edited in that one commit, so I1 never sees a mismatch.
+4. **The row that arrives is an ordinary row**, with one cell already answered: a built runtime
+   mechanism gets **`portable_to_runtime: true`** by construction — it *is* the runtime. The
+   flag stays meaningful because it keeps distinguishing GATE from DOORWAY *within* the runtime:
+   `policy_core.decide()` is portable to the next host, `guard.py`'s wrapper and the dispatcher
+   are not (runtime spec §14's A1/A2 split rests on exactly this line). A `true` on every runtime
+   row would make the column vacuous — and a vacuous cell is what §1 is about.
+
+This inventory spec owns that convention because it owns the checker that enforces it. The
+runtime spec **defers** to this section rather than restating it (its §13.2).
 
 ---
 
@@ -645,6 +693,7 @@ enforcement:**
 | `SEC-EGRESS-001` scope correction | narrow the objective to the five shell tokens, or relabel `OBSERVE`; write a real `proof` command in place of the prose cell | §5.1 |
 | `SEC-PROOF-GAP-001` | new matrix row: the self-protection proof is not in the default runner | §5.I3 |
 | `init.sh` gains `python3 -m pytest tests/ -q` | non-fatal if `pytest` absent; makes all 8 test files reachable and closes the row above | §5.I3 |
+| **This spec owns that one line** | every later spec inherits it instead of adding per-test invocations — see below | §5.I3 |
 | `SEC-TOOL-001` merge | fold into `SEC-PHASE-001`; one mechanism, one row | §5.1 |
 | `SECURITY-MANIFEST.md` | add `Security-kit/mechanisms.json` as Tier 1 | below |
 
@@ -652,8 +701,33 @@ The manifest edit is in scope for a reason worth stating: this spec adds a secur
 the manifest is what tells `install.sh --no-security` to remove it. Omitting the row would
 ship a kit whose `--no-security` install leaves an orphaned `mechanisms.json` behind and whose
 `check_status()` then fails on a tree that deliberately has no security kit. **Measured
-caveat:** nothing reads `SECURITY-MANIFEST.md` in `init.sh` or `tests/`, so this row is a
+caveat:** nothing reads `SECURITY-MANIFEST.md` in `init.sh` or `tests/` — `install.sh` hardcodes
+its own `TIER1` bash array (`install.sh:62-69`) and deletes whole directories including
+`Security-kit`, so `mechanisms.json` is in fact removed with or without the row. The row is a
 convention, not a mechanism — recorded in §9 rather than fixed here.
+
+### 10.1 This spec owns the test runner
+
+The one `python3 -m pytest tests/ -q` line above is **this spec's to add, and no other
+spec's**. Stated explicitly because two other specs would otherwise each solve the same problem
+differently and collide in the same file (see
+[`2026-08-11-security-kit-build-reconciliation-design.md`](2026-08-11-security-kit-build-reconciliation-design.md)
+§2 Seam 4):
+
+- **Today:** `init.sh` names **6** test invocations individually (`:79`, `:98`, `:130`, `:142`,
+  `:182`, `:191`) and calls `pytest` **zero** times. Two of the 8 test files
+  — `tests/test_protected_paths.py`, `tests/test_steady_state.py` — are therefore on disk and
+  never run by the default runner. That is `SEC-PROOF-GAP-001`.
+- **After this spec:** one glob line runs all 8, and every test file added by any later spec is
+  discovered with no `init.sh` edit at all.
+- **Therefore:** the runtime spec's §13.1 adds **nothing** to `init.sh`. Its five new
+  `tests/test_*.py` files are reachable the moment they exist. Any spec that instead adds its
+  own named invocations is re-creating the gap this line closes.
+
+Keep the 6 named invocations. They are not redundant: each prints a specific ✓/✗ line and
+contributes a distinct `ERRORS` increment, and the pytest line is deliberately **non-fatal**
+when `pytest` is absent — so on a machine with no `pytest`, those 6 remain the enforcement
+floor. The glob adds coverage; it does not replace the named gates.
 
 **Out — each already recorded, each its own commit:**
 
@@ -665,7 +739,10 @@ convention, not a mechanism — recorded in §9 rather than fixed here.
 - Wiring `content_trust.py` into an ingestion path.
 - Extending `check_egress` beyond shell tokens.
 - Back-porting to `examples/claims-agent`.
-- Stale text in the runtime spec §8/§12 and three `kiro/hooks/` defects.
+- ~~Stale text in the runtime spec §8/§12~~ — **fixed in that spec's rev 4**: `_load_json`'s
+  fail-open was itself repaired in `70a12a1` and re-verified by driving the real hook, so §8's
+  warning box and §12's line citations were corrected there. Three `kiro/hooks/` defects remain
+  out of scope.
 
 ---
 

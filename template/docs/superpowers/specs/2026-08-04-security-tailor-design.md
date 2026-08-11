@@ -1,11 +1,61 @@
 # Security-Tailor — Design Spec
 
-**Status:** Draft for review (rev 3 — added tailored static scan + benchmarked effectiveness)
-**Date:** 2026-08-04
+**Status:** rev 4 — **Phase 1 built; Phase 2 not started.** Not a draft and not archivable: §4.2's
+`coverage.json` contract is what Phase 2 and the inventory spec both build on.
+**Date:** 2026-08-04 (rev 4 status pass: 2026-08-11)
 **Scope:** Two components — (1) tailor (skill → coverage artifact → init.sh gate → dev-time
 steering); (2) tailored static scan (`sast_scan.py`) that checks the product's code for the
 sinks of the *selected* controls. Both proven by labeled benchmarks (confusion matrix).
 **Author:** brainstormed with Yuan Shi
+
+**Read alongside** — three specs, three different questions; none subsumes another:
+| Spec | Question |
+|---|---|
+| **this spec** | Which controls apply to THIS product? (dev-time build gate — Phase 1 shipped) |
+| [`2026-08-11-security-kit-mechanism-inventory-design.md`](2026-08-11-security-kit-mechanism-inventory-design.md) | Are the kit's claims about itself true? (adds no enforcement) |
+| [`2026-08-04-runtime-tool-mediation-design.md`](2026-08-04-runtime-tool-mediation-design.md) | Is the DEPLOYED agent's tool call mediated? (0% built) |
+| [`2026-08-11-security-kit-build-reconciliation-design.md`](2026-08-11-security-kit-build-reconciliation-design.md) | **Read this first** — resolves the seams between the three and fixes the build order |
+
+> ### Rev 4 — what is actually built (measured 2026-08-11, at `HEAD`)
+>
+> **Phase 1 pieces, all on disk, each with a commit:**
+>
+> | §  | Artifact | Commit |
+> |---|---|---|
+> | 4.1 | `.claude/commands/security-tailor.md` + `kiro/steering/security-tailor.md` mirror | `583653f` |
+> | 4.2 | `Security-kit/coverage.schema.md` — the `coverage.json` contract | `76a6b55` |
+> | 4.3 | `Security-kit/check_coverage.py` — fail-closed gate | `f7809ec` |
+> | 4.4 | `tests/test_coverage.py` — ground-truth tests | `f7809ec` |
+> | 6.2 | `Security-kit/eval/eval_selection.py` + 3-product labeled corpus + `tests/test_eval_selection.py` | `a07d847`, fixed `3d64fac` |
+>
+> Wiring is live: `init.sh:199-209` runs the checker as block 5b(h) and counts a failure as an
+> `ERRORS` increment.
+>
+> **The three §8 open questions are resolved in code** — §8 is left in place as the record of
+> the decision, but it is no longer open:
+>
+> | Q | Resolution | Where |
+> |---|---|---|
+> | 1. Context-hash scope | all non-`.template` `*.md` under `Context/`, sorted, concatenated — the proposal, adopted | `check_coverage.py:25-33` |
+> | 2. `coverage.json` location | `Security-kit/coverage.json` — the proposal, adopted | `check_coverage.py`, `coverage.schema.md` |
+> | 3. Granularity | per **OWASP id**, 20 rows — the recommendation, adopted | `coverage.schema.md:22` |
+>
+> **Four things Phase 1 does not yet have.** Each is a real gap, not paperwork:
+>
+> 1. **No recall number.** `python3 Security-kit/eval/eval_selection.py` prints *"no recorded
+>    cases in `Security-kit/eval/recorded` — run the skill and record outputs first."* The
+>    scorer, the corpus and the acceptance harness all ship; **nothing has been scored.** §7b's
+>    Phase-1 exit criterion — "recall measured & tracked" — is therefore **unmet**, and §6.5 #7
+>    cannot be evaluated. Phase 2 must not start on an unmeasured selector.
+> 2. **`coverage.json` has never been generated.** `python3 Security-kit/check_coverage.py`
+>    exits 1 with *"coverage.json missing — run /security-tailor (fail-closed)"*. This is the
+>    gate **working as designed** on an untailored template, and it is why `./init.sh` reports
+>    FAIL on a fresh clone. Worth stating so nobody "fixes" the failure by weakening the gate.
+> 3. **`Security-kit/active-controls.md` is still the stub** (§4.5). The generator step exists in
+>    the skill; no run has produced a tailored file.
+> 4. **The Kiro mirror of `active-controls.md` does not exist** — see §4.5 below.
+>
+> **Phase 2 (`sast_scan.py`, §4.6, §6.3): not started.** No file, no corpus.
 
 ---
 
@@ -195,6 +245,22 @@ dev-time reminders (not the full 40-row reference).
     mechanism CLAUDE.md already relies on, so it loads every session.
   - **Kiro:** the `kiro/steering/` mirror carries `inclusion: auto` frontmatter (same as
     the existing `kiro/steering/security.md:1-2`), so Kiro auto-includes it.
+
+    > **⚠ Rev 4: this mirror does not exist, and nothing creates it.** Measured 2026-08-11:
+    > `kiro/steering/` holds `domain-workflow.md`, `security-review.md`, `security-tailor.md`,
+    > `security.md`, `session-cycle.md` — **no `active-controls.md`**. The Claude side is wired
+    > (`CLAUDE.md:12` imports `@Security-kit/active-controls.md`), but the skill's step 3
+    > (`.claude/commands/security-tailor.md:31`) writes **one** file and the Kiro steering doc
+    > only *describes* regenerating it (`kiro/steering/security-tailor.md:11`). So a spec
+    > requirement has no implementation and no plan task: **on Kiro, layer D is inert.**
+    >
+    > Fix is one line in the skill's step 3 — write the mirror with `inclusion: auto`
+    > frontmatter — plus a `SECURITY-MANIFEST.md` Tier 1 row (it lives outside `Security-kit/`,
+    > so directory-level deletion does not catch it; the same reason
+    > `kiro/steering/security-tailor.md` needed its own explicit entry, manifest line 44).
+    >
+    > Until then, state the limitation rather than implying parity. This is the template's own
+    > "unwired = does nothing" trap, one directory over from where §4.5 warns about it.
   - **Explicitly NOT `.claude/rules/`:** that directory does not exist in this template and
     CLAUDE.md does not load it — writing there would be inert (the "unwired = does nothing"
     trap the template warns about). Verified 2026-08-04.
@@ -203,7 +269,39 @@ dev-time reminders (not the full 40-row reference).
   Generic guide = library; active-controls = the shortlist that applies here.
 - **Freshness:** regenerated from `coverage.json` on every skill run, so it never drifts
   from the selection. `check_coverage.py` MAY additionally assert it exists and its control
-  set matches `coverage.json`'s `applies` set (cheap, keeps D honest) — see §6.1.
+  set matches `coverage.json`'s `applies` set (cheap, keeps D honest) — see §6.1. **Built:**
+  that assertion is live at `check_coverage.py:91-99`, so it is no longer a MAY.
+
+#### Two writers, one file — the region rule
+
+This file has a **second** prospective writer: the runtime spec's `/runtime-harden` skill wants
+to append the deployed-runtime controls
+([`2026-08-04-runtime-tool-mediation-design.md`](2026-08-04-runtime-tool-mediation-design.md)
+§13.6). "Regenerated on every skill run" and a second appender are in direct conflict — a
+wholesale rewrite by either one silently deletes the other's output, and because
+`check_coverage.py:91-99` only asserts that each `applies` id appears *somewhere* in the file, a
+tailor rewrite that drops the runtime section still **passes**. Silent loss, green build.
+
+Ownership, per the reconciliation spec §2 Seam 5:
+
+- **`/security-tailor` owns everything before the marker** — the generated header, the title, and
+  the dev-time control list. It regenerates that region wholesale, as specified above.
+- **`/runtime-harden` owns only the fenced region**, and must preserve every byte outside it:
+
+  ```markdown
+  <!-- BEGIN runtime-harden — generated from Security-kit/runtime/policy.json -->
+  ## Runtime controls (deployed)
+  <!-- END runtime-harden -->
+  ```
+
+- **Regenerating means "replace my region," not "replace the file."** When `/security-tailor`
+  re-runs, it rebuilds the pre-marker region and **carries the fenced block through unchanged**
+  — it does not need to understand the contents, only to not drop them.
+- Neither skill writes the other's region, and neither fails if the other's region is absent.
+
+The marker convention is cheap now and expensive later: it has to exist *before* the second
+writer ships, which is why it is recorded in this spec — the file's owner — rather than only in
+the runtime spec that motivated it.
 
 ### 4.6 `Security-kit/sast_scan.py` — the tailored static scan (SAST-the-capability)
 Answers the second effectiveness question: not "did we *select* the right controls" (that
@@ -457,9 +555,39 @@ nothing in Phase 1 is rework. Success criteria §6.5 #7 gates Phase 1; #8 gates 
 **This plan cycle covers Phase 1 only.** Phase 2 gets its own plan once Phase 1's recall
 number is trusted.
 
+> ### Rev 4 status — Phase 1 is built but not *done*
+>
+> All five Phase-1 pieces ship (commits in the header). The "Done when" column is **not
+> satisfied**, on both clauses:
+>
+> | "Done when" clause | State | Evidence |
+> |---|---|---|
+> | fresh full build can't reach PASS without a coverage pass | ✅ **met** | `check_coverage.py` exits 1 with *"coverage.json missing … (fail-closed)"*; `init.sh:199-209` counts it as an `ERRORS` increment |
+> | recall measured & tracked | ❌ **unmet** | `eval_selection.py` prints *"no recorded cases in `Security-kit/eval/recorded`"* — zero cases scored |
+>
+> **So Phase 2 is blocked by this spec's own rule**, not by missing design: "Phase 1 ships and
+> is **trusted** before Phase 2 begins," and a selector with no recall number is not trusted. The
+> next action for this spec is not code — it is **running the skill against the three corpus
+> products and recording the outputs**, which is what turns the harness into a number.
+>
+> Sequencing against the other two specs (reconciliation §4): the inventory spec's checker lands
+> first because it is what keeps this spec's own status claims honest, then Phase 1's recall
+> number, then Phase 2 or runtime Phase A. Runtime Phase A does **not** depend on either — the
+> only shared file is `active-controls.md`, and §4.5's region rule is what keeps that safe.
+>
+> **One Phase-1 requirement has no plan task:** the `kiro/steering/active-controls.md` mirror
+> (§4.5) is specified as the Kiro auto-load path, does not exist, and is not created by the
+> skill's step 3 — so it appears in neither the built list nor the plan. Adding it is a one-line
+> change to `.claude/commands/security-tailor.md:31` plus a manifest row; details and evidence in
+> §4.5. Recorded here so Phase 1's "done" is not declared over an inert layer D on Kiro.
+
 ---
 
 ## 8. Open questions for the engineer
+
+> **Rev 4: all three are resolved in shipped code** — each adopted the proposal below. Kept as
+> the record of what was decided and why, not as open work. Citations in the header table.
+
 1. **Context hash scope** — hash all of `Context/`, or only the docs the skill actually
    read? (Proposal: all non-template `.md` in `Context/`, sorted, concatenated.)
 2. **coverage.json location** — `Security-kit/coverage.json` (proposed) vs alongside the

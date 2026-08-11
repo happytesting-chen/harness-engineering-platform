@@ -339,6 +339,25 @@ with a `proof` command attached. The inventory's whole contribution is making th
 Minimum edits so no source spec contradicts §2–§4. Each is a documentation change; none
 touches mechanism code.
 
+> **Status: all applied.** Every row below landed in the same commit as this note. Two things
+> came out differently than planned, both recorded in the source specs rather than here:
+>
+> - **The runtime spec's headline defect claim was withdrawn.** Rev 3 said `_load_json` fails
+>   open; re-measuring by driving the real hook showed **exit 2 in all three policy-file
+>   states** — it was fixed in `70a12a1`, moving from `:26-29` to `:76-91`. That turned runtime
+>   §14's Phase 0 from "docs + one code fix" into **docs only**, and corrected two more stale
+>   line citations (envelope check `:341-350` not `:171-180`; unknown-tool denial `:254` not
+>   `:96`). Logged as rev-4 item (h).
+> - **The tailor spec's Kiro-mirror gap moved from §7b to §4.5**, where the mirror is specified,
+>   with a pointer from §7b. Evidence: `kiro/steering/` has no `active-controls.md`, and the
+>   skill's step 3 (`.claude/commands/security-tailor.md:31`) writes one file.
+>
+> The larger finding, from running the Phase-1 artifacts rather than reading them:
+> `eval_selection.py` reports **zero recorded cases**, so Phase 1's "recall measured & tracked"
+> exit criterion is **unmet** and Phase 2 is blocked by the tailor spec's own trust rule. §4's
+> build order already put the inventory checker first; this makes the second step concrete —
+> *record the three corpus runs*, not write more code.
+
 **`2026-08-04-runtime-tool-mediation-design.md`** (currently uncommitted)
 
 | § | Edit | Seam |
