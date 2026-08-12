@@ -24,7 +24,9 @@ This document provides security guidance for developing AI agent systems. Each c
 
 **Template enforcement (control plane):** `governance/permission.py`'s `check_deny_list` gate blocks known dangerous command patterns mechanically. `[HARNESS]`
 
-**Template enforcement (data plane):** `Security-kit/content_trust.py` is the complement for untrusted *content* (claim bodies, emails, retrieved docs) — which never passes a tool gate because it is data, not a tool call. Call `screen_record()` at every point external content enters the agent: it drops injected control fields (e.g. a record smuggling `{"decision": "APPROVE"}`) and flags instruction-shaped text (S1.4) so the caller can lower trust and route to human review. It reports; it never obeys. Proven by `tests/test_content_trust.py`. `[HARNESS]`
+**Data plane — LIBRARY, NOT ENFORCEMENT.** `Security-kit/content_trust.py` is the complement for untrusted *content* (claim bodies, emails, retrieved docs) — which never passes a tool gate because it is data, not a tool call. `screen_record()` drops injected control fields (e.g. a record smuggling `{"decision": "APPROVE"}`) and flags instruction-shaped text (S1.4) so the caller can lower trust and route to human review. It reports; it never obeys.
+
+**But nothing in this template calls it.** The only non-test references are `init.sh` (which runs its tests) and the protected-path lists. `tests/test_content_trust.py` proves the function is *correct*, not that any path *uses* it — so S1.4 is currently unenforced, and this row is `LIBRARY` in `control-matrix.md` (`SEC-CONTENT-001`). You must call it yourself at each ingestion point. Note also that even when wired it is a **screen, not a guarantee**: it pattern-matches, and a paraphrase defeats a pattern. `[HARNESS]`
 
 ---
 
@@ -43,25 +45,42 @@ This document provides security guidance for developing AI agent systems. Each c
 
 **Template enforcement:** `governance/permission.py` Gate 2 (phase-gate) + `governance/mcp-allowlist.json` enforce tool boundaries mechanically. `[HARNESS]`
 
-**S2.4 enforcement and its limits.** Gate 1a (`check_protected_paths`) hard-denies any tool call whose write target resolves to a mechanism or policy file. Paths are compared on **file identity** (`os.path.samefile`, i.e. `st_dev`/`st_ino`), not spelling: `../`, `./`, absolute forms, symlinks, **hard links**, and — on case-insensitive filesystems (macOS/Windows) — case variants all collapse to the same target. The hard link is the case that makes stat comparison necessary rather than merely tidy: a symlink has a target to resolve through, a hard link is simply the same inode under a second name. `Write`, `Edit`, `MultiEdit` and `NotebookEdit` are covered (`file_path`, `notebook_path`, `path`). The protected list in `deny-list.json` is **additive only** — `BUILTIN_PROTECTED_PATHS` in `permission.py` is enforced even if the policy key is emptied or the file is deleted, so S2.4 cannot be switched off by editing policy. It runs **before** the command-pattern gate precisely because it has that built-in floor and still returns a verdict when policy is unreadable. Proven by `tests/test_protected_paths.py`. `[HARNESS]`
+**S2.4 enforcement and its limits.** Gate 1a (`check_protected_paths`) hard-denies any tool call whose write target resolves to a mechanism or policy file. Paths are compared on **file identity** (`os.path.samefile`, i.e. `st_dev`/`st_ino`), not spelling: `../`, `./`, absolute forms, symlinks, **hard links**, and — on case-insensitive filesystems (macOS/Windows) — case variants all collapse to the same target. The hard link is the case that makes stat comparison necessary rather than merely tidy: a symlink has a target to resolve through, a hard link is simply the same inode under a second name. `Write`, `Edit`, `MultiEdit` and `NotebookEdit` are covered (`file_path`, `notebook_path`, `path`). The protected list in `deny-list.json` is **additive only** — `BUILTIN_PROTECTED_PATHS` in `permission.py` is enforced even if the policy key is emptied or the file is deleted, so S2.4 cannot be switched off by editing policy. It runs **before** the command-pattern gate because it has that built-in floor and still returns a verdict when the policy file is *missing*. (A *corrupt* policy file is different: Gate 1a raises `PolicyError` and the CLI boundary converts it to exit 2, so the call is still denied — just with the generic fail-closed reason rather than the specific S2.4 one.) Proven by `tests/test_protected_paths.py` — which covers the structured-write surface Gate 1a owns. The shell is a separate mechanism with materially weaker coverage; read the residual-gap box below before treating S2.4 as a boundary against commands. `[HARNESS]`
 
 **An untrusted or absent policy file denies.** A policy file that cannot be parsed — or is simply gone — raises `PolicyError`, which CLI mode converts to **exit 2**. This matters more than it looks: only exit 2 blocks, and any other non-zero is a *non-blocking hook error* that lets the tool run. A corrupt `deny-list.json` therefore denies rather than quietly disabling both hard-deny gates. `[HARNESS]`
 
-> **Residual gap — read before relying on this.** The shell vector is covered by
-> *pattern matching*, which is incomplete by construction. `deny-list.json` blocks the
-> common forms (`>`/`>>` redirect, `sed -i`, `tee`, `truncate`, `dd of=`, `chmod`/`mv`/`rm`),
-> but a determined bypass via an interpreter — e.g. `python3 -c` opening the file for
-> write — is **not** blocked, for the same reason the egress gate misses `urllib`
-> (see §3). Treat S2.4 as *strong against the file-editing tools and casual shell
-> writes, advisory against a scripting runtime*. It is the only vector open **of those
-> tested** — case variants, symlinks and hard links were each live bypasses until
-> identity-based comparison landed, and all three are now pinned by tests so they
-> cannot silently reopen —
-> but "the only one we found" is not "the only one that exists", and a pattern-based
-> shell gate should not be read as exhaustive. Closing the interpreter vector properly
-> requires
-> OS-level file ownership or Claude Code `permissions.deny` rules outside this gate.
-> `init.sh`'s integrity check detects tampering after the fact; it does not prevent it.
+> **Residual gap — read before relying on this. The shell vector is not a boundary.**
+> Gate 1a is strong: it inspects a structured write target and compares file identity,
+> so it holds for every tool that declares one. The shell has no structured write
+> target, so `deny-list.json` reaches for *pattern matching* instead — and patterns are
+> incomplete by construction, not merely in principle. Measured on the shipped policy
+> (`tests/test_protected_paths.py::test_shell_pattern_coverage_is_partial_and_measured`,
+> which enumerates 14 shell verbs against all 8 built-in protected paths): **64 of 112
+> combinations are not blocked.** Specifically —
+>
+> - **Verbs with no pattern at all:** `cp`, `install`, `ln -sf`, `git checkout … -- <path>`,
+>   and `dd if=… of=…` (the `dd` pattern requires `of=` as the first operand, so operand
+>   order decides the verdict). Each writes any protected path. `cp` is the one to
+>   register: it is the obvious first reach and it is open for all eight.
+> - **Paths the patterns do not name:** the four regexes each carry their own path list,
+>   and none covers `audit_hook.py` or `audit.log`. The redirect pattern covers only
+>   `governance/` and `.claude/settings.json`, so `echo x > Security-kit/secret_scan.py`
+>   is not blocked even though Gate 1a blocks a `Write` to the same file.
+> - **Interpreters:** `python3 -c 'open("governance/permission.py","w")'` is not blocked,
+>   for the same reason the egress gate misses `urllib` (see §3).
+>
+> So: **strong against the file-editing tools, partial and enumerable against the shell.**
+> The gap is a coverage difference between two mechanisms with different reach, not an
+> oversight in either — and it is why the shell patterns are best read as friction that
+> raises the cost of a casual write, never as the thing standing between an agent and
+> the mechanism. Widening them trades false negatives for false positives (`cp` and
+> `git checkout` appear constantly in legitimate commands), which is why the measured
+> state is pinned by a test rather than papered over: the test fails if coverage changes
+> in either direction, forcing this note to move with it.
+>
+> Closing the shell vector properly requires OS-level file ownership or Claude Code
+> `permissions.deny` rules outside this gate. `init.sh`'s integrity check detects
+> tampering after the fact; it does not prevent it.
 
 ---
 

@@ -45,15 +45,16 @@ def _check(tool: str, tool_input: dict):
 # 1. The direct write is blocked
 # ---------------------------------------------------------------------------
 
-MECHANISM_AND_POLICY = [
-    "governance/permission.py",
-    "governance/deny-list.json",
-    "governance/mcp-allowlist.json",
-    ".claude/settings.json",
-    "Security-kit/secret_scan.py",
-    "Security-kit/content_trust.py",
-    "Harness-Best-Practice/observability/audit_hook.py",
-]
+# Derived from the mechanism, not retyped beside it. A hand-maintained copy silently
+# stops covering the 9th entry the day someone adds one -- which is exactly what had
+# happened here: audit.log was protected by the gate and absent from this list.
+MECHANISM_AND_POLICY = list(permission.BUILTIN_PROTECTED_PATHS)
+
+
+def test_the_builtin_list_is_the_list_under_test():
+    """Guards the line above: every built-in is exercised, none is assumed."""
+    assert set(MECHANISM_AND_POLICY) == set(permission.BUILTIN_PROTECTED_PATHS)
+    assert len(MECHANISM_AND_POLICY) >= 8, "built-in protected paths shrank"
 
 
 def test_write_to_mechanism_and_policy_is_denied():
@@ -203,24 +204,140 @@ def test_missing_and_malformed_input_do_not_crash():
 
 # ---------------------------------------------------------------------------
 # 5. The shell vector — complementary, and honestly partial
+#
+# Gate 1a inspects a structured write target. The shell has none, so deny-list.json
+# reaches for regex instead. These tests measure how far that reaches.
+#
+# The previous version of this section sampled five commands that all paired a covered
+# verb with a covered path, so it passed at 100% while 57% of the matrix was open --
+# and SECURITY.md cited it as proof. A test whose passing tells you nothing about the
+# property it names is worse than no test: it converts an unknown into a false known.
 # ---------------------------------------------------------------------------
 
-def test_shell_redirect_to_mechanism_is_denied_by_patterns():
-    """A file_path check cannot see `> permission.py`; the regex patterns do.
+# 14 ways a shell writes a file. Not exhaustive -- that is the point of the section.
+SHELL_WRITE_VERBS = [
+    ("redirect", "echo x > {p}"),
+    ("append", "echo x >> {p}"),
+    ("cat-redirect", "cat /tmp/src > {p}"),
+    ("cp", "cp /tmp/src {p}"),
+    ("install", "install /tmp/src {p}"),
+    ("mv", "mv /tmp/src {p}"),
+    ("rm", "rm {p}"),
+    ("tee", "tee {p} < /tmp/src"),
+    ("truncate", "truncate -s 0 {p}"),
+    ("sed -i", "sed -i '' s/a/b/ {p}"),
+    ("chmod", "chmod 777 {p}"),
+    ("ln -sf", "ln -sf /tmp/src {p}"),
+    ("git checkout", "git checkout HEAD~1 -- {p}"),
+    ("dd if-first", "dd if=/tmp/src of={p}"),
+]
 
-    Uses the REAL deny-list.json, so this also asserts the shipped policy
-    actually carries the S2.4 shell patterns.
+# Measured against the shipped deny-list.json. Every entry is a verb that writes any
+# protected path without tripping a pattern. Update this set ONLY together with
+# SECURITY.md S2.4's residual-gap box -- the test below fails in both directions
+# precisely so the doc cannot drift from the mechanism again.
+UNCOVERED_VERBS = {"cp", "install", "ln -sf", "git checkout", "dd if-first"}
+
+# Paths no pattern names, for verbs that otherwise match. The four regexes each carry
+# their own path list; these are the paths that fall outside all of them.
+UNCOVERED_PATHS = {
+    "Harness-Best-Practice/observability/audit_hook.py",
+    "Harness-Best-Practice/observability/audit.log",
+}
+# The redirect family names only governance/ and .claude/settings.json.
+REDIRECT_ONLY_PATHS = {"Security-kit/secret_scan.py", "Security-kit/content_trust.py"}
+REDIRECT_FAMILY = {"redirect", "append", "cat-redirect"}
+
+
+def _shell_blocks(verb_template: str, path: str) -> bool:
+    return permission.check_deny_list(verb_template.format(p=path)) is not None
+
+
+def test_shell_patterns_block_the_common_forms_they_claim():
+    """The covered cells really are covered — the patterns are not decoration.
+
+    Asserts the shipped policy carries working S2.4 patterns for the verb/path pairs
+    SECURITY.md says it covers.
     """
-    commands = [
-        "echo x > governance/permission.py",
-        "echo x >> governance/deny-list.json",
-        "sed -i 's/a/b/' governance/mcp-allowlist.json",
-        "tee governance/permission.py",
-        "chmod 777 governance/permission.py",
-    ]
-    for cmd in commands:
-        reason = permission.check_deny_list(cmd)
-        assert reason is not None, f"shell vector not blocked: {cmd}"
+    for verb, tmpl in SHELL_WRITE_VERBS:
+        if verb in UNCOVERED_VERBS:
+            continue
+        for path in MECHANISM_AND_POLICY:
+            if path in UNCOVERED_PATHS:
+                continue
+            if verb in REDIRECT_FAMILY and path in REDIRECT_ONLY_PATHS:
+                continue
+            assert _shell_blocks(tmpl, path), (
+                f"a verb/path pair SECURITY.md claims is covered is open: {verb} -> {path}"
+            )
+
+
+def test_shell_pattern_coverage_is_partial_and_measured():
+    """Pins the exact size and shape of the shell gap, in both directions.
+
+    This test fails if coverage *widens* as well as if it narrows. That is deliberate:
+    the documented gap and the measured gap must move together, or SECURITY.md starts
+    overclaiming again the moment someone edits a regex.
+    """
+    open_cells, closed_cells = [], []
+    for verb, tmpl in SHELL_WRITE_VERBS:
+        for path in MECHANISM_AND_POLICY:
+            (closed_cells if _shell_blocks(tmpl, path) else open_cells).append((verb, path))
+
+    total = len(SHELL_WRITE_VERBS) * len(MECHANISM_AND_POLICY)
+    assert len(open_cells) + len(closed_cells) == total
+
+    # 1. Every verb in UNCOVERED_VERBS is open for every protected path.
+    for verb in UNCOVERED_VERBS:
+        for path in MECHANISM_AND_POLICY:
+            assert (verb, path) in open_cells, (
+                f"'{verb}' now blocks {path}. Coverage improved — update UNCOVERED_VERBS "
+                f"and SECURITY.md S2.4's residual-gap box together."
+            )
+
+    # 2. The two audit paths have no shell coverage from any verb.
+    for path in UNCOVERED_PATHS:
+        assert all(
+            (verb, path) in open_cells for verb, _ in SHELL_WRITE_VERBS
+        ), f"{path} gained shell coverage — update UNCOVERED_PATHS and SECURITY.md together."
+
+    # 3. The measured total, as cited in SECURITY.md S2.4.
+    assert len(open_cells) == 64, (
+        f"shell coverage changed: {len(open_cells)} of {total} cells open, expected 64. "
+        f"Update the number in SECURITY.md S2.4's residual-gap box to match."
+    )
+    assert total == 112, f"matrix size changed to {total}; SECURITY.md cites 112"
+
+
+def test_uncovered_shell_verbs_actually_overwrite_the_mechanism():
+    """'Not blocked by the gate' is a weaker claim than 'writes the file'. Prove the latter.
+
+    Runs the uncovered verbs for real against a THROWAWAY tree — never the live
+    mechanism — so the residual-gap box rests on a demonstrated write, not on a
+    non-matching regex.
+    """
+    import subprocess
+
+    with tempfile.TemporaryDirectory() as tmp:
+        root = Path(tmp)
+        victim = root / "permission.py"
+        src = root / "src"
+
+        for verb, tmpl in SHELL_WRITE_VERBS:
+            if verb not in UNCOVERED_VERBS or verb == "git checkout":
+                continue  # git checkout needs a repo; covered by the matrix test above
+            # Reset both files per verb, and unlink first: `ln -sf` leaves victim as a
+            # symlink to src, so a plain write_text would write THROUGH it and corrupt
+            # the source for every later verb.
+            victim.unlink(missing_ok=True)
+            victim.write_text("ORIGINAL MECHANISM\n")
+            src.write_text("REPLACED\n")
+            cmd = tmpl.format(p=str(victim)).replace("/tmp/src", str(src))
+            assert permission.check_deny_list(cmd) is None, f"{verb} is blocked now"
+            subprocess.run(cmd, shell=True, capture_output=True, cwd=root)
+            assert victim.read_text().strip() == "REPLACED", (
+                f"{verb} did not overwrite the target; the gap claim for it is wrong"
+            )
 
 
 def test_interpreter_write_is_a_known_documented_gap():
