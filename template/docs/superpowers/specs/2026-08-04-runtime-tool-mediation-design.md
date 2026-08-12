@@ -1396,7 +1396,7 @@ Rev 1 omitted this entirely; the tests would have passed locally and gated nothi
 | Phase | Mechanisms | Delivers |
 |---|---|---|
 | **0 — honesty** | none (docs only) | Everything in §13 that does not need Phase A to exist: add `SECURITY.md §10`, keep `SEC-RUNTIME-GAP-001` truthful, add the manifest Tier 1 rows. **Days, not weeks — and it is the prerequisite for reading any later claim.** |
-| **A1 — the decision** | M4, M3, **A1**, **A2**, §11.8 `validate_policy.py` | `decide(action, policy, session)` as a **pure** function, its policy loader, its labels, its session snapshot, its validator — plus `test_policy_core.py`, `test_session.py`, `test_validate_policy.py`. **No host, no hook, no I/O.** This is the part that ports to any runtime unchanged: the GATE. |
+| **A1 — the decision** | M4, M3, **A1**, **A2**, §11.8 `validate_policy.py`, §11.6 `/runtime-harden` | `decide(action, policy, session)` as a **pure** function, its policy loader, its labels, its session snapshot, its validator — plus `test_policy_core.py`, `test_session.py`, `test_validate_policy.py`. **No host, no hook, no I/O.** This is the part that ports to any runtime unchanged: the GATE. Closes with the skill that drafts `policy.json` — see the note below. |
 | **A2 — the doorway** | M1, M2, M5, M8 | The dispatcher, the `guard.py` chokepoint and its fail-closed `_bind()`, the CLI approval fn, the audit sink — the machinery that makes A1 actually run on a live call, plus `test_guard.py`, `test_runtime_hooks.py`, and the demo. Host-shaped; **does not port**. |
 | **B** | M6@⑥, M10, **A5** | Closes the loop-amplification path (§9), bounds blast radius, stops cross-session persistence (T6). |
 | **C** | **A4**, M12@⑧, M9, A3 | Delegation (T7), output redaction, detection. |
@@ -1405,6 +1405,35 @@ Rev 1 omitted this entirely; the tests would have passed locally and gated nothi
 **A1 and A2 (the *mechanisms*) are in Phase A, not later.** They are not features bolted onto
 ⑤; they are two of `decide()`'s three arguments. Retrofitting `session` into `decide()` later
 means rewriting every subscriber. Everything else is additive.
+
+**`/runtime-harden` is the LAST task of A1, not a phase of its own.** Rev 4 specified the skill
+in three places — §11.3 gives it a path (`.claude/commands/runtime-harden.md`), §11.6 gives it a
+MAY/MUST-NOT contract, §11.8 makes it one of `validate_policy.py`'s two wiring points — and then
+assigned it to **no phase**, so it appeared in none of the rows above. Measured 2026-08-11:
+nothing named `runtime-harden` exists anywhere in the repo. That is the same defect the
+reconciliation spec records for the tailor's Kiro mirror (`:261`) — *a spec requirement with no
+implementing task* — and it is recorded here rather than left to be noticed again.
+
+It goes at the end of A1 for a mechanical reason, not for tidiness: the skill's only output is a
+`policy.json` **draft**, so it cannot be written before `policy_schema.py` fixes what a valid
+policy looks like, and it cannot be verified before `validate_policy.py` exists to reject a bad
+draft. Ordering inside A1 is therefore `policy_core.py` → `policy_schema.py` →
+`validate_policy.py` → `/runtime-harden`. Three constraints on that task:
+
+1. **Both host shapes, as the tailor does.** `.claude/commands/runtime-harden.md` *and*
+   `kiro/steering/runtime-harden.md` (`inclusion: manual`). The tailor shipped its Claude side
+   and its Kiro mirror together (`kiro/steering/security-tailor.md`); the one mirror it *missed*
+   became a tracked gap. Do not repeat it.
+2. **Its acceptance gate is `validate_policy.py`, not a reviewer's eye.** The skill's final
+   action is to run the validator against its own draft, exactly as `/security-tailor`'s final
+   action is `check_coverage.py --stamp` (`.claude/commands/security-tailor.md:33-34`). A draft
+   that fails the validator was not produced.
+3. **It writes `active-controls.md` only between the §13.6 markers**, and only if that marker
+   convention has already shipped. Otherwise it must not touch the file at all.
+
+The skill has no enforcement power (§11.3) and is Zone 3 (§11.1) — a model drafts, a human signs
+and commits. Its absence blocks nothing in A1's mechanism work; what it blocks is a *second*
+project being able to adopt the runtime kit without hand-authoring `policy.json`.
 
 **Why Phase A splits into A1/A2** — the same reason the reconciliation spec keeps GATE and
 DOORWAY apart: *the decision travels; the doorway does not.* A1 is testable with no host at all
