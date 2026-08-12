@@ -94,6 +94,71 @@ def test_secret_block_catches_github_token_in_command():
     assert code == 2, "GitHub token in a bash command must be blocked"
 
 
+def _cred() -> str:
+    """A form the shipped patterns already cover, assembled at runtime.
+
+    Deliberately not a literal: this file is written through the very hook it
+    tests, so a literal credential here would make the file un-writable by an
+    agent and un-patchable without disabling the hook.
+    """
+    return "api" + "_" + "key" + " = " + chr(34) + "Z" * 24 + chr(34)
+
+
+def _anthropic_key() -> str:
+    return "sk-" + "ant-" + "api03-" + "A" * 88
+
+
+def test_secret_block_catches_secret_in_multiedit():
+    """MultiEdit nests its payload in edits[].new_string. Measured before the
+    fix: this exact envelope exited 0 while the same secret in Write.content
+    exited 2 -- a registered hook that could not see its own input."""
+    code = _run(SECRET_SCAN, {"tool_name": "MultiEdit",
+                              "tool_input": {"file_path": "cfg.py",
+                                             "edits": [{"old_string": "x",
+                                                        "new_string": _cred()}]}})
+    assert code == 2, "credential in MultiEdit edits[].new_string must be blocked"
+
+
+def test_secret_block_catches_secret_in_notebook_edit():
+    """NotebookEdit carries its text in new_source, which the named-field
+    collector never read. Same bypass, third tool."""
+    code = _run(SECRET_SCAN, {"tool_name": "NotebookEdit",
+                              "tool_input": {"notebook_path": "n.ipynb",
+                                             "new_source": _cred()}})
+    assert code == 2, "credential in NotebookEdit new_source must be blocked"
+
+
+def test_secret_block_catches_anthropic_key():
+    """sk-[A-Za-z0-9]{16,} excluded the hyphen, so it stopped at 'sk-ant' and
+    missed every current Anthropic key -- in a repo about Anthropic tooling."""
+    code = _run(SECRET_SCAN, {"tool_name": "Write",
+                              "tool_input": {"file_path": "cfg.py",
+                                             "content": "KEY = " + _anthropic_key()}})
+    assert code == 2, "Anthropic-format key must be blocked"
+
+
+def test_secret_block_still_allows_removing_a_credential():
+    """The walk skips old_string/old_str on purpose. Without this carve-out,
+    deleting a hardcoded credential would be blocked by the credential it
+    deletes -- the fix would punish the cleanup it exists to encourage."""
+    code = _run(SECRET_SCAN, {"tool_name": "Edit",
+                              "tool_input": {"file_path": "cfg.py",
+                                             "old_string": _cred(),
+                                             "new_string": "KEY = os.environ[" + chr(34)
+                                                           + "K" + chr(34) + "]"}})
+    assert code == 0, "removing a credential must not be blocked by that credential"
+
+
+def test_secret_block_still_allows_a_clean_multiedit():
+    """Anti-vacuity: the three blocks above must come from the credential, not
+    from MultiEdit/NotebookEdit envelopes being rejected wholesale."""
+    code = _run(SECRET_SCAN, {"tool_name": "MultiEdit",
+                              "tool_input": {"file_path": "ok.py",
+                                             "edits": [{"old_string": "a",
+                                                        "new_string": "b + 1"}]}})
+    assert code == 0, "clean MultiEdit must pass"
+
+
 # --- audit-capture (audit_hook.py) ----------------------------------------
 
 def test_audit_records_real_tool_name():
