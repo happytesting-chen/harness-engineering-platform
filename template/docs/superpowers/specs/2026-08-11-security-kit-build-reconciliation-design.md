@@ -266,6 +266,31 @@ proposed: hash scope = sorted non-`.template` `*.md` under `Context/`
 (`check_coverage.py:26-33`); location = `Security-kit/coverage.json`; granularity = 20 OWASP
 ids (`.claude/commands/security-tailor.md:17`).
 
+**The four gaps are not code-shaped, and that is why they stalled.** Three of the four close
+only by *running* the skill; no amount of implementation closes them. Stating the tasks
+explicitly, because "finish Phase 1" has so far not been actionable enough to get done:
+
+| # | Task | Kind | Done when |
+|---|---|---|---|
+| 1 | Run `/security-tailor` against this template's `Context/` | model action, human-signed | `Security-kit/coverage.json` exists with all 20 OWASP ids classified, each `applies`/`n_a` reason citing a `Context/` line |
+| 2 | Regenerate `Security-kit/active-controls.md` (skill step 3.3) | model action | file is no longer the 6-line stub; `check_coverage.py:91-99` finds every `applies` id in it |
+| 3 | `python3 Security-kit/check_coverage.py --stamp` | mechanical | `generated_from` holds a real hash, not `"Context/ @ UNSTAMPED"` |
+| 4 | Create `kiro/steering/active-controls.md` — **the mirror with no implementing task** | code + generation | the Kiro host sees the same layer-D steering the Claude host does |
+| 5 | Record the 3 corpus cases and print recall | measurement | `Security-kit/eval/recorded/` exists; `eval_selection.py` exits 0 with a number |
+
+Task 4 is the one worth naming as a defect rather than an omission. Tailor spec §4.5 requires
+the mirror; the Phase-1 plan's Task 4 created only the Claude side; and nothing detects the
+absence, because `check_coverage.py:19` points `ACTIVE_CONTROLS_PATH` at the Claude file alone.
+So a Kiro-hosted project gets layer-D steering silently missing while `init.sh` reports success.
+Whether the checker should also require the mirror is a **design decision this spec does not
+make** — adding it would fail every Claude-only tree. Recorded here so it is decided rather
+than forgotten.
+
+Measured 2026-08-11, all five still open: `check_coverage.py` → exit 1
+(`✗ coverage.json missing`); `active-controls.md` is 6 lines; `kiro/steering/` holds
+`security-tailor.md` but no `active-controls.md`; `Security-kit/eval/recorded/` does not exist
+(the 3-case corpus does — `claims-agent`, `multi-agent-product`, `rag-product`).
+
 **Gate:** `./init.sh` exits 0 **and** `eval_selection.py recorded/` prints a recall number
 against the 3-case corpus. The recall figure is an acceptance measurement, not a CI gate —
 the scorer is deterministic, the skill that produces the verdicts is not.
@@ -294,6 +319,13 @@ apply §6's de-staling edits so §13 stops listing finished work as pending.
 Then Phase A per runtime §14 — M1, M2, M3, M4, M5, M8, **A1, A2**. A1 and A2 are Phase A
 because they are two of `decide()`'s three arguments; retrofitting `session` later means
 rewriting every subscriber.
+
+Phase A1 closes with `validate_policy.py` and then `/runtime-harden` — the second security
+skill, and the one the runtime spec specified in three sections while assigning it to no phase
+(§6's runtime table, §14 row). It is last inside A1 because it drafts `policy.json`: it needs
+`policy_schema.py` to define what a valid draft is and `validate_policy.py` to reject an invalid
+one. Like `/security-tailor` it is Zone 3 — it produces data a human signs, and carries no
+enforcement power.
 
 **Gate:** `pytest tests/ -q` green (picked up automatically after Step 2), plus one
 `SEC-RUNTIME-*` row flipped off `GAP` with a `mechanisms.json` row and a passing named
@@ -369,6 +401,7 @@ touches mechanism code.
 | §13.5 | Replace the three re-tag asks with a pointer to the current crosswalk lines `:78`, `:83`, `:84` and a note that they landed in `f11a182` | 3 |
 | §13.6 | State the `BEGIN/END runtime-harden` marker rule for `active-controls.md` | 5 |
 | §10 | Note that `tests/test_*.py` additions need `SECURITY-MANIFEST.md` Tier 1 rows | §3 |
+| §14 | **Assign `/runtime-harden` to a phase.** Specified in §11.3 (path), §11.6 (MAY/MUST-NOT contract) and §11.8 (validator wiring point), but present in **no** §14 phase row — measured 2026-08-11, nothing named `runtime-harden` exists in the repo. Placed as A1's last task: it drafts `policy.json`, so it cannot precede `policy_schema.py` (which fixes what valid means) or `validate_policy.py` (which rejects a bad draft). Requires both host shapes and the validator as its acceptance gate | §4 Step 3 |
 
 **`2026-08-11-security-kit-mechanism-inventory-design.md`**
 
