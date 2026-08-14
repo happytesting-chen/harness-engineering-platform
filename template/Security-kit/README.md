@@ -245,7 +245,7 @@ a test proves that path.
 | Data plane | `Security-kit/content_trust.py` | **Library only.** Referenced from `tests/` and nowhere else — no ingestion path calls it |
 | Tool coverage | the `matcher` in `.claude/settings.json` | **Gap.** It lists five tools; anything outside it (`WebFetch`, MCP writes, subagent spawns, scheduled jobs) reaches no gate. Gate ①a *would* judge an MCP write carrying a `path`, but the matcher never invokes it |
 | Prompt-entry gate | — | **Gap — unused attach point, not a missing capability.** `UserPromptSubmit` exists and *can* block (exit 2 erases the prompt, per the hooks docs); this repo wires none. Wiring one would be `OBSERVE`, not prevention |
-| Runtime enforcement | `Security-kit/runtime/` | **Does not exist.** Design only — see `docs/superpowers/specs/2026-08-04-runtime-tool-mediation-design.md` |
+| Runtime enforcement | `Security-kit/runtime/` | **Does not exist.** Design only — see `docs/superpowers/specs/2026-08-13-security-kit-build-design.md` §4 and §5.3 |
 
 Two boundaries worth stating plainly:
 

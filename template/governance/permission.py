@@ -2,7 +2,7 @@
 Generic permission gate — the foundation layer.
 Sits OUTSIDE the model. The model cannot see, edit, or route around this.
 
-Three gates, evaluated in order (fail-closed):
+Four gates, evaluated in order (fail-closed):
   1a. Hard deny — write targets (BUILTIN_PROTECTED_PATHS, plus any additions in
       deny-list.json `protected_paths`). Enforces S2.4: the agent may not edit
       the mechanism or policy that constrains it. Runs first because it is the
@@ -334,8 +334,23 @@ def normalize_tool_name(name: str) -> str:
 if __name__ == "__main__":
     import sys
 
+    # Context for the audit line a denial writes. Populated once the envelope is
+    # parsed; the fail-closed denials before that point record tool "unknown".
+    _DENY_CTX = {"tool": "unknown"}
+
     def _deny(reason: str):
-        print(reason)
+        # Claude Code feeds STDERR back to the model on exit 2; stdout is
+        # discarded for a blocked call. The reason must go to stderr or the
+        # agent is told "no" with no explanation.
+        print(reason, file=sys.stderr)
+        # Refusal coverage: give the denial an audit line too. Best-effort —
+        # an audit failure must never change the verdict, so exit 2 regardless.
+        try:
+            sys.path.insert(0, str(PROJECT_ROOT / "Harness-Best-Practice" / "observability"))
+            from audit import record
+            record("PreToolUse", _DENY_CTX["tool"], {}, "DENIED", reason)
+        except Exception:
+            pass
         sys.exit(2)
 
     # Read tool call from stdin. Empty or unparseable input FAILS CLOSED.
@@ -359,6 +374,7 @@ if __name__ == "__main__":
             self.name = name
             self.input = input
 
+    _DENY_CTX["tool"] = data.get("tool_name", "") or "unknown"
     block = _Block(normalize_tool_name(data.get("tool_name", "")), tool_input)
     check = make_permission_check()
     try:

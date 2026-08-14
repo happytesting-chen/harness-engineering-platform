@@ -41,7 +41,7 @@ Legend for "How the template addresses it":
 > So the **agent-specific** half of the ASI list is addressed **by design, not by
 > implementation**. The mechanisms for it (origin labelling, session-cumulative state,
 > delegation narrowing, memory-write gating) are specified in
-> `docs/superpowers/specs/2026-08-04-runtime-tool-mediation-design.md` §4 as A1–A5 and
+> `docs/superpowers/specs/2026-08-13-security-kit-build-design.md` §4 as A1–A5 and
 > **none of them are built**. Do not read a `[MECH]` tag on a G-tier row as coverage of
 > the agentic risk it sits next to.
 >

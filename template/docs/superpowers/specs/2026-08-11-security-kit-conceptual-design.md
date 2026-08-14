@@ -526,7 +526,7 @@ file in `Context/`; its checker is `Security-kit/check_coverage.py`; and it carr
 declared guardrails while the Kiro mirror carries **0 of 5** — verified by running the plan's
 `ZONE3_GUARDRAILS` patterns against both files (§3.3). What it does not yet have is the
 static-examination half (§0.5 level 3): the scanner is unstarted per
-`docs/superpowers/specs/2026-08-04-security-tailor-design.md:58`.
+`docs/superpowers/specs/archive/2026-08-04-security-tailor-design.md:58`.
 
 *The runtime lane's status is a recorded row, not a plan:* `SEC-RUNTIME-GAP-001` in
 `Security-kit/control-matrix.md` — *"a deployed agent has no hook system: nothing emits events,
@@ -643,7 +643,7 @@ this repository on 2026-08-11/12.
 > **Reasoning proposes; mechanism enforces.**
 
 Everything below is that sentence applied at a different place. The kit's own phrasing of the
-constraint behind it, from the runtime spec (`2026-08-04-runtime-tool-mediation-design.md:988`):
+constraint behind it, from the runtime spec (`archive/2026-08-04-runtime-tool-mediation-design.md:988`):
 
 > *A model may only decide things a human reviews before they take effect.*
 

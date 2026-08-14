@@ -69,7 +69,9 @@ def _collect_text(tool_input) -> str:
 
 
 def _block(reason: str):
-    print(reason)
+    # Claude Code feeds STDERR back to the model on exit 2; stdout is discarded
+    # for a blocked call, so the reason must go to stderr to reach the agent.
+    print(reason, file=sys.stderr)
     sys.exit(2)
 
 

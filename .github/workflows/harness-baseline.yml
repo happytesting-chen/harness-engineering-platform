@@ -1,0 +1,53 @@
+# Asserts the BASELINE declared in
+# template/docs/superpowers/specs/2026-08-13-security-kit-build-design.md §7.4.1 —
+# NOT that the build is green.
+#
+# The shipped template is red by design: 4 files still hold {{PLACEHOLDER}} blocks that
+# /init-project fills, and Security-kit/coverage.json is absent until /security-tailor
+# runs. So `./init.sh` exits 1 in a correct tree, and a workflow asserting exit 0 could
+# never pass. This asserts the exact SHAPE of that failure instead, which is strictly
+# stronger: a NEW error becomes a diff rather than an increment nobody notices.
+name: harness baseline
+
+on:
+  push:
+  pull_request:
+  workflow_dispatch:
+
+jobs:
+  baseline:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+
+      - name: template init.sh matches the declared baseline (spec §7.4.1)
+        working-directory: template
+        run: |
+          set +e
+          OUT="$(./init.sh 2>&1)"; CODE=$?
+          set -e
+          echo "$OUT"
+          if [ "$CODE" -ne 1 ]; then
+            echo "::error::expected exit 1 (red by design), got $CODE — baseline drifted, see spec §7.4.1"
+            exit 1
+          fi
+          if ! echo "$OUT" | grep -qF 'RESULT: FAIL — 5 error(s), 2 warning(s)'; then
+            echo "::error::baseline drifted — expected 5 error(s) / 2 warning(s), see spec §7.4.1 and re-measure §2"
+            exit 1
+          fi
+          echo "baseline OK: exit 1, 5 errors, 2 warnings"
+
+      - name: full suite, including the tests init.sh does not name
+        working-directory: template
+        # init.sh names 7 of the 9 test files (spec §2). One it misses,
+        # tests/test_protected_paths.py, is the ONLY proof of S2.4 — the guarantee that
+        # the agent cannot edit its own policy. Until spec §6.2 item 12(b)'s required-set
+        # fix lands, this step is the only thing that executes that proof anywhere.
+        #
+        # NOTE this does NOT close item 12: a test DELETED from the tree still passes here
+        # silently. Making a missing proof an error needs the required-set list.
+        run: python3 -m pytest tests/ -q
