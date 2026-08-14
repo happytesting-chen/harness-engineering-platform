@@ -340,7 +340,7 @@ my-agent/
 ├── install.sh            ← Build assembler (full / --no-security)          [as-is]
 │
 ├── governance/            ← ENFORCEMENT + POLICY (top-level)
-│   ├── permission.py      ← [MECHANISM] 3-gate control plane                [never edit]
+│   ├── permission.py      ← [MECHANISM] 4-gate control plane                [never edit]
 │   ├── deny-list.json     ← [POLICY] hard-blocked patterns                  [EXTEND]
 │   └── mcp-allowlist.json ← [POLICY] approved tools + egress hosts          [FILL]
 │

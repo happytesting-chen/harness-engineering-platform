@@ -1,5 +1,14 @@
 # Runtime Security Architecture — Deployed Agent Product
 
+> **SUPERSEDED 2026-08-13** by [`2026-08-13-security-kit-build-design.md`](../2026-08-13-security-kit-build-design.md),
+> which is the single build truth — its §7 carries this document's low-level design inline.
+> **Do not plan from this file.**
+>
+> Retained for: the measured `_bind()` evidence, the withdrawn `threading`/`signal.alarm`
+> timeout-deny analysis, the six measured dev-vs-runtime hook cases in §12, and the full
+> M-tier/A-tier mechanism inventory tables in §2 — the underlying measurements behind §7's
+> claims.
+
 **Status:** Draft for review (rev 4 — supersedes rev 3; all rev-4 items below are **applied**)
 **Date:** 2026-08-04 (rev 2: 2026-08-07 · rev 3: 2026-08-07 · rev 4: 2026-08-11)
 **Author:** brainstormed with Yuan Shi

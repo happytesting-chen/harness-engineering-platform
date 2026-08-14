@@ -1,5 +1,13 @@
 # Security-Kit Mechanism Inventory — One Source of Truth, Checked by Code
 
+> **SUPERSEDED 2026-08-13** by [`2026-08-13-security-kit-build-design.md`](../2026-08-13-security-kit-build-design.md),
+> which is the single build truth — its §6 carries this document's design as Step 2.
+> **Do not plan from this file.**
+>
+> Retained for: the derivation of I1–I5 and the argument for each. **Note:** its two
+> `mechanisms.json` example rows use a glob `proof` (`pytest tests/test_*.py`) that its own I3
+> rejects — corrected in the build design's §6.3. Copy the example from there, not from here.
+
 **Status:** Draft for review (rev 2 — supersedes rev 1)
 **Date:** 2026-08-11 (rev 2: 2026-08-11)
 **Author:** brainstormed with Yuan Shi
@@ -66,7 +74,7 @@ vocabularies. Read 2026-08-10:
 | `Security-kit/owasp-crosswalk.md:7-14` | `[MECH]` `[LIB]` `[GUIDE]` `[APP]` `[GAP]` (+ `[OBS]` used in rows) |
 | `Security-kit/control-matrix.md:8-13` | `MECHANICAL` `OBSERVE` `LIBRARY` `GAP` |
 | `Security-kit/README.md:238-248` | English sentences — "Mechanical.", "Library only.", "Gap.", "Does not exist." |
-| `docs/superpowers/specs/2026-08-04-runtime-tool-mediation-design.md` | `[MECH]` `[OBS]` `[APP]` |
+| `docs/superpowers/specs/archive/2026-08-04-runtime-tool-mediation-design.md` | `[MECH]` `[OBS]` `[APP]` |
 
 Nothing compares them, so they drift silently.
 
@@ -546,7 +554,7 @@ mention becomes a reference.
 | The five loop positions and the four ✗s | `Security-kit/README.md` §2 | link |
 | Design-doc → implementation procedure (§2) | `Security-kit/README.md` (new subsection) | link |
 | Which controls apply to this product | `Security-kit/coverage.json` | link |
-| Runtime (deployed) design | `docs/superpowers/specs/2026-08-04-runtime-tool-mediation-design.md` | link |
+| Runtime (deployed) design | `docs/superpowers/specs/archive/2026-08-04-runtime-tool-mediation-design.md` | link |
 
 Status adjectives stay where they read naturally — the earlier decision was "status may
 appear anywhere; the checker verifies all copies agree." I1 is what makes that safe.

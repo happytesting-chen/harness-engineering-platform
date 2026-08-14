@@ -7,7 +7,7 @@
 - **Language:** {{LANGUAGE}} (e.g., Python 3.11+)
 - **Dependencies:** Zero external deps for mechanism code (stdlib only)
 - **Agent runtimes:** Claude Code, Kiro, Codex, Cursor, Copilot
-- **Enforcement:** `governance/permission.py` — three-gate permission check (CLI mode)
+- **Enforcement:** `governance/permission.py` — four-gate permission check (CLI mode)
 
 ## Architecture
 
@@ -54,7 +54,7 @@ python3 evaluation/eval.py      # Quantify accuracy/reproducibility/latency/cost
 {{DENY_LIST_SUMMARY}}
 
 - Enforcement is mechanical — `governance/permission.py` evaluates every tool call
-- Three gates in order: deny-list → phase-gate → egress (fail-closed, first denial wins)
+- Four gates in order: protected-paths → deny-list → phase-gate → egress (fail-closed, first denial wins)
 - The agent CANNOT bypass, modify, or disable the permission gate
 - Phase transitions require human sign-off (agent cannot self-promote phases)
 - Patterns in `governance/deny-list.json` are blocked unconditionally

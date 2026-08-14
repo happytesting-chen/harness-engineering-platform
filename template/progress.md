@@ -14,7 +14,8 @@
   - Scope: applicability + gaps ONLY (no new controls, no policy diffs, no verify authoring).
 - Answered the "binding / add-omit / standalone" question grounded in install.sh + init.sh.
 - Chose **Approach A**. Wrote spec:
-  `docs/superpowers/specs/2026-08-04-security-tailor-design.md`.
+  `docs/superpowers/specs/archive/2026-08-04-security-tailor-design.md` (archived 2026-08-13;
+  superseded by `2026-08-13-security-kit-build-design.md`).
 - **Rev 2:** extended to **layer D (dev-time steering)** per user ("Extend to dev-time
   steering"). Confirms 3 active layers: B selection, C coverage gate, D steering.
 

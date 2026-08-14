@@ -14,15 +14,15 @@
       "mode": "regex"
     },
     {
-      "pattern": "(sed|perl|awk)\\s+[^|;&]*-i[^|;&]*(governance/|\\.claude/settings\\.json|Security-kit/)",
+      "pattern": "\\b(sed|perl|awk)\\s+[^|;&]*-i[^|;&]*(governance/|\\.claude/settings\\.json|Security-kit/)",
       "mode": "regex"
     },
     {
-      "pattern": "(tee|truncate|dd\\s+of=)\\s*[^|;&]*(governance/|\\.claude/settings\\.json|Security-kit/)",
+      "pattern": "\\b(tee|truncate)\\s+[^|;&]*(governance/|\\.claude/settings\\.json|Security-kit/)|\\bdd\\s+of=[^|;&]*(governance/|\\.claude/settings\\.json|Security-kit/)",
       "mode": "regex"
     },
     {
-      "pattern": "(chmod|chown|rm|mv)\\s+[^|;&]*(governance/|\\.claude/settings\\.json|Security-kit/(secret_scan|content_trust)\\.py)",
+      "pattern": "\\b(chmod|chown|rm|mv)\\s+[^|;&]*(governance/|\\.claude/settings\\.json|Security-kit/(secret_scan|content_trust)\\.py)",
       "mode": "regex"
     }
   ],

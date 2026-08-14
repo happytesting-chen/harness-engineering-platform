@@ -195,6 +195,20 @@ for raw in re.findall(r"\$CLAUDE_PROJECT_DIR/(\S+?\.py)", blob):
             ERRORS=$((ERRORS + 1))
         fi
     fi
+    # (g2) shipped-policy ground truth — the only test whose subject is the POLICY
+    # DATA rather than the gate code. test_fixtures.py substitutes a synthetic
+    # deny-list by design, so without this block governance/deny-list.json is
+    # never read by any gated test. Asserts both directions: catastrophic commands
+    # denied AND ordinary read-only commands allowed (an over-blocking gate is one
+    # its users switch off).
+    if [ -f "tests/test_shipped_policy.py" ]; then
+        if python3 tests/test_shipped_policy.py >/dev/null 2>&1; then
+            echo "  ✓ shipped-policy tests passed (tests/test_shipped_policy.py)"
+        else
+            echo "  ✗ shipped-policy tests FAILED (tests/test_shipped_policy.py)"
+            ERRORS=$((ERRORS + 1))
+        fi
+    fi
     # (h) coverage gate: applicable controls must be mapped to a verification
     if [ -f "Security-kit/check_coverage.py" ]; then
         if python3 Security-kit/check_coverage.py; then
