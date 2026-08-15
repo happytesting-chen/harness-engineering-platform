@@ -25,6 +25,7 @@ sys.path.insert(0, str(PROJECT_ROOT))
 
 from demo.fake_model import Block, Response, FakeModel
 from demo.harness import agent_loop, TOOL_HANDLERS, WORKDIR
+import governance.permission as permission
 from governance.permission import make_permission_check
 
 
@@ -35,10 +36,20 @@ from governance.permission import make_permission_check
 # We store original file contents so we can restore after tests.
 _ORIGINALS = {}
 
-# Paths that get test-specific content during tests
-_DENY_LIST = PROJECT_ROOT / "governance" / "deny-list.json"
-_ALLOWLIST = PROJECT_ROOT / "governance" / "mcp-allowlist.json"
-_FEATURE_LIST = PROJECT_ROOT / "Harness-Best-Practice" / "feature_list.json"
+# The gate reads these three as MODULE GLOBALS at call time (permission.py:31-34),
+# so setup_test_policy() rebinds them at a scratch directory instead of writing the
+# shipped policy. Item 17: writing the real files bumped their mtimes past
+# progress.md and moved init.sh's own warning count between runs. The audit log
+# stays where it is — it is a .log, outside init.sh's staleness scan, and the
+# assertions read it directly.
+_REAL_DENY_LIST = permission.DENY_LIST_PATH
+_REAL_ALLOWLIST = permission.ALLOWLIST_PATH
+_REAL_FEATURE_LIST = permission.FEATURE_LIST_PATH
+
+_TMP_POLICY = None      # scratch dir, created per setup, removed per teardown
+_DENY_LIST = None       # bound by setup_test_policy() to the scratch copies
+_ALLOWLIST = None
+_FEATURE_LIST = None
 _AUDIT_LOG = PROJECT_ROOT / "Harness-Best-Practice" / "observability" / "audit.log"
 
 
@@ -62,9 +73,14 @@ def _restore(path: Path):
 
 def setup_test_policy():
     """Write deterministic test-specific policy files."""
-    _backup(_DENY_LIST)
-    _backup(_ALLOWLIST)
-    _backup(_FEATURE_LIST)
+    global _TMP_POLICY, _DENY_LIST, _ALLOWLIST, _FEATURE_LIST
+    _TMP_POLICY = Path(tempfile.mkdtemp(prefix="e2e-policy-"))
+    _DENY_LIST = _TMP_POLICY / "deny-list.json"
+    _ALLOWLIST = _TMP_POLICY / "mcp-allowlist.json"
+    _FEATURE_LIST = _TMP_POLICY / "feature_list.json"
+    permission.DENY_LIST_PATH = _DENY_LIST
+    permission.ALLOWLIST_PATH = _ALLOWLIST
+    permission.FEATURE_LIST_PATH = _FEATURE_LIST
     _backup(_AUDIT_LOG)
 
     # Deny-list: block dangerous patterns
@@ -108,10 +124,14 @@ def setup_test_policy():
 
 def teardown_test_policy():
     """Restore original policy files and clean up test artifacts."""
-    _restore(_DENY_LIST)
-    _restore(_ALLOWLIST)
-    _restore(_FEATURE_LIST)
+    global _TMP_POLICY
+    permission.DENY_LIST_PATH = _REAL_DENY_LIST
+    permission.ALLOWLIST_PATH = _REAL_ALLOWLIST
+    permission.FEATURE_LIST_PATH = _REAL_FEATURE_LIST
     _restore(_AUDIT_LOG)
+    if _TMP_POLICY is not None:
+        shutil.rmtree(_TMP_POLICY, ignore_errors=True)
+        _TMP_POLICY = None
 
     # Clean sandbox
     if WORKDIR.exists():
@@ -325,6 +345,39 @@ def test_removing_enforcement_allows_dangerous_call():
 
 
 # ---------------------------------------------------------------------------
+# Test 4: the suite does not mutate the tree it is verifying (item 17)
+# ---------------------------------------------------------------------------
+
+def test_suite_does_not_touch_the_real_policy_files():
+    """The E2E suite must not write the shipped policy files.
+
+    Measured 2026-08-15 on a clean tree: three consecutive `./init.sh` runs
+    reported 1, then 2, then 2 warnings. setup_test_policy() rewrote
+    governance/*.json byte-identically but with fresh mtimes, and init.sh's
+    staleness check scans every *.py/*.json/*.md against progress.md. A test
+    that mutates the tree it verifies makes the verifier's output depend on
+    run order — and these three files are policy, which nothing but a human
+    should be writing.
+    """
+    real = [
+        PROJECT_ROOT / "governance" / "deny-list.json",
+        PROJECT_ROOT / "governance" / "mcp-allowlist.json",
+        PROJECT_ROOT / "Harness-Best-Practice" / "feature_list.json",
+    ]
+    before = {p: (p.read_bytes(), p.stat().st_mtime_ns) for p in real}
+
+    # The loudest consumer of the test policy — it also rewrites the deny-list
+    # mid-test, so if any path leaks to the real tree this catches it.
+    test_removing_enforcement_allows_dangerous_call()
+
+    for p, snapshot in before.items():
+        assert (p.read_bytes(), p.stat().st_mtime_ns) == snapshot, (
+            f"FAIL: {p.relative_to(PROJECT_ROOT)} was rewritten by the E2E suite "
+            f"(item 17 — content and mtime must both be untouched)"
+        )
+
+
+# ---------------------------------------------------------------------------
 # Entry point for direct execution
 # ---------------------------------------------------------------------------
 
@@ -339,6 +392,7 @@ if __name__ == "__main__":
             test_denied_call_not_executed,
             test_allowed_call_executed,
             test_removing_enforcement_allows_dangerous_call,
+            test_suite_does_not_touch_the_real_policy_files,
         ]
         passed = 0
         failed = 0
