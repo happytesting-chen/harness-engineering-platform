@@ -91,6 +91,43 @@ def _load_json(path, *, required=False):
     return data
 
 
+def _shell_lines(command: str) -> list[str]:
+    r"""Split a shell command string into individual COMMAND lines.
+
+    A raw newline separates two commands exactly as `;` and `|` do. The negated
+    classes in deny-list.json's regex patterns exclude `|;&` but NOT `\n`, so one
+    search over the whole blob lets a token from one command compose with a token
+    from another into a match neither command earns alone -- e.g. `sed` on line 1
+    plus `-i` and a protected path on line 2, where line 1 is a read-only `sed -n`.
+
+    Two cases where a newline does NOT end a command. Both must survive, or the
+    fix trades a false positive for a bypass:
+      - line continuation (backslash then newline) -- unfolded to a space first;
+      - a newline inside quotes -- tracked, so `sed -i '<newline>s/x/y/' <path>`
+        stays one line and stays denied.
+    An unterminated quote yields a single unsplit line: fail closed.
+    """
+    unfolded = command.replace("\\\n", " ")
+    lines: list[str] = []
+    buf: list[str] = []
+    quote: str | None = None
+    for ch in unfolded:
+        if quote:
+            buf.append(ch)
+            if ch == quote:
+                quote = None
+        elif ch in "'\"":
+            quote = ch
+            buf.append(ch)
+        elif ch == "\n":
+            lines.append("".join(buf))
+            buf = []
+        else:
+            buf.append(ch)
+    lines.append("".join(buf))
+    return [ln for ln in lines if ln.strip()] or [unfolded]
+
+
 def check_deny_list(command: str) -> str | None:
     """Gate 1b: hard deny on command patterns. Reason if denied, None if allowed.
 
@@ -103,7 +140,9 @@ def check_deny_list(command: str) -> str | None:
       - an object  {"pattern": "...", "mode": "substring"|"word"|"regex"}
           * "word"  → matches the literal only on word boundaries, so "curl" does not
                        fire on "curly"; the fix for the naive-substring problem.
-          * "regex" → full regex match.
+          * "regex" → full regex match, applied PER SHELL COMMAND (see
+                       _shell_lines). substring and word stay whole-string, which
+                       can only deny more, never less, so no bypass is opened.
     A malformed regex falls back to substring match rather than crashing the gate.
     """
     data = _load_json(DENY_LIST_PATH, required=True)
@@ -119,7 +158,7 @@ def check_deny_list(command: str) -> str | None:
             if mode == "word":
                 hit = re.search(rf"\b{re.escape(pat)}\b", command) is not None
             elif mode == "regex":
-                hit = re.search(pat, command) is not None
+                hit = any(re.search(pat, ln) for ln in _shell_lines(command))
             else:
                 hit = pat in command
         except re.error:
