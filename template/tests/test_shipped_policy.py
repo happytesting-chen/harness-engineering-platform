@@ -84,6 +84,23 @@ MUST_DENY = [
     # takes it from DENY to ALLOW. Without this row, that repair passes the suite.
     ("sed -i \\\n 's/exit(2)/exit(0)/' governance/permission.py",
      "regex: backslash-newline continuation is ONE command"),
+    # Item 14's under-block half, closed 2026-08-15. The entry these exercise used
+    # to be the bare literal "rm -rf /", so a root not spelled with a leading slash
+    # was allowed outright. Deleting any of these rows re-opens that hole silently:
+    # nothing else in the suite deletes a home directory.
+    ("rm -rf /", "regex: roots — the form the old literal did catch"),
+    ("rm -rf /*", "regex: roots — glob under /"),
+    ("rm -fr /", "regex: roots — flag order does not matter"),
+    ("rm -r -f /", "regex: roots — split flags"),
+    ("sudo rm -rf /", "regex: roots — a prefix is not an escape"),
+    ("rm -rf ~", "regex: roots — home, unslashed"),
+    ("rm -rf ~/", "regex: roots — home, slashed"),
+    ("rm -rf $HOME", "regex: roots — home by variable"),
+    ("rm -rf $HOME/", "regex: roots — home by variable, slashed"),
+    ("rm -rf .", "regex: roots — the whole working tree"),
+    ("rm -rf ..", "regex: roots — the parent of the working tree"),
+    ("rm -rf ../..", "regex: roots — grandparent"),
+    ("rm -rf *", "regex: roots — every entry in cwd"),
 ]
 
 
@@ -120,6 +137,17 @@ MUST_ALLOW = [
     ("sed -n '1,10p' governance/permission.py", "sed WITHOUT -i is a reader"),
     ("awk 'NR<3' governance/deny-list.json", "awk WITHOUT -i is a reader"),
     ("diff governance/deny-list.json /tmp/old.json", "read-only comparison"),
+    # Item 14's over-block half. The first three were refused live while auditing
+    # this repo — that is how the defect was found. A named target is not a root,
+    # so these must stay allowed no matter how the roots pattern is tightened.
+    ("rm -rf /tmp/build-cache", "item 14: scoped scratch under an absolute path"),
+    ("rm -rf /var/folders/zz/scratch", "item 14: scoped scratch, refused live"),
+    ("rm -rf ./build", "item 14: named target under cwd, not cwd"),
+    ("rm -rf node_modules", "item 14: named target"),
+    ("rm -rf ../sibling", "item 14: named target under the parent, not the parent"),
+    ("rm -rf ~/scratch", "item 14: named target under home, not home"),
+    ("rm -f .coverage", "item 14: a dotfile is not `.`"),
+    ("grep -rn 'rm -rf /' docs/", "item 14: the literal QUOTED inside a reader"),
 ]
 
 
@@ -137,11 +165,26 @@ def test_ordinary_read_only_commands_are_allowed():
 
 
 # ---------------------------------------------------------------------------
-# 4. Item 11 — a defect PINNED, not fixed
+# 4. Item 11 — CLOSED: regex patterns match PER SHELL COMMAND
 #
-# Same idiom as tests/test_protected_paths.py::test_interpreter_write_is_a_known_
-# documented_gap: assert the state the docs describe, so the gap cannot close
-# silently and leave a doc overclaiming (or, here, under-claiming).
+# This section was a PIN (assert the defect is present, so it cannot close
+# silently) until 2026-08-15. It is now the regression suite for the fix.
+#
+# The defect: every regex in deny-list.json guards its interior with `[^|;&]*`,
+# meant to stop a match running across a command boundary. That class covers
+# `;` `|` `&` and NOT `\\n` — equally a separator — so `sed` from line 1 composed
+# with `-i` plus a protected path from line 2 into a hit neither command earns.
+#
+# The fix is in `check_deny_list` / `_shell_lines`, NOT in the four patterns.
+# Adding `\\n` to the character class clears the false positives and opens two
+# real bypasses, because a newline does not always end a command: not after a
+# backslash continuation, and not inside quotes. MUST_DENY_MULTILINE rows 2 and 3
+# are exactly those two, and they are why the fix is a splitter rather than one
+# character of regex.
+#
+# Both tables below are the measured 8-case truth table. Verdicts when the fix
+# landed:  shipped 2 wrong (both OVER-block) · `[^|;&\\n]` 2 wrong (both UNDER-
+# block, i.e. real attacks allowed) · this fix 0 wrong.
 # ---------------------------------------------------------------------------
 
 # Two commands that are individually allowed (both appear in MUST_ALLOW above),
@@ -152,34 +195,86 @@ _COMPOSED = (
 )
 
 
-def test_newline_composition_is_a_known_documented_defect():
-    """Pins build-design §6.2 item 11 until the per-line fix lands.
+MUST_ALLOW_MULTILINE = [
+    (_COMPOSED, "the item-11 case: two readers, newline-joined"),
+    (_COMPOSED.replace("\n", "; "), "the same two, `;`-joined — the asymmetry that proved it a defect"),
+    ("ls\npwd\nwc -l governance/permission.py\ngit diff Security-kit/",
+     "four readers, no attack token on any line"),
+]
 
-    Every shipped regex guards its interior with `[^|;&]*`, intended to stop a match
-    running across a command boundary. It covers `;` `|` `&` and NOT `\\n`, which is
-    equally a separator — so `sed` from line 1 and `-i` plus a protected path from
-    line 2 compose into a hit. Joined by `;` instead of a newline, the same two
-    commands are allowed; that asymmetry is the proof it is the class, not the intent.
+MUST_DENY_MULTILINE = [
+    ("sed -i s/2/0/ governance/permission.py",
+     "one line, unambiguous — the control case"),
+    ("sed \\\n -i s/2/0/ governance/permission.py",
+     "BYPASS GUARD: backslash-newline is ONE command; a naive `\\n` in the class allows this"),
+    ("sed -i '\ns/2/0/' governance/permission.py",
+     "BYPASS GUARD: a newline inside quotes is ONE command; a naive split allows this"),
+    ("ls\npwd\nperl -i -pe s/x/y/ governance/deny-list.json",
+     "a real attack on line 3 must still be found after splitting"),
+    ("echo x | tee governance/permission.py",
+     "a different pattern, to show splitting did not narrow the others"),
+]
 
-    The fix belongs in `check_deny_list` (unfold backslash-newline continuations,
-    split on newlines, match per line) and NOT in the four patterns: adding `\\n` to
-    the character class clears the false positive and opens a real bypass, because
-    `sed -i` followed by a backslash and a newline is ONE command. See §6.2's
-    four-case table.
+
+def test_newline_composition_no_longer_over_blocks():
+    """OVER-BLOCK direction for multi-line commands — item 11's actual symptom."""
+    denied = [
+        (cmd, why, permission.check_deny_list(cmd)) for cmd, why in MUST_ALLOW_MULTILINE
+        if permission.check_deny_list(cmd) is not None
+    ]
+    assert not denied, (
+        "shipped deny-list DENIED read-only multi-line commands — item 11 has "
+        "regressed. Check that the regex branch of check_deny_list still matches "
+        "per command via _shell_lines:\n"
+        + "\n".join(f"  {why:44s} {cmd!r}\n    -> {reason}" for cmd, why, reason in denied)
+    )
+
+
+def test_per_command_matching_opened_no_bypass():
+    """UNDER-BLOCK direction — the half that makes the fix above safe.
+
+    Splitting a command string is only a fix if it splits where the shell splits.
+    Two of these rows are single commands that merely CONTAIN a newline; if either
+    is allowed, the fix has traded a false positive for a hole, which is strictly
+    worse than the defect it replaced.
     """
-    assert permission.check_deny_list(_COMPOSED) is not None, (
-        "Newline composition no longer false-positives. That is the fix landing — "
-        "now flip this test to assert None, move §6.2 item 11 out of the unowned "
-        "ledger, and add the four §6.2 cases (including the backslash-newline "
-        "continuation, which must still DENY) as ordinary rows above."
+    allowed = [
+        (cmd, why) for cmd, why in MUST_DENY_MULTILINE
+        if permission.check_deny_list(cmd) is None
+    ]
+    assert not allowed, (
+        "shipped deny-list ALLOWED a write to its own mechanism. Per-command "
+        "matching split where the shell does not:\n"
+        + "\n".join(f"  {why}\n    {cmd!r}" for cmd, why in allowed)
     )
-    # The same two commands, joined by a real shell separator, are allowed. This
-    # half must hold either way — it is what makes the case above a defect rather
-    # than a policy decision.
-    assert permission.check_deny_list(_COMPOSED.replace("\n", "; ")) is None, (
-        "Joined by ';' these two read-only commands are now denied too. The defect "
-        "widened from newline composition to plain over-blocking."
-    )
+
+
+# ---------------------------------------------------------------------------
+# 4b. Item 14 — CLOSED 2026-08-15. Retired pin; the rows moved up.
+#
+# The shipped entry was the bare string "rm -rf /", evaluated in `substring` mode,
+# which made it the only shipped pattern that failed both ways at once:
+#
+#   OVER-BLOCK   every `rm -rf /<anything>` contains it, so cleaning a scratch
+#                directory was refused. Hit live three times while auditing this
+#                repo — including on the command that was verifying the fix.
+#   UNDER-BLOCK  the catastrophic forms not spelled with a leading slash —
+#                `~`, `$HOME`, `.`, `*`, `../..` — did not contain it and were allowed.
+#
+# Item 10's lesson did not reach this: that fix was word boundaries, and all four
+# shipped regexes carry `\\b`. A literal in substring mode has no word to bound.
+#
+# It is now one regex matching `rm` plus flags followed by a target that IS a root
+# rather than a path under one. This section holds no test of its own on purpose:
+# a pin that outlives its defect is a test asserting the wrong proposition. Its 13
+# deny rows and 8 allow rows live in MUST_DENY and MUST_ALLOW above, where the two
+# directions are checked by the same two tests as every other shipped pattern.
+#
+# Residual, stated rather than papered over: a scoped absolute path is still allowed,
+# so `rm -rf /etc` is NOT caught. Enumerating system roots re-creates the over-block
+# this closed — `/Users/<you>/project/build` is also a scoped absolute path — so that
+# case belongs to human review, not to this pattern. See build design §6.2 item 14.
+# ---------------------------------------------------------------------------
 
 
 # ---------------------------------------------------------------------------
@@ -282,7 +377,8 @@ if __name__ == "__main__":
         test_the_shipped_policy_is_the_one_under_test,
         test_catastrophic_commands_are_denied,
         test_ordinary_read_only_commands_are_allowed,
-        test_newline_composition_is_a_known_documented_defect,
+        test_newline_composition_no_longer_over_blocks,
+        test_per_command_matching_opened_no_bypass,
         test_denial_reasons_go_to_stderr,
         test_a_denial_is_recorded_not_only_refused,
     ]

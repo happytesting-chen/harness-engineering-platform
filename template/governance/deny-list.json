@@ -2,7 +2,11 @@
   "_comment": "Hard-deny policy. Two independent keys: `patterns` matches shell COMMAND strings; `protected_paths` matches the TARGET of a file write (Write/Edit/MultiEdit/NotebookEdit). `protected_paths` is Gate 1a, `patterns` is Gate 1b. Add domain-specific entries below.",
   "_guidance": "These are catastrophic-only defaults. Review and extend for your domain.",
   "patterns": [
-    "rm -rf /",
+    {
+      "_note": "Roots, not paths under them. Replaces the bare literal 'rm -rf /', which substring mode made wrong BOTH ways: it denied every `rm -rf /<path>` (scratch cleanup) and allowed the roots not spelled with a leading slash (~, $HOME, ., *, ../..). See build design 6.2 item 14. Residual: a scoped absolute path such as /etc is NOT matched, because enumerating system roots re-creates the over-block.",
+      "pattern": "\\brm\\s+(-\\S+\\s+)*(/\\*|\\$HOME/|\\.\\./\\.\\.|~/|/|\\*|~|\\$HOME|\\.\\.|\\.)(\\s|$)",
+      "mode": "regex"
+    },
     "mkfs",
     "> /dev/",
     ":(){ :|:& };:",
