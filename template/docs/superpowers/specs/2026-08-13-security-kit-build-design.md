@@ -436,7 +436,7 @@ shown struck so the drift is visible rather than silently overwritten.
 | Enforcement gates | **4** | `grep '^def check_' governance/permission.py` → `check_deny_list:94`, `check_protected_paths:176`, `check_phase_gate:224`, `check_egress:257` |
 | Built-in protected paths | **8** | parsed the `BUILTIN_PROTECTED_PATHS` assignment in `permission.py` |
 | Hook events registered | `PreToolUse`, `PostToolUse`, `Stop` — **no `UserPromptSubmit`** | `.claude/settings.json` |
-| Tests | **60 passing, 9 files** (was 54 / 8) | `python3 -m pytest tests/ -q` → `60 passed`; `ls tests/*.py \| wc -l` → 9 |
+| Tests | **61 passing, 9 files** (was 54 / 8, then 60) | `python3 -m pytest tests/ -q` → `61 passed`; `ls tests/*.py \| wc -l` → 9. 60 → 61 on 2026-08-15: item 11's pin split into an over-block test and an under-block test (net +1), because the fix has to be proved safe in both directions. Per-file, measured: `protected_paths` 22 · `hooks` 15 · `shipped_policy` 7 · `content_trust` 6 · `steady_state` 5 · `e2e` 3 · `coverage`/`eval_selection`/`fixtures` 1 each |
 | `init.sh` test invocations | **7 by name** (`:79`, `:98`, `:130`, `:142`, `:182`, `:191`, `:205`), **0** `pytest` calls | `grep -n 'python3 tests/' init.sh` → 7; `grep -c pytest init.sh` → 0 |
 | Test files on disk but **not named** in `init.sh` | **2** — `test_protected_paths.py`, `test_steady_state.py` | 9 on disk − 7 named. §6.2 item 12; the first is the only proof of S2.4 |
 | `./init.sh` in the shipped template | **exit 1** — `RESULT: FAIL — 5 error(s), 2 warning(s)` | run this session. **This is the declared baseline**, not a defect — see §7.4.1 |
@@ -455,8 +455,8 @@ shown struck so the drift is visible rather than silently overwritten.
 | `Security-kit/runtime/` | **absent** | `ls` |
 | `.claude/commands/runtime-harden.md` | **absent** | `ls .claude/commands/` → 4 files |
 | `SEC-PROOF-GAP-001` | cited by **4 docs**, exists in **0** `Security-kit/` files | `grep -rl` across the tree |
-| `governance/permission.py` | **388 lines** (was 372 before item 8's patch) | `wc -l` |
-| — its CLI doorway block | **55 lines**, `:334-388` (was 39) | `grep -n '__main__'` → `:334`; every line reference in §4.2.6's table moved with it |
+| `governance/permission.py` | **427 lines** (372 → 388 with item 8's patch → 427 with item 11's `_shell_lines`, 2026-08-15) | `wc -l` |
+| — its CLI doorway block | **55 lines**, `:373-427` (was 39, then 55 at `:334-388`) | `grep -n '__main__'` → `:373`. Item 11's helper went in *above* `check_deny_list`, so the block's size is unchanged and every line reference in §4.2.6's table shifted by exactly +39 — re-measured, not arithmetic |
 | `init.sh` | **352 lines** | `wc -l` |
 | `Security-kit/check_coverage.py` | **122 lines**, hosting Rules 1–4 and **none of I1–I6** | `wc -l`; §6.2 item 12 |
 | `.github/workflows/harness-baseline.yml` | **present, new 2026-08-14** — asserts the §7.4.1 BASELINE, then `pytest tests/ -q` | `ls ../.github/workflows/`; §6.1's CI row is now *partly* closed |
@@ -661,7 +661,7 @@ This subsection owns the other half — and the other half is currently broken.
 | Tree | Tracked files | Layout | Gateway | Drafter |
 |---|---|---|---|---|
 | `examples/claims-agent` | **2** (both under `evaluation/`) | pre-Security-kit ancestor: no `Security-kit/`, no `Harness-Best-Practice/`, lowercase `context/`, `tools/mcp-allowlist.json` | old | absent |
-| `examples/claims-build` | **88** | current layout: `Context/`, `Harness-Best-Practice/`, `Security-kit/`, `kiro/`, plus real product code (`claims/`, `extraction/`) | `governance/permission.py` is **187 lines vs the template's 388** — only `check_deny_list:32`, `check_phase_gate:66`, `check_egress:89`; **no Gate 1a `check_protected_paths`, no `PolicyError`, no `_same_file`** | absent from `.claude/commands/`; `Security-kit/` has no `check_coverage.py`, no `coverage.schema.md`, no `active-controls.md` |
+| `examples/claims-build` | **88** | current layout: `Context/`, `Harness-Best-Practice/`, `Security-kit/`, `kiro/`, plus real product code (`claims/`, `extraction/`) | `governance/permission.py` is **187 lines vs the template's 427** — only `check_deny_list:32`, `check_phase_gate:66`, `check_egress:89`; **no Gate 1a `check_protected_paths`, no `PolicyError`, no `_same_file`** | absent from `.claude/commands/`; `Security-kit/` has no `check_coverage.py`, no `coverage.schema.md`, no `active-controls.md` |
 
 `claims-build` is the real instantiation, and its failure mode is precise and instructive: **the
 doorway ported perfectly and the gate did not.** Its `.claude/settings.json` carries the same five
@@ -713,7 +713,7 @@ template/
 ├── init.sh ····························· CHECKER (the build runner, doorway E) · 352 lines
 ├── install.sh · CLAUDE.md · README.md ··· docs (CLAUDE.md and README both restate gate counts — §6.2 item 1)
 ├── governance/                                              ← ENFORCEMENT plane (§2.2 plane 1)
-│   ├── permission.py ··················· GATE + DOORWAY, fused · 388 lines · 4 gates · PROTECTED
+│   ├── permission.py ··················· GATE + DOORWAY, fused · 427 lines · 4 gates · PROTECTED
 │   ├── deny-list.json ·················· policy DATA · 4 regex patterns · PROTECTED · untested until (g2)
 │   ├── mcp-allowlist.json ·············· policy DATA · {{PLACEHOLDER}}
 │   └── ARCHITECTURE.md
@@ -732,12 +732,12 @@ template/
 ├── Harness-Best-Practice/
 │   ├── AGENTS.md ······················· identity + verify commands · a 4th gate-count site
 │   ├── feature_list.json ··············· phase DAG · read by Gate 3 · NOT protected (SEC-PHASE-GAP-001)
-│   ├── progress.md ····················· session journal · init.sh block 3 checks its staleness
+│   ├── progress.md ····················· session journal · init.sh block 3's staleness check (item 16: inert in CI)
 │   └── observability/audit.py ·········· RECORD · append-only
-├── tests/ ······························ 9 test files, 60 passing · init.sh names 7 BY HAND (item 12)
+├── tests/ ······························ 9 test files, 61 passing · init.sh names all 9 BY HAND (item 12(a), 08-15)
 │   ├── fixtures.json ··················· ground truth for the engine, NOT for the shipped policy (item 9)
-│   ├── test_protected_paths.py ········· the ONLY proof of S2.4 — and init.sh does not name it
-│   └── test_steady_state.py ············ also unnamed by init.sh
+│   ├── test_protected_paths.py ········· the ONLY proof of S2.4 · init.sh block (b2) · ABSENCE is an error
+│   └── test_steady_state.py ············ init.sh block (g3)
 ├── .claude/                                                 ← the Claude Code surface
 │   ├── settings.json ··················· DOORWAY wiring · PROTECTED · a 5th gate-count site
 │   ├── commands/ ······················· 4 DRAFTERs, USER-invoked (§9.4): security-tailor,
@@ -1378,18 +1378,18 @@ Five wired entries in `.claude/settings.json` (73 lines, read in full). **One re
 | `stop:cost-tracker` | Stop · 3 s | the same `audit_hook.py` | — |
 | `stop:clean-state-check` | Stop · 3 s | inline `python3 -c` warning when `progress.md` mtime > 3600 s | — |
 
-**The doorway is 55 lines** — re-measured 2026-08-14 at `:334-388`, up from 39 because item 8's
+**The doorway is 55 lines** — re-measured 2026-08-15 at `:373-427`, up from 39 because item 8's
 patch added the audit call and the `_DENY_CTX` it needs. Everything host-specific about the dev-time
 gate lives in that `if __name__ == "__main__"` block, and that is the numeric form of §1.3's claim
 that a doorway is cheap when the host emits events:
 
 | Step | Line | What it is |
 |---|---|---|
-| read the envelope from stdin | `:357` | the host's contract, documented at `:309-310`: `{"tool_name": "Bash", "tool_input": {...}, …}` |
-| empty · malformed · wrong shape ⇒ exit 2 | `:358-365` | three separate fail-closed branches *before* any policy is consulted |
-| translate the host's vocabulary | `:319-331` | `TOOL_NAME_MAP` — PascalCase `Write`/`Edit`/`MultiEdit`/`NotebookEdit` all collapse to internal `write_file`; unmapped names pass through |
-| adapt shape to the pure gate | `:372-375` | a 4-line `_Block` shim, so `make_permission_check` never learns what a hook is |
-| verdict, and both error classes, ⇒ exit 2 | `:341-354`, `:382-387` | `_deny()` is the *only* exit-2 site; `PolicyError` and bare `Exception` both route into it |
+| read the envelope from stdin | `:396` | the host's contract, documented at `:309-310`: `{"tool_name": "Bash", "tool_input": {...}, …}` |
+| empty · malformed · wrong shape ⇒ exit 2 | `:397-404` | three separate fail-closed branches *before* any policy is consulted |
+| translate the host's vocabulary | `:358-370` | `TOOL_NAME_MAP` — PascalCase `Write`/`Edit`/`MultiEdit`/`NotebookEdit` all collapse to internal `write_file`; unmapped names pass through |
+| adapt shape to the pure gate | `:411-414` | a 4-line `_Block` shim, so `make_permission_check` never learns what a hook is |
+| verdict, and both error classes, ⇒ exit 2 | `:380-393`, `:421-426` | `_deny()` is the *only* exit-2 site; `PolicyError` and bare `Exception` both route into it |
 
 > **Every line reference in that table moved**, because the patch inserted 16 lines above them. This
 > is the cost of citing line numbers, and it is still the right trade: a reference that goes stale is
@@ -1402,7 +1402,7 @@ Six findings this mapping produces that are stated nowhere else:
    As written it printed a reason and exited (`:337-339`): no audit call, so **every dev-time
    denial was invisible to `audit.log`**. The cause was structural, not an oversight — the doorway
    that produces refusals is not the doorway that records them, and only `PostToolUse` reaches the
-   recorder, which by definition never fires for a blocked call. Verified fixed at `:341-354`:
+   recorder, which by definition never fires for a blocked call. Verified fixed at `:380-393`:
    `_deny` now calls `audit.record(..., "DENIED", reason)` **inside a `try/except Exception: pass`
    that exits 2 regardless**. That last clause is the part worth copying. A recorder wired into a
    *gate* must never be able to change the verdict, so the audit is best-effort by construction:
@@ -1895,16 +1895,26 @@ def check_i3(register, init_sh_text) -> tuple[int, list[str], int]:
             errors += 1; msgs.append(f"{m['id']}: {target} is not reachable from init.sh")
 ```
 
-**This invariant fails on the tree as shipped, and that is the point.** Re-measured 2026-08-14
-(the earlier count was 6-of-8, before block `(g2)` and `test_shipped_policy.py` existed):
-`init.sh` invokes **7** test files by name (`:79`, `:98`, `:130`, `:142`, `:182`, `:191`, `:205`)
-and contains **zero** `pytest` calls, while `tests/` holds **9** files. `tests/test_steady_state.py`
-and `tests/test_protected_paths.py` are on disk and unreferenced — so `SEC-SELF-001`'s proof
-target exists and is unreachable. **§6.2 item 12 is this same defect approached from the other
-end**, and it adds the part I3 does not test: when a *named* proof disappears, `init.sh` says
-nothing at all (measured there). I3 catches a proof that was never wired; item 12(b) catches a
-wired proof that went missing. Both are needed — the second is why `[ -f … ]` with no `else` is
-itself the finding.
+**This invariant failed on the tree as shipped, and the instance it failed on is now closed.**
+Measurement history, because the number moved three times and the *reason* it moved is the point:
+6-of-8 (08-13, before `test_shipped_policy.py` existed) → **7**-of-9 (08-14: `:79`, `:98`, `:130`,
+`:142`, `:182`, `:191`, `:205`, with `test_steady_state.py` and `test_protected_paths.py` on disk
+and unreferenced, so `SEC-SELF-001`'s proof target existed and was unreachable) → **9**-of-9
+(08-15, §6.2 item 12(a): blocks `(b2)` and `(g3)` name them, and `grep pytest init.sh` still
+returns no *invocation*). So I3's one measured violation is fixed **in the build, not in the
+invariant** — which is the resolution the section below demands and the opposite of weakening the
+check to match the tree.
+
+**I3 itself remains designed and unbuilt** (`check_coverage.py` implements Rules 1–4 and a layer-D
+check; none of them is I3), so nothing yet *enforces* what block `(b2)` currently satisfies. That is
+the gap `SEC-PROOF-GAP-001` records, and it is why the two-step resolution below still stands.
+
+**§6.2 item 12 is this same defect approached from the other end**, and it adds the part I3 does not
+test: when a *named* proof disappears, `init.sh` says nothing at all (measured there). I3 catches a
+proof that was never wired; item 12(b) catches a wired proof that went missing. Both are needed —
+the second is why `[ -f … ]` with no `else` is itself the finding. Block `(b2)` now closes item
+12(b) **for `test_protected_paths.py` only**, by making its absence an `ERROR`; the other eight
+files still vanish silently, so the required-set list is still owed.
 
 **Do not weaken I3 to make it green.** Two-step resolution: record the gap as a matrix row
 (`SEC-PROOF-GAP-001` — an id four documents already cite and **zero** `Security-kit/` files
@@ -1928,6 +1938,15 @@ Three properties, and the `elif` is the one that matters: it discovers new test 
 preserving the zero-dependency constraint. Without the `elif`, "pytest missing" and "tests
 failing" would be the same silent outcome — a vacuous gate reached by accident. The six existing
 named invocations **stay**: they are the zero-dependency path.
+
+**This block shipped 2026-08-15, in CI rather than in `init.sh`** — as step 2 of
+`.github/workflows/harness-baseline.yml` (§7.4.2), which had committed a bare
+`python3 -m pytest tests/ -q` and therefore could not pass: `setup-python` installs an interpreter,
+not packages, and there is no `requirements.txt` in the repo. Verified in both states — pytest
+present: `61 passed`, exit 0; pytest absent (clean venv): the note prints, **exit 0**, where the
+bare form was `No module named pytest`, exit 1. Placing it in CI rather than `init.sh` keeps
+`./init.sh` itself free of any pytest mention, which is what lets §6.2 item 12(a)'s 9-of-9 wiring be
+the zero-dependency path rather than a second route to the same dependency.
 
 **A glob runner must NOT satisfy I3 on its own.** `pytest tests/` in `init.sh` makes files
 *reachable*; a `proof` value of `pytest tests/*.py` still fails, because the *row* must name the
@@ -2379,7 +2398,7 @@ What it produces:
 | Path | State today | Content after |
 |---|---|---|
 | `Security-kit/coverage.json` | **absent** | all 20 OWASP ids classified, each with a `Context/`-citing reason |
-| `Security-kit/active-controls.md` | **a 7-line stub** (line 1 is a `GENERATED by security-tailor` marker; lines 4–6 are the stub notice) | only the `applies` controls, as terse dev-time reminders |
+| `Security-kit/active-controls.md` | **a 6-line stub** (line 1 is a `GENERATED by security-tailor` marker; lines 4–6 are the stub notice) | only the `applies` controls, as terse dev-time reminders |
 | `kiro/steering/active-controls.md` | **absent** — the mirror with no implementing task (§4.6.4) | the same layer-D steering, with `inclusion: auto` frontmatter |
 | `Security-kit/eval/recorded/<case>/coverage.json` | **absent** | one recorded prediction per corpus case (§4.6.7) |
 
@@ -2926,30 +2945,128 @@ checker pass is the beginning of a vacuous checker (§1.6).
 
 ### 5.1 Step 1 — the drafters run, and their outputs land
 
-**Trigger:** now. Nothing blocks it. Five tasks, each with a done-condition that is a command:
+> **Rewritten 2026-08-15. The previous version was not executable, and its stated diagnosis was
+> wrong.** It listed five tasks under one trigger ("now, nothing blocks it"), of which the first
+> three cannot run in this tree at all: `/security-tailor` **refuses**, by design, because
+> [`security-tailor.md:9-11`](../../../.claude/commands/security-tailor.md) requires `Context/` to
+> hold a real product doc and this template's `Context/` holds a README plus two `.template` stubs.
+> The old text blamed scheduling — *"it does not look like implementation work, so it never gets
+> scheduled"* — which is the one explanation the measurement rules out. **The mechanism is working.**
+> A precondition that fires is not a stalled task.
+>
+> The deeper error was that §5 never said *which tree* a step runs in. Tasks 1–3 tailor a product;
+> the template has no product, and giving it one would ship a fictional threat model and clear two
+> baseline errors that §7.4.1 asserts must be present. So they are **instance** tasks. Tasks 4–5 are
+> template work and always were.
+
+**Two trees, two triggers.** The done-condition of every task is still a command.
+
+**5.1a — Template tasks. Trigger: now.**
 
 | # | Task | Done when |
 |---|---|---|
-| 1 | Run `/security-tailor` against this template's `Context/` | `Security-kit/coverage.json` exists with all 20 ids classified |
-| 2 | Regenerate `Security-kit/active-controls.md` from `coverage.json` | it is **no longer the 7-line stub**, and `check_coverage.py:91-99` finds every `applies` id in it |
-| 3 | Run `check_coverage.py --stamp` | `generated_from` holds a real sha256, not `"Context/ @ UNSTAMPED"` |
 | 4 | Create `kiro/steering/active-controls.md` (§4.6.4) + the two `check_coverage.py` constants | with `kiro/steering/` present, deleting the mirror fails the build |
-| 5 | Record the 3 corpus cases and print recall (§4.6.7) | `python3 Security-kit/eval/eval_selection.py` exits 0 and prints a recall figure |
-
-**Three of the five close only by running the skill.** That is why this step has stalled: it does
-not look like implementation work, so it never gets scheduled, and until it runs `init.sh` reports
-`coverage.json missing` forever. The phase-1 code that made these tasks possible already landed —
-`f7809ec`, `583653f`, `000d134`, `a07d847`, `3d64fac`, wired by `9c9f728`, `cfe53de`, `a8375e4`,
-`f73fd91`, and hooked into `init.sh` block 5b as check (h).
+| 5 | Measure drafter recall over the 3 corpus cases (§4.6.7) | **DONE 2026-08-15, 2 of 3 cases** — `python3 Security-kit/eval/eval_selection.py recorded/` exits 0 and prints a recall figure |
 
 Task 4's two halves must ship together, per §4.6.4: the drafter change alone works until someone
 deletes the file, and the checker change alone fails a build nobody has been asked to fix.
 
-**Gate:**
+**Task 5 — first measurement, 2026-08-15.** Swap-and-revert per the procedure below, two cases
+(`claims-agent`, `multi-agent-product`). `rag-product` **excluded as contaminated**: its
+`labels.json` had already been read in full in the same session that did the classifying, and
+[`eval/README.md`](../../../Security-kit/eval/README.md) requires that be declared rather than
+scored, because the contamination is invisible in the output.
+
+```
+cases=2  TP=33 FP=0 FN=2 TN=5
+recall=0.943  precision=1.000
+```
+
+Both false negatives are in `claims-agent`, and they are the **same error**: an id was ruled `n_a`
+on a *structural absence* that does not actually remove the property the id names.
+
+| FN | Drafter said | Why that is wrong |
+|---|---|---|
+| ASI03 Identity & Privilege Abuse | `n_a` — "on-prem, no external API calls, no identity system" (`product.md:13`) | absence of *cloud IAM* is not absence of *privilege*. The agent writes a terminal APPROVED/REJECTED decision (`:5`, `:9`) — that is the privilege, and crosswalk:80 puts the mechanism at Gate 2 phase gating, which is local |
+| ASI08 Cascading Failures | `n_a` — "single agent, no sub-agents, no topology to cascade through" (`product.md:13`) | ASI08 is a **sequence** property, not a topology one. Crosswalk:85: *"nothing bounds a run"*; the row-⑤ map at crosswalk:117-118 lists ASI08 under "the sequence / the run". A single agent has runs |
+
+> **The `gap` rule is what carried recall, exactly as §1.8.12 predicts.** 9 of the 35 positive
+> predictions were `gap`, and **all 9** landed on `applies` labels — 5 in case 1
+> (LLM03, LLM07, LLM09, LLM10, ASI04), 4 in case 2 (LLM09, LLM10, ASI08, ASI09). Every one of those
+> scored TP without the drafter having to identify a mechanism. Precision 1.000 is therefore
+> **not** evidence that the drafter is precise; `n_a` was predicted only 7 times in 40, so there was
+> almost no opportunity to be wrong in the negative direction. The number to watch is recall, and the
+> two misses came from the only place the drafter is asked to be confident: asserting `n_a`.
+>
+> Actionable, and cheap: the misses are not judgement calls, they are two ids whose crosswalk row
+> *already* says what rules them out. `security-tailor.md:20` says "Cite what rules it out" but does
+> not say *where to read what would rule it out*. Adding "before recording `n_a`, read that id's
+> crosswalk row — several ids are sequence or privilege properties that survive a simple topology"
+> would have caught both. Deferred as a one-line command edit, not filed as a defect in the eval.
+
+**Not exercised by this run,** and recorded so the figure is not read as broader than it is:
+`check_coverage.py`'s Rule 3 (every `applies` maps to a matrix row with real verification) and its
+layer-D `active-controls.md` rule. Every `applies` was mapped to an **existing** `SEC-*` row rather
+than a new one, per the drafter's own guardrail (`security-tailor.md:42`, "Do NOT invent new
+controls"), and `active-controls.md` was deliberately **not** regenerated — regenerating it mutates
+a template file the eval then has to revert, for signal `eval_selection.py` does not read. `--stamp`
+*was* run on both cases, so the freshness path executed end to end.
+
+> Two mappings were corrected mid-run by the checker's own rule, which is worth recording as
+> evidence the gate works on the drafter: `SEC-XXX-001` (`control-matrix.md:57`) is the
+> `{{PROJECT_SPECIFIC_…}}` stub row, so `PLACEHOLDER_RE` at `check_coverage.py:87` would have
+> errored on it; and three ids had been mapped to `*-GAP-001` rows whose verification cell is
+> literally `none`. Under `security-tailor.md:21` an id with no mechanism is a `gap`, not an
+> `applies` — which changes nothing in the score, since both are positive predictions.
+
+**Task 5 needs a swap, because there is no path parameter.** `CONTEXT_DIR` is hardcoded at
+`check_coverage.py:20`, and the `generated_from` string is built from the literal `"Context/ @ …"`
+at `:73` and `:108`; the command names `Context/` at eight sites. So
+[`eval/README.md:12`](../../../Security-kit/eval/README.md)'s instruction to *"run `/security-tailor`
+against `corpus/<case>/context/`"* describes a capability the template does not have — **corrected
+2026-08-15** to the procedure that works: copy one case's `context/product.md` into `Context/`, run
+the drafter, copy the resulting `coverage.json` to `recorded/<case>/` with the matching
+`labels.json`, then **revert `Context/`**. Reverting is what keeps the baseline at 5 errors.
+
+`--stamp` is *not* part of the measurement: `eval_selection.py:53-56` reads only
+`controls[].verdict` and the labels, never `generated_from`. The swap therefore buys end-to-end
+fidelity, not signal. Run it on at least one case to prove the full path executes; the rest can be
+scored from classification alone, provided that is recorded as what happened.
+
+**A parameter is the honest fix, and it is deliberately deferred.** A `--context <dir>` flag on both
+the command and the checker would make the eval procedure literal. It is not free: `generated_from`
+would stop being a constant, so the freshness gate must record *which* directory it hashed or it can
+be satisfied by stamping against a directory nobody reads. That is a design decision, and it should
+be spent after the recall figure exists, not before — if recall is poor, the work is in the
+command's prompt and the flag buys nothing. **Ordering constraint:** `check_coverage.py` is not yet
+in `BUILTIN_PROTECTED_PATHS` (`permission.py:179-188`); §5.5 adds it. The flag is cheap now and a
+patch later.
+
+**5.1b — Instance tasks. Trigger: after `/init-project` has copied the template and `Context/`
+holds a real product doc.**
+
+| # | Task | Done when |
+|---|---|---|
+| 1 | Run `/security-tailor` against the instance's `Context/` | `Security-kit/coverage.json` exists with all 20 ids classified |
+| 2 | Regenerate `Security-kit/active-controls.md` from `coverage.json` | it is **no longer the 6-line stub**, and `check_coverage.py:91-99` finds every `applies` id in it |
+| 3 | Run `check_coverage.py --stamp` | `generated_from` holds a real sha256, not `"Context/ @ UNSTAMPED"` |
+
+These three are already wired into the product's own entry path: `/init-project` Step 2b invokes
+`/security-tailor` *"now (`Context/` is freshly read)"*, so in an instance they are not a separate
+step a human must remember — which is the correct place for them and the reason removing them from
+5.1a costs nothing. The phase-1 code that made them possible already landed — `f7809ec`, `583653f`,
+`000d134`, `a07d847`, `3d64fac`, wired by `9c9f728`, `cfe53de`, `a8375e4`, `f73fd91`, and hooked
+into `init.sh` block 5b as check (h).
+
+**Gates.** They differ by tree, and conflating them is what produced the old step's wrong gate line:
 
 ```bash
-./init.sh                                        # §7.4.1 BASELINE minus the (h) coverage error
-python3 Security-kit/eval/eval_selection.py      # exits 0, prints recall
+# 5.1a, in the template — the baseline does NOT move. Both coverage errors stay.
+./init.sh                                             # §7.4.1 BASELINE: exit 1, 5 errors
+python3 Security-kit/eval/eval_selection.py recorded/  # exits 0, prints recall
+
+# 5.1b, in an instance — this is where the two coverage errors legitimately clear.
+./init.sh                                             # §7.4.1 BASELINE minus the (h) coverage error
 ```
 
 **The recall figure is an acceptance measurement, not a CI gate** (§4.6.7) — the scorer is
@@ -3085,7 +3202,7 @@ can check the claim against `Security-kit/control-matrix.md` rather than against
 | Making phase sign-off mechanical | `SEC-PHASE-GAP-001` | The fix touches `permission.py` and `deny-list.json`, **both protected**, so it can only ship as a patch (§5.5). Not blocked on design; blocked on a human applying it | add `feature_list.json` to the protected list — then decide who *may* write it, which is the actual open question |
 | Wiring `content_trust.py` into an ingestion path | `SEC-CONTENT-001` (**not** a GAP row) | The control is written and tested; only unwired. Wiring needs an ingestion path to wire it *to*, and at dev time the only candidate is `Context/` reads inside a skill — plane 2, where it has no veto anyway | §4.8's ⑥ is its honest home: **M6** at the content boundary, where a transform can act |
 | Egress beyond shell tokens | `SEC-EGRESS-GAP-001` | Five substring tokens over `bash` only (`permission.py:259`). `WebFetch` is a whole egress channel with no check. Same shape as the matcher problem, gated on the same fixture work | a structured `url`/`host` rule — §4.1.6's **M7**, at runtime rather than dev time |
-| Back-porting to the examples | none | **Corrected on measurement (§3.4).** The current instantiation is `examples/claims-build` (88 tracked files), not `examples/claims-agent` (2 tracked files, pre-Security-kit layout). `claims-build`'s doorway matches the template's exactly; its `governance/permission.py` is **187 lines against the template's 388** and has no Gate 1a, and it carries no drafter. The example is a *consumer*, and porting before §5's steps 1–2 land would fork the mechanism | re-instantiate `claims-build` by copy after step 2's gate is green, **plus** a drift test that hashes the four mechanism files against their template originals — without it the copy rots silently again |
+| Back-porting to the examples | none | **Corrected on measurement (§3.4).** The current instantiation is `examples/claims-build` (88 tracked files), not `examples/claims-agent` (2 tracked files, pre-Security-kit layout). `claims-build`'s doorway matches the template's exactly; its `governance/permission.py` is **187 lines against the template's 427** and has no Gate 1a, and it carries no drafter. The example is a *consumer*, and porting before §5's steps 1–2 land would fork the mechanism | re-instantiate `claims-build` by copy after step 2's gate is green, **plus** a drift test that hashes the four mechanism files against their template originals — without it the copy rots silently again |
 | CI | none | **PARTLY CLOSED 2026-08-14.** PR #2 merged with **0 status checks**; every gate in §7 was a command a human ran, which made this *"the largest single assurance gap in the plan, and not a code problem."* `.github/workflows/harness-baseline.yml` now asserts the **§7.4.1 BASELINE** and runs `pytest tests/ -q`. What is still open is not the runner but the *coverage*: the workflow proves the failure shape has not drifted, and proves nothing about the invariants, because I1–I6 are not built yet (item 12) | the same workflow, re-read after Step 2 lands — at that point it should assert **zero I1–I6 errors**, not just the baseline |
 | **Dependency / supply-chain scanning (SCA)** | **none — new row 2026-08-14** | The kit is `AGENTS.md:8` *"Zero external deps for mechanism code (stdlib only)"*, so the *mechanism* has no dependency surface to scan and this row would be vacuous against it. But the **product** the kit guards will have one, and the drafters (§4.6) walk a taxonomy that does not include a supply-chain id at all — so a tailored `coverage.json` cannot even record the gap. **This is a hole in the taxonomy, not in the tooling** | a supply-chain id in the drafter's fixed taxonomy first, so the absence becomes a `gap` row with a citation; the scanner second. Adding the scanner first would produce findings against no requirement, which I6 (§8.1) would correctly reject |
 | §8.4's **repair-by-suppression** check — a repair whose diff touches only claim artifacts | **none — new row 2026-08-14** | §8.4 rule 1 states it and nothing implements it. It needs to read a **diff**, and no component in §4 reads one: every checker reads files at rest. That is a genuinely new capability, not a rule addition | a checker that classifies a changeset by which paths it touches — and note it is only meaningful once §8.3's loop exists, so it is deferred *with* the loop, not behind it |
@@ -3118,22 +3235,39 @@ in §5 changes that.
 | 7 | **Two wired hook entries have no claim** — `stop:cost-tracker` and `stop:clean-state-check` (`.claude/settings.json`, §4.2.6) | **new this session, unowned** — neither appears in `control-matrix.md` nor in §4.5.3's ten register rows | Both are `Stop`-event behaviours that cannot veto (§4.2.6 finding 5), so the honest row is `OBSERVE` for the first and `CHECKER` for the second. Adding them is a matrix + register edit, which §5's step 1 could absorb — but doing so silently would hide that they were wired without a claim for the whole history of the file |
 
 | 8 | **Every denial reaches the agent as an unexplained failure** — `permission.py:337-339`'s `_deny()` did `print(reason)` then `sys.exit(2)`, and `secret_scan.py:72-73` was byte-for-byte the same shape. `print` writes to **stdout**; the host feeds **stderr** back on exit 2 | **PATCHED by the user 2026-08-13.** Verified by reading `permission.py:341-354` and `secret_scan.py:71-75`: both now `print(reason, file=sys.stderr)`. The patch went **further than the finding** — `_deny` additionally calls `audit.record(..., "DENIED", reason)` inside a `try/except` that cannot change the verdict, which closes the refusal-coverage hole §4.7.5 named | done. Regression case belongs in item 9's test: a denial must write to fd 2, not fd 1 |
-| 9 | **The shipped policy has no tests — only the engine does** | **new, unowned** — `test_fixtures.py:25-27` substitutes a 6-entry `TEST_DENY_LIST` of plain substrings, so **none of the four regex patterns in the shipped `deny-list.json` is exercised by any test.** 7 fixture cases total (4 DENIED / 3 ALLOWED) | **CLOSED 2026-08-14** — `tests/test_shipped_policy.py`, 6 tests, no monkeypatching, gated by `init.sh` block `(g2)`. Verified against §7.3's mutations: (a), (b) and (d) each break it; (c) — applying the *correct* item-11 fix — breaks the pinned test and so forces the doc update. **The first draft did not catch (d), which is why the mutations were run rather than assumed** |
+| 9 | **The shipped policy has no tests — only the engine does** | **new, unowned** — `test_fixtures.py:25-27` substitutes a 6-entry `TEST_DENY_LIST` of plain substrings, so **none of the four regex patterns in the shipped `deny-list.json` is exercised by any test.** 7 fixture cases total (4 DENIED / 3 ALLOWED) | **CLOSED 2026-08-14** — `tests/test_shipped_policy.py`, 6 tests (**7** as of 08-15, +item 14's pin), no monkeypatching, gated by `init.sh` block `(g2)`. Verified against §7.3's mutations: (a), (b) and (d) each break it; (c) — applying the *correct* item-11 fix — breaks the pinned test and so forces the doc update. **The first draft did not catch (d), which is why the mutations were run rather than assumed** |
 | 10 | **A false-positive denial in the shipped deny-list** — `deny-list.json:21`'s `(tee\|truncate\|dd\s+of=)\s*[^\|;&]*(governance/\|…)` was unanchored, and `\s*` permitted **zero** separator, so the letters `tee` inside an ordinary word plus any later mention of a protected directory was a hit | **PATCHED by the user 2026-08-13.** Verified at `deny-list.json:21`: now `\b(tee\|truncate)\s+…\|\bdd\s+of=…` — word boundary added, `\s*`→`\s+`, and `dd of=` correctly split into its own alternative rather than sharing the others' separator | done. Regression case belongs in item 9's test |
-| 11 | **The negated class `[^\|;&]` does not exclude a newline, so tokens from *different commands* compose into a match.** All four regex patterns share the class; it exists to stop a match crossing a command boundary, and it covers `;` `\|` `&` but not `\n` — which is equally a separator | **new, unowned, and measured on the auditor twice.** `sed -n '1,10p' governance/permission.py` alone → ALLOW; `grep -n -i 'gate' .claude/settings.json` alone → ALLOW; **the two joined by a newline → DENY**, matched by the `sed\|perl\|awk … -i` pattern, which harvested `sed` from line 1 and `-i` + the path from line 2. Joined by `;` instead → ALLOW. It needs no protected-path intent at all: `echo hi \n awk 'NR<3' \n ls -i \n cat governance/deny-list.json` → DENY | **not** the obvious one — see below. Evaluate each regex **per shell command**: unfold `\\\n` continuations, split on `\n`, match per line. Code fix in `check_deny_list` (protected), not four pattern edits |
-| 12 | **`./init.sh` loses test coverage silently — and the S2.4 proof was never in it.** Every test block is `if [ -f "tests/test_X.py" ]; then … fi` with no `else`, so a test that is renamed, moved or deleted is **skipped without a word**. Re-measured 2026-08-14 on the current tree: `mv tests/test_coverage.py /tmp/`, re-run → `✗`-line count unchanged (6 → 6), **zero** mentions of the missing test, and a **byte-identical** summary line (`RESULT: FAIL — 5 error(s), 2 warning(s)`). Separately, 3 of the 9 test files on disk were named nowhere in `init.sh`: `test_protected_paths.py`, `test_steady_state.py`, and (until this revision) `test_shipped_policy.py` | **new. `test_shipped_policy.py` is now gated** (`init.sh` block `(g2)`). The other two are open, and the first one matters: **`test_protected_paths.py` is the only proof of S2.4** — the guarantee `control-matrix.md:27` labels `MECHANICAL`, that `README.md:250` names as what proves *"the S2.4 gate"*, and that `SECURITY.md:48` cites as *"Proven by `tests/test_protected_paths.py`"*. It is a real, passing test that the build gate does not run | Two parts. (a) name the two missing tests in `init.sh`, same 6-line idiom — unprotected, additive. (b) turn the silent skip into an error: a *missing* proof is not a passing project. `[ -f ]` guards exist for the template's optional components, so the fix is a required-set list, not removing the guard |
+| 11 | **The negated class `[^\|;&]` does not exclude a newline, so tokens from *different commands* compose into a match.** All four regex patterns share the class; it exists to stop a match crossing a command boundary, and it covers `;` `\|` `&` but not `\n` — which is equally a separator | **new, unowned, and measured on the auditor twice.** `sed -n '1,10p' governance/permission.py` alone → ALLOW; `grep -n -i 'gate' .claude/settings.json` alone → ALLOW; **the two joined by a newline → DENY**, matched by the `sed\|perl\|awk … -i` pattern, which harvested `sed` from line 1 and `-i` + the path from line 2. Joined by `;` instead → ALLOW. It needs no protected-path intent at all: `echo hi \n awk 'NR<3' \n ls -i \n cat governance/deny-list.json` → DENY | **CLOSED 2026-08-15**, and **not** by the obvious fix — see below. `check_deny_list` now evaluates regex-mode patterns per shell command via a new `_shell_lines()` helper: unfold `\\⏎` continuations, then split on `\n` while tracking quotes. Substring and word modes stay whole-string, which can only deny *more*, so the change cannot open a bypass in those two by construction. Shipped as a patch (`item11-per-command-denylist.patch`) because `permission.py` is a protected path — Gate 1a correctly refused the author. Measured through the real CLI on the real policy, 8 cases: **shipped 2 wrong (both over-block) · `[^\|;&\n]` 2 wrong (both UNDER-block) · the fix 0 wrong.** Both halves are now permanent rows in `tests/test_shipped_policy.py` §4 (`MUST_ALLOW_MULTILINE`, `MUST_DENY_MULTILINE`), the pin having become the regression suite. Baseline unchanged: **5 error(s)**, exit 1, three runs each way |
+| 12 | **`./init.sh` loses test coverage silently — and the S2.4 proof was never in it.** Every test block is `if [ -f "tests/test_X.py" ]; then … fi` with no `else`, so a test that is renamed, moved or deleted is **skipped without a word**. Re-measured 2026-08-14 on the current tree: `mv tests/test_coverage.py /tmp/`, re-run → `✗`-line count unchanged (6 → 6), **zero** mentions of the missing test, and a **byte-identical** summary line (`RESULT: FAIL — 5 error(s), 2 warning(s)`). Separately, 3 of the 9 test files on disk were named nowhere in `init.sh`: `test_protected_paths.py`, `test_steady_state.py`, and (until this revision) `test_shipped_policy.py` | **new. `test_shipped_policy.py` is now gated** (`init.sh` block `(g2)`). The other two are open, and the first one matters: **`test_protected_paths.py` is the only proof of S2.4** — the guarantee `control-matrix.md:27` labels `MECHANICAL`, that `README.md:250` names as what proves *"the S2.4 gate"*, and that `SECURITY.md:48` cites as *"Proven by `tests/test_protected_paths.py`"*. It is a real, passing test that the build gate does not run | Two parts. **(a) CLOSED 2026-08-15** — `init.sh` blocks `(b2)` and `(g3)` name `test_protected_paths.py` and `test_steady_state.py`. Measured after: **all 9** of 9 test files in `tests/` are named, and `grep pytest init.sh` still returns no *invocation* (two comment mentions only), so the S2.4 proof now runs on a stdlib-only machine. Block `(b2)` also takes the **(b)** treatment for the one file that matters most — a *missing* `test_protected_paths.py` is an `ERROR`, not a silent skip, so deleting it moves the count 5 → 6 and CI diffs it (verified both directions). **(b) still open in general:** the other 8 files still vanish silently, and the general fix is a required-set list, not removing the `[ -f ]` guards — they exist for the template's optional components |
 | 13 | **A patch reject file ships inside the security kit** — `Security-kit/secret_scan.py.rej`, 11 lines, containing the diff of the hook's `_block()` path | **CLOSED 2026-08-14, and it was three files, not one.** `permission.py.rej` and a loose `denial-channel-and-denylist-fp.patch` sat beside `secret_scan.py.rej` at the template root. **Every hunk in all three was verified already-applied before deletion** — a `.rej` is only safe to delete once you know which side of the patch the tree is on. `template/.gitignore` now ignores `*.rej` and `*.orig` and, deliberately, **does not** ignore `*.patch`: §5.5 ships protected-path fixes as patches, so a `.patch` is an artifact somebody must review, while a `.rej` is proof a hunk did *not* apply and is worthless once the outcome is known | closed. Kept in the ledger because it is evidence about the *patch workflow* §5.5 depends on: the workflow left debris three times, and nothing in the kit noticed |
+| 14 | **`deny-list.json`'s `rm -rf /` entry is wrong in BOTH directions at once.** It ships as a bare string, so `check_deny_list` evaluates it in `substring` mode | **new, and measured on the auditor three times** — the gate refused `rm -rf /tmp/nopytest-audit`, then `rm -rf /tmp/ci-mtime-probe`, both ordinary scratch cleanups, with `deny-list hit: 'rm -rf /'`; the third refusal hit the command that was *verifying this very fix*, because the probe carried the literal as an argument. Each time the response was to change the task, never to route around the refusal (§5.5) — the third one is why the probes in `/tmp` are files rather than `python3 -c` strings. OVER-BLOCK: every `rm -rf /<path>` contains the literal. UNDER-BLOCK: the roots not spelled with a leading slash — `~`, `~/`, `$HOME`, `.`, `..`, `*`, `../..` — do **not** contain it and were all allowed. **Item 10's lesson does not reach this**: that fix was word boundaries and all four regexes now carry `\b`; a literal in substring mode has no word to bound | **CLOSED 2026-08-15.** Patch prepared, verified, and handed over; **the user applied it** — `governance/deny-list.json` is a protected path, so the fix and the act of applying it are deliberately different hands (§5.5). The bare literal is now one `regex`-mode entry matching `rm` + flags + a target that **is** a root rather than a path under one. Measured *through the real gate* on the shipped policy after the patch: **14 catastrophic forms denied, 12 ordinary cleanups allowed, 7 regression cases on the other patterns unchanged — 33 of 33 correct.** The pin behaved as designed: it failed on the first run after the patch and named the rows to move. It is now **retired**, and its 13 deny rows and 8 allow rows are permanent rows in `MUST_DENY`/`MUST_ALLOW`, checked by the same two tests as every other shipped pattern — a pin that outlives its defect asserts the wrong proposition. That move was itself verified rather than assumed: replayed against a reconstructed pre-patch policy, **both** tests fail, `test_catastrophic_commands_are_denied` on 10 root rows and `test_ordinary_read_only_commands_are_allowed` on 3 cleanup rows, so neither direction is decoration. Residual, stated not papered over: a scoped absolute path (`/etc`) is still allowed, because enumerating system roots re-creates the over-block |
+| 15 | **`init.sh:62`'s staleness check was BSD-only, and failed *open* everywhere else** — `:58` had a `stat -f %m … \|\| stat -c %Y …` fallback for both platforms; `:62`'s `xargs stat -f %m` had none | **new. Measured against a GNU-`stat` mock** (`stat -f` is `--file-system` on GNU and takes no argument, so `stat -f %m FILE` fails there): `LATEST_CODE` came back **empty**, and empty compares as "not older", so the check printed `✓ progress.md is up to date` — a **silent false pass on every Linux runner**, including the CI this section adds. Note *why* `:58`'s idiom could not simply be copied: `:62` is inside a pipeline, where a trailing `\|\| echo 0` binds to `tail`, not to `stat`, so total failure of `stat` is indistinguishable from success | **FIXED 2026-08-15** — probe the platform once (`stat -f %m .`), reuse the working invocation in both places, and set `LATEST_CODE=0` explicitly when the pipeline yields nothing. Re-measured: output is byte-identical under real BSD `stat` and the GNU mock apart from a pytest timing string |
+| 16 | **The staleness warning cannot work in CI at all, whoever's `stat` runs** — it compares filesystem mtimes, and **git does not record mtimes** | **new, and it is the reason the first committed workflow could not pass.** A fresh `actions/checkout` stamps every file with the same checkout time, so `PROGRESS_MTIME -lt LATEST_CODE` is undefined. Measured on a uniform-mtime tree: **1** warning, not 2 — so the pinned `grep -qF '5 error(s), 2 warning(s)'` failed on a *correct* tree. Run `./init.sh` twice and it becomes 2, because `test_e2e.py:71-85` writes the three real policy files and restores them at `:58-60` (content byte-identical, mtimes bumped past `progress.md`). **The count is a function of how many times the script has been run** | **Worked around, not fixed.** §7.4.1's baseline now pins the exit code and the **error set** and deliberately excludes the warning count, and §7.4.2's workflow does the same. The check itself is still inert in CI: it reports "up to date" unconditionally on a fresh checkout. Honest options are to drop it or to take recency from `git log -1 --format=%ct` instead of the filesystem. Unowned |
+| 17 | **The E2E test overwrites the real shipped policy in place** — `test_e2e.py:71-85` writes synthetic content into `governance/deny-list.json`, `governance/mcp-allowlist.json` and `Harness-Best-Practice/feature_list.json`, restoring the originals in a teardown at `:58-60` | **new, found while tracing item 16's mtime churn** (contents `md5`-identical after a run, mtimes bumped — those exact three files). The restore is correct and the content round-trips byte-for-byte, so this is not a live defect. But the window is real: a crash, a timeout or a `^C` between `:71` and the teardown leaves the shipped deny-list replaced by a **synthetic 1-pattern policy**, and `init.sh` would then report a green integrity block over it. `test_fixtures.py:90-92` writes the same paths (§6.2 item 9 notes it substitutes a synthetic list "by design") | Unowned, low severity, and worth stating because it is §7.3's mutation-testing shape occurring **by accident**: the suite proves the gate weakens when the policy is swapped, and it swaps the policy to do it. The fix is to point both tests at a `tmp_path` copy by rebinding `permission.DENY_LIST_PATH` — the same indirection items 11 and 14 used to evaluate a candidate policy without writing one, and the property `test_shipped_policy.py:51` asserts to keep the shipped policy the one under test — rather than mutating the tree |
 
 **Items 1, 2 and 3 belong together on one branch, not in this document's scope.** All three are
 edits to files outside `Security-kit/`; two of the three require a patch to a protected path.
 Proposing them here and applying them here are different acts, and the second one is the user's.
 
-**Items 8–13 came out of an adversarial audit of this document, and they compound.** Taken
+**Items 8–17 came out of adversarial audits of this document, and they compound.** Taken
 one at a time each looks small. Together they described a gate that could refuse for a reason nobody
 can see, over a policy nobody tests, behind a build check that would not notice the test going
-missing. **8 and 10 were patched 2026-08-13; 9 is now closed by `tests/test_shipped_policy.py`
-(6 tests, gated in `init.sh` block `(g2)`); 11, 12 and 13 are open.** The findings are kept in full
-rather than deleted, because the reasoning is what §7 inherits:
+missing. **8 and 10 were patched 2026-08-13; 9 and 13 are closed; 11, 12(a), 14, 15 and the item-12
+split were fixed 2026-08-15 — 11 and 14 by patches the user applied to protected paths; 12(b), 16 and
+17 remain open.** Both 2026-08-15 patches retired their own pins, and in both cases the retirement
+was checked against the pre-fix policy rather than trusted: a suite that goes green because the
+assertions moved somewhere weaker is indistinguishable, from the summary line, from a suite that
+goes green because the defect is gone.
+The findings are kept in full rather than deleted, because the reasoning is what §7 inherits:
+
+**Items 14–17 came from auditing the *fix* for items 8–13, and that is the pattern worth naming.**
+Every one of them was introduced or exposed by the previous round's remediation: 14 is the deny-list
+row nobody re-read after item 10 taught the lesson about word boundaries; 15 and 16 are the two
+independent reasons the CI workflow added for §7.4.2 could never go green; 17 surfaced only while
+tracing 16's cause. **Three of the four were found by executing the artefact rather than reading
+it** — and item 14 was found by the gate refusing the auditor, twice, which is the same way items 10
+and 11 were found. A remediation round needs its own audit round; the fix is not the end of the
+finding.
 
 - **Item 10 is what an unmeasured policy costs**, demonstrated on the auditor. The command
   `ls -la kiro/steering/security.md Security-kit/README.md` is denied, because `s-tee-ring`
@@ -3171,19 +3305,34 @@ rather than deleted, because the reasoning is what §7 inherits:
   followed by a newline is *one* shell command, so the naive fix takes `sed -i \⏎ 's/2/0/'
   governance/permission.py` from DENY to **ALLOW**. Measured, four cases × three candidate fixes:
 
-  | case | shipped | `[^\|;&\n]` | per-line split | unfold `\\⏎` then per-line |
-  |---|---|---|---|---|
-  | innocuous, newline-joined | DENY ✘ | ALLOW ✔ | ALLOW ✔ | ALLOW ✔ |
-  | real attack, one line | DENY ✔ | DENY ✔ | DENY ✔ | DENY ✔ |
-  | real attack, `\` + newline | DENY ✔ | **ALLOW ✘** | DENY ✔ | DENY ✔ |
-  | real attack, buried on line 3 | DENY ✔ | DENY ✔ | DENY ✔ | DENY ✔ |
+  | case | shipped | `[^\|;&\n]` | plain per-line | unfold `\\⏎` then per-line | **shipped fix** (unfold + quote-aware) |
+  |---|---|---|---|---|---|
+  | innocuous, newline-joined | DENY ✘ | ALLOW ✔ | ALLOW ✔ | ALLOW ✔ | ALLOW ✔ |
+  | real attack, one line | DENY ✔ | DENY ✔ | DENY ✔ | DENY ✔ | DENY ✔ |
+  | real attack, `\` + newline | DENY ✔ | **ALLOW ✘** | **ALLOW ✘** | DENY ✔ | DENY ✔ |
+  | real attack, **quoted** newline | DENY ✔ | **ALLOW ✘** | **ALLOW ✘** | **ALLOW ✘** | DENY ✔ |
+  | real attack, buried on line 3 | DENY ✔ | DENY ✔ | DENY ✔ | DENY ✔ | DENY ✔ |
 
-  Only the last two columns are correct on all four. **This is the taxonomy's own lesson turned on
+  > **Two corrections, made 2026-08-15 when the fix was built and measured rather than described.**
+  > This table previously had four cases and four columns, and was wrong twice. **(i)** it credited
+  > the plain per-line column with DENY on the `\`+newline row; measured, it **ALLOWS** — splitting
+  > without unfolding is not a partial fix, it is the same bypass. **(ii)** it omitted the
+  > *quoted*-newline case, and that omission concealed that **the fix this section recommended was
+  > itself insufficient**: `sed -i '⏎s/2/0/' <path>` is one command, so unfold-then-split allows it.
+  > Closing it needs the splitter to track quotes, which is what `_shell_lines()` does and why the
+  > helper is a small state machine rather than two `str` calls. A fifth case was not added because
+  > the fix suggested it; the fix was designed around the case, and the case was found by asking
+  > *what else is a newline that does not end a command* — the same question the class `[^|;&]`
+  > failed to ask about `\n` in the first place.
+
+  Only the last column is correct on all five. **This is the taxonomy's own lesson turned on
   the policy: the fix belongs in the GATE (`check_deny_list` decides *what a command is* before
   matching), not in the data (four patterns each re-deriving shell tokenisation).** A negated
   character class is not a shell parser, and every pattern that pretends otherwise inherits the
-  same bug independently. §7.3's `test_shipped_policy.py` row carries all four rows above as cases,
-  so the next such bug is found by the suite rather than by the person it blocks.
+  same bug independently. §7.3's `test_shipped_policy.py` row carries all five rows above as cases —
+  split across `MUST_ALLOW_MULTILINE` and `MUST_DENY_MULTILINE`, because a deny-list fix has to be
+  proved in both directions — so the next such bug is found by the suite rather than by the person
+  it blocks.
 
 - **Item 12 is item 9 one level up, and it was found by building item 9's fix.** The question
   that surfaced it was procedural, not adversarial: *which `init.sh` block runs the new test?*
@@ -3202,9 +3351,14 @@ rather than deleted, because the reasoning is what §7 inherits:
 
   Fix (b) — make a missing proof an error — is necessary but **not sufficient on this tree**, and
   the reason is worth stating because it constrains §7. `./init.sh` in the shipped template is
-  already **red by design**: 5 errors, of which 3 are unfilled `{{PLACEHOLDER}}` files that
-  `/init-project` fills and 2 are the absent `Security-kit/coverage.json` that `/security-tailor`
-  writes. An error count that is never zero before tailoring cannot signal a *new* error by
+  already **red by design**: 5 errors, of which **4** are unfilled `{{PLACEHOLDER}}` files that
+  `/init-project` fills (`CLAUDE.md`, `Harness-Best-Practice/AGENTS.md`,
+  `Harness-Best-Practice/feature_list.json`, `governance/mcp-allowlist.json`) and **1** is the
+  coverage gate `(h)` firing on the absent `Security-kit/coverage.json` that `/security-tailor`
+  writes. (An earlier revision of this bullet split the same total as 3 + 2. Re-measured
+  2026-08-14: it is 4 + 1. The `✗`-line count is 6 rather than 5 because `check_coverage.py` prints
+  its own `coverage.json missing` line from a child process while `init.sh` increments `ERRORS`
+  once, for the checker's non-zero exit.) An error count that is never zero before tailoring cannot signal a *new* error by
   incrementing, so the missing-proof failure has to be legible **by name** in the output, not merely
   counted. A tailored project reaching green makes `ERRORS+=1` meaningful; the template itself never
   gets there, and §7 runs against the template.
@@ -3419,12 +3573,28 @@ extra steps.
 
 The fix is to gate on the **error set**, which is strictly stronger than exit 0 would have been:
 
-> **BASELINE (measured 2026-08-14, §2).** `./init.sh` in the untailored template exits **1** and
-> prints `RESULT: FAIL — 5 error(s), 2 warning(s)`. The 5 errors are the **4** unfilled-placeholder
-> files (`CLAUDE.md`, `Harness-Best-Practice/AGENTS.md`, `Harness-Best-Practice/feature_list.json`,
-> `governance/mcp-allowlist.json`) plus the **1** coverage gate `(h)`. The 2 warnings are
-> `progress.md` staleness and Q3's placeholder verification commands. **A step passes when the
+> **BASELINE (measured 2026-08-14, re-measured 2026-08-15, §2).** `./init.sh` in the untailored
+> template exits **1** and reports **5 errors**: the **4** unfilled-placeholder files
+> (`CLAUDE.md`, `Harness-Best-Practice/AGENTS.md`, `Harness-Best-Practice/feature_list.json`,
+> `governance/mcp-allowlist.json`) plus the **1** coverage gate `(h)`. **A step passes when the
 > output equals this baseline, apart from the errors that step is defined to remove.**
+>
+> **The baseline is the error set and the exit code. It deliberately excludes the warning count**
+> — which is why the earlier `grep -qF 'RESULT: FAIL — 5 error(s), 2 warning(s)'` formulation, and
+> the workflow built on it, could not pass. One of the two warnings is derived from **mtimes**
+> (`progress.md is older than recent code changes`), and **git does not record mtimes**: a fresh
+> `actions/checkout` stamps every file with the same checkout time, so the `PROGRESS_MTIME -lt
+> LATEST_CODE` comparison is undefined. Measured on a uniform-mtime tree it reports **1** warning;
+> run `./init.sh` a second time and it reports **2**, because `tests/test_e2e.py:71-85` writes the
+> three real policy files and restores them at `:58-60` — content byte-identical, mtimes bumped
+> past `progress.md`. So the count depends on how many times the script has been run. The other
+> warning (Q3's placeholder verification commands) is a property of the tree and would be pinnable;
+> it is left out for the same reason the total is, since the printed line carries only the total.
+>
+> **Corollary worth stating plainly: the staleness check does not work in CI at all.** On a fresh
+> checkout it reports "up to date" unconditionally. That is not fixed here — it is a WARNING whose
+> input git discards, and the honest options are to drop it or to derive recency from
+> `git log -1 --format=%ct` rather than the filesystem. Recorded as §6.2 item 16.
 
 Why this is the better gate and not the weaker one:
 
@@ -3446,9 +3616,13 @@ Why this is the better gate and not the weaker one:
    contract the template actually makes.
 
 The corresponding correction to §3.4 and §6.2: §3.4's mechanism 2 is right (4 placeholder blocks);
-§6.2 item 12's *composition* is wrong — it says "3 unfilled `{{PLACEHOLDER}}` files … and 2 are the
+§6.2 item 12's *composition* was wrong — it said "3 unfilled `{{PLACEHOLDER}}` files … and 2 are the
 absent `coverage.json`", which is 3 + 2. Measured, it is **4 + 1**. The total of 5 was right and the
-split was not, which is exactly the drift §2's one-table rule exists to stop.
+split was not, which is exactly the drift §2's one-table rule exists to stop. **Fixed in place
+2026-08-15** — item 12's bullet now carries 4 + 1 and names the four files, so the two sections no
+longer disagree. Left recorded here rather than deleted because the *shape* of the error is the
+lesson: a total that stays right while its parts drift is invisible to any check that compares
+totals, which is every check in this document that greps a summary line.
 
 #### 7.4.2 CI — what §6.1's row actually needs
 
@@ -3456,36 +3630,77 @@ With §7.4.1 in hand, the CI row in §6.1 stops being blocked. The workflow is a
 not `exit 0`:
 
 ```yaml
-# .github/workflows/harness-baseline.yml — asserts the §7.4.1 BASELINE, not success.
-# A tree that is red BY DESIGN still has an exact shape; this pins the shape.
+# .github/workflows/harness-baseline.yml (shipped; comments elided) — asserts the
+# §7.4.1 BASELINE, not success. A tree red BY DESIGN still has an exact shape.
 name: harness baseline
-on: [push, pull_request]
+on: [push, pull_request, workflow_dispatch]
 jobs:
   baseline:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
-      - name: template init.sh matches the declared baseline
+      - uses: actions/setup-python@v5
+        with: { python-version: '3.11' }
+      - name: template init.sh matches the declared baseline (spec §7.4.1)
         working-directory: template
         run: |
           set +e
           OUT="$(./init.sh 2>&1)"; CODE=$?
+          set -e
           echo "$OUT"
           [ "$CODE" -eq 1 ] || { echo "::error::expected exit 1, got $CODE"; exit 1; }
-          echo "$OUT" | grep -qF 'RESULT: FAIL — 5 error(s), 2 warning(s)' \
+          echo "$OUT" | grep -qE 'RESULT: FAIL — 5 error\(s\)' \
             || { echo "::error::baseline drifted — see spec §7.4.1"; exit 1; }
-      - name: the whole suite, including the two tests init.sh does not name
+          # the error SET, not just its size: a NEW error is a diff, not an increment
+          echo "$OUT" | grep '✗' | sed 's/^[[:space:]]*//' | sort > /tmp/actual-errors.txt
+          sed 's/^[[:space:]]*//' <<'EOF' | sort > /tmp/expected-errors.txt
+          ✗ UNFILLED placeholders in CLAUDE.md:
+          ✗ UNFILLED placeholders in Harness-Best-Practice/AGENTS.md:
+          ✗ UNFILLED placeholders in Harness-Best-Practice/feature_list.json:
+          ✗ UNFILLED placeholders in governance/mcp-allowlist.json:
+          ✗ coverage.json missing — run /security-tailor (fail-closed)
+          ✗ security coverage incomplete — run /security-tailor and fill verifications
+          EOF
+          diff -u /tmp/expected-errors.txt /tmp/actual-errors.txt \
+            || { echo "::error::the baseline ERROR SET changed"; exit 1; }
+      - name: full suite under pytest, when pytest is available
         working-directory: template
-        run: python3 -m pytest tests/ -q
+        run: |
+          if python3 -m pytest tests/ -q; then echo "passed under pytest"
+          elif python3 -c 'import pytest' 2>/dev/null; then
+            echo "::error::full suite FAILED under pytest"; exit 1
+          else echo "pytest absent; init.sh's per-file checks above ran all 9 files"; fi
 ```
 
-Two properties worth naming. **The `pytest` step exists because `init.sh` names 7 of 9 test files
-(§2), and one of the two it misses — `test_protected_paths.py` — is the only proof of S2.4**
-(§6.2 item 12). Until item 12's required-set fix lands, CI running `pytest` is the only thing that
-executes that proof anywhere. And **this workflow is deliberately not a substitute for item 12(b)**:
-it makes the suite run, it does not make a *missing* proof an error. A test deleted from the tree
-still passes CI silently. That is the same defect one level up, and it stays open until the
-required-set list exists.
+**Three properties, and two of them are corrections to what the 08-14 revision of this section
+claimed.** The claim was that *"the `pytest` step exists because `init.sh` names 7 of 9 test files,
+and one of the two it misses — `test_protected_paths.py` — is the only proof of S2.4 … CI running
+`pytest` is the only thing that executes that proof anywhere."* Both halves of that have since
+stopped being true, and the workflow as first committed **could not pass on two independent
+counts**:
+
+1. **`pytest` is not on the runner, and must not become a dependency.** `actions/setup-python`
+   installs an interpreter, not packages; there is no `requirements.txt` or `pyproject.toml`
+   anywhere in the repo; and `AGENTS.md:8` commits the kit to *"Zero external deps."* Measured in a
+   clean venv, a bare `python3 -m pytest tests/ -q` is `No module named pytest`, **exit 1**. So the
+   step is now the three-branch form from §4.4 — pass / fail / *absent and therefore skipped* —
+   and the reasoning is §1.6's, twice over: an always-red gate is one its users switch off, and a
+   step that cannot distinguish "the suite failed" from "the runner isn't installed" is a vacuous
+   check.
+2. **The S2.4 proof no longer depends on this step at all.** §6.2 item 12(a) is closed: `init.sh`
+   block `(b2)` runs `test_protected_paths.py` directly and **errors if the file is absent**, so
+   the proof executes on a stdlib-only machine and its *deletion* is a 5 → 6 error diff. The pytest
+   step keeps a narrower and still-real purpose — pytest collects test **functions** individually,
+   so it catches a function a file's own `__main__` runner forgets to list, which is exactly the
+   failure mode `init.sh`'s per-file invocation cannot see.
+3. **Pinning the error set is what makes the workflow more than a re-run.** Verified in both
+   directions before commit: unchanged tree → pass (under BSD `stat`, under a GNU-`stat` mock, and
+   on a uniform-mtime tree reporting *1* warning); `tests/test_protected_paths.py` removed → `exit
+   1` with `::error::baseline drifted`. A gate never observed to fail is not known to be a gate.
+
+What this workflow still does **not** close is §6.2 item 12(b) in general: `init.sh` errors on a
+missing `test_protected_paths.py` and on nothing else, so the other 8 test files still vanish
+silently. That needs the required-set list.
 
 ### 7.5 Four layers of proof, cheapest first
 
