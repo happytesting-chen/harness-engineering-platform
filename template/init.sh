@@ -55,11 +55,22 @@ echo ""
 # --- 3. Check progress.md staleness ---
 echo "▶ Checking progress.md freshness..."
 if [ -f "Harness-Best-Practice/progress.md" ]; then
-    PROGRESS_MTIME=$(stat -f %m "Harness-Best-Practice/progress.md" 2>/dev/null || stat -c %Y "Harness-Best-Practice/progress.md" 2>/dev/null || echo "0")
+    # mtime flag differs by platform: `-f %m` is BSD/macOS, `-c %Y` is GNU/Linux
+    # (GNU's `-f` is --file-system and takes no argument, so `stat -f %m FILE` fails
+    # there). Probe once and reuse: the `xargs` below is inside a pipeline, where a
+    # trailing `|| ...` would bind to `tail` and silently mask a total failure —
+    # producing an empty LATEST_CODE, which reads as "progress.md is up to date".
+    if stat -f %m . >/dev/null 2>&1; then
+        STAT_MTIME="stat -f %m"
+    else
+        STAT_MTIME="stat -c %Y"
+    fi
+    PROGRESS_MTIME=$($STAT_MTIME "Harness-Best-Practice/progress.md" 2>/dev/null || echo "0")
     # Find most recently modified .py or .json file
     LATEST_CODE=$(find . -name "*.py" -o -name "*.json" -o -name "*.md" | \
                   grep -v progress.md | grep -v node_modules | \
-                  xargs stat -f %m 2>/dev/null | sort -n | tail -1 || echo "0")
+                  xargs $STAT_MTIME 2>/dev/null | sort -n | tail -1)
+    [ -n "$LATEST_CODE" ] || LATEST_CODE=0
     if [ -n "$LATEST_CODE" ] && [ "$PROGRESS_MTIME" -lt "$LATEST_CODE" ] 2>/dev/null; then
         echo "  ⚠ WARNING: progress.md is older than recent code changes"
         WARNINGS=$((WARNINGS + 1))
@@ -123,6 +134,22 @@ if [ -d "governance" ]; then
         echo "  ✓ permission gate wired in .claude/settings.json"
     else
         echo "  ✗ .claude/settings.json does NOT wire governance/permission.py — gate inert"
+        ERRORS=$((ERRORS + 1))
+    fi
+    # (b2) S2.4 — the agent cannot edit its own policy. This is the ONLY proof of the
+    # guarantee the whole template rests on, so its ABSENCE is an error, not a warning:
+    # a gate that cannot tell "this proof passed" from "this proof is not here"
+    # certifies the wrong proposition. Deleting the file therefore changes the error
+    # count, which is what the CI baseline compares against.
+    if [ -f "tests/test_protected_paths.py" ]; then
+        if python3 tests/test_protected_paths.py >/dev/null 2>&1; then
+            echo "  ✓ protected-path tests passed (tests/test_protected_paths.py — S2.4)"
+        else
+            echo "  ✗ protected-path tests FAILED — the agent CAN edit its own policy (S2.4)"
+            ERRORS=$((ERRORS + 1))
+        fi
+    else
+        echo "  ✗ tests/test_protected_paths.py is MISSING — S2.4 is asserted by nothing"
         ERRORS=$((ERRORS + 1))
     fi
     # (c) hook-integration proof passes (drives the real hook scripts via stdin)
@@ -206,6 +233,18 @@ for raw in re.findall(r"\$CLAUDE_PROJECT_DIR/(\S+?\.py)", blob):
             echo "  ✓ shipped-policy tests passed (tests/test_shipped_policy.py)"
         else
             echo "  ✗ shipped-policy tests FAILED (tests/test_shipped_policy.py)"
+            ERRORS=$((ERRORS + 1))
+        fi
+    fi
+    # (g3) phase-gate steady state — proves the gate still denies once every phase has
+    # passed, i.e. that "all prerequisites met" does not decay into "allow everything".
+    # Its __main__ prefers pytest but falls back to a stdlib runner, so this block does
+    # not make pytest a dependency.
+    if [ -f "tests/test_steady_state.py" ]; then
+        if python3 tests/test_steady_state.py >/dev/null 2>&1; then
+            echo "  ✓ steady-state tests passed (tests/test_steady_state.py)"
+        else
+            echo "  ✗ steady-state tests FAILED — gate weakens after all phases pass"
             ERRORS=$((ERRORS + 1))
         fi
     fi
