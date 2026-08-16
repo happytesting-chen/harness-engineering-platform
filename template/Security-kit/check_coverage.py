@@ -56,8 +56,11 @@ def _load_register(path: Path) -> dict:
     §1.6's vacuous check, arrived at by deleting a file.
     """
     reg = json.loads(path.read_text())
-    if not isinstance(reg.get("mechanisms"), list):
+    mechanisms = reg.get("mechanisms")
+    if not isinstance(mechanisms, list):
         raise ValueError("mechanisms.json has no 'mechanisms' list")
+    if not all(isinstance(m, dict) for m in mechanisms):
+        raise ValueError("mechanisms.json: every entry in 'mechanisms' must be an object")
     return reg
 
 
@@ -97,7 +100,7 @@ def check_i2(register: dict) -> tuple:
             if key not in m:
                 errors += 1
                 msgs.append(f"{mid}: required key '{key}' is missing")
-        if errors and "category" not in m:
+        if "category" not in m:
             continue
         cat = m.get("category")
         rule = LEGAL.get(cat)
@@ -136,7 +139,7 @@ def check_i2(register: dict) -> tuple:
     return errors, msgs, 0
 
 
-def check_status() -> tuple:
+def check_status(path: Path = MECHANISMS_PATH) -> tuple:
     """Run the claims invariants. Returns (error_count, messages).
 
     Prints one line per invariant INCLUDING its skip count, because a check that
@@ -150,9 +153,13 @@ def check_status() -> tuple:
     measured everything — exactly the vacuous-check failure mode this file
     exists to prevent (precedent f16525a: a sampling test reported 100% while
     57% of the matrix went unmeasured).
+
+    `path` defaults to MECHANISMS_PATH but is a real parameter (not a hardcoded
+    global) so the fail-closed branch below is reachable from a test without
+    mutating module state (fix round 1, finding 1).
     """
     try:
-        register = _load_register(MECHANISMS_PATH)
+        register = _load_register(path)
     except Exception as e:
         return 1, [f"mechanisms.json unreadable: {e} (fail-closed)"]
 
@@ -162,7 +169,11 @@ def check_status() -> tuple:
     errors, msgs = 0, []
     for label, population, (e, m, s) in results:
         errors += e
-        msgs.extend(m)
+        # Labelled, not flat: once I1-I6 all run, an unlabelled message list
+        # can't say which invariant produced which id-prefixed line, and
+        # several invariants emit messages about the same ids (fix round 1,
+        # finding 2).
+        msgs.extend(f"{label}: {x}" for x in m)
         mark = "✗" if e else "✓"
         print(f"  {mark} {label}: {e} error(s), {population - s}/{population} checked, skipped {s}")
     return errors, msgs
