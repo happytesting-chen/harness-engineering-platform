@@ -40,7 +40,7 @@ These exist only for security. A no-security build deletes them.
 | `tests/test_eval_selection.py` | Selection benchmark recall test | all |
 | `.claude/commands/security-tailor.md` | `/security-tailor` slash command (explicit Tier 1 — outside Security-kit/ dir) | all |
 | `kiro/steering/security-tailor.md` | Kiro security-tailor steering (explicit Tier 1 — outside Security-kit/ dir) | all |
-| `kiro/steering/active-controls.md` | Layer-D steering mirror for the Kiro host (explicit Tier 1 — outside `Security-kit/` dir) | all |
+| `kiro/steering/active-controls.md` | Layer-D steering mirror for the Kiro host (explicit Tier 1 — outside Security-kit/ dir) | all |
 
 > Note: `Security-kit/check_coverage.py`, `Security-kit/coverage.json`, `Security-kit/coverage.schema.md`, `Security-kit/active-controls.md`, and `Security-kit/eval/` are covered by the top-level `Security-kit/` directory deletion in `install.sh`. `tests/test_coverage.py` and `tests/test_eval_selection.py` are covered by the `tests/` directory deletion. Only `.claude/commands/security-tailor.md`, `kiro/steering/security-tailor.md` and `kiro/steering/active-controls.md` require explicit entries in TIER1: `install.sh` removes whole directories, and `kiro/steering/` is not one of them.
 
