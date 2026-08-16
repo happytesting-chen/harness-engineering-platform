@@ -394,3 +394,74 @@ deliberately not run.
 | 08-16 | `check_status()` prints each invariant's **own** population and unit | One shared figure makes an invariant that measured nothing look identical to one that measured everything (§1.6, precedent f16525a) |
 | 08-16 | The Kiro mirror was **rewritten from the reference drafter**, not from the plan's text | The plan's text uses a verdict vocabulary (`needs-confirmation`) that `check_coverage.py` silently drops |
 | 08-16 | Tests generalised, never weakened, when a new invariant broke them | `case_check_status_labels_…` now asserts the docstring's actual claim; the replacement is jointly stronger than the literal it replaced |
+
+---
+
+## Session 11 — 2026-08-16 (`SEC-XXX-001` removed from the shipped matrix)
+
+One increment, chosen from a four-option analysis: **delete the per-project placeholder stub row**,
+keep the `## Per-project rows` heading and its column header, and correct the two census figures the
+row had inflated. Baseline re-verified: `exit 1`, `RESULT: FAIL — 5 error(s), 2 warning(s)`, and the
+`✗` set `diff -u`s identical against `.github/workflows/harness-baseline.yml:40-76`'s pinned list.
+
+### Why the row went rather than getting an exemption
+
+`SEC-XXX-001` was `control-matrix.md:60`, all four cells `{{PLACEHOLDER}}`, labelled `**GAP**`. It
+was **invisible to every check in the build**, and that is structural, not an oversight:
+
+| Check | Behaviour on the stub | Where |
+|---|---|---|
+| `parse_matrix_rows` | parses it as a normal row — the function is line-based and has no heading concept, so all three matrix sections are flattened | `check_coverage.py:529-542` |
+| **I1** | excluded — `candidates` filters `status_token != "GAP"` | `check_coverage.py:409` |
+| **I4** | passes — a `GAP` row with no register row is correct by rule 3 | `check_i4` |
+| **I6** | `continue`s on `GAP` before the coverage loop; not even counted as a skip | `check_i6` |
+| `init.sh` placeholder grep | never reads the file — it walks the five `REQUIRED_FILES` only | `init.sh:37-46` |
+| `PLACEHOLDER_RE` | the one mechanism that could catch it, but only via a `coverage.json` mapping — and the template ships without `coverage.json` | `check_coverage.py:24`, `:609` |
+
+And it was not inert. Measured in the 2026-08-14 eval run and recorded at Session 9: `/security-tailor`
+mapped a real `applies` control onto the stub, and `PLACEHOLDER_RE` caught it. That was logged as
+evidence the gate works on the drafter — true, but it is equally evidence the stub draws wrong
+answers. The drafter contract puts a model between `security-tailor.md:28-30` ("ensure a row exists")
+and `:42` ("Do NOT invent new controls"); a pre-existing empty-looking row is the path of least
+resistance between the two. 1 mis-selection in 2 eval cases.
+
+### Figures corrected
+
+| Figure | Was | Now | Why the old number was not wrong, only mis-populated |
+|---|---|---|---|
+| matrix rows | 23 | **22** | `test_mechanisms.py:29` |
+| `GAP` rows | 12 | **11** | `case_gap_row_count_is_twelve` → `_is_eleven`. Its docstring argued the count was "inescapably 12" and said *not* to fix it back to 11. The arithmetic was right; the population included a fill-in-the-blank. Published as a risk figure it read 9% high |
+| I4 printed line | `22/23 matrix rows` | `21/22` | population only — still 1 skip, still `SEC-TAILOR-Z3` |
+| I6 printed line | `23/23 matrix rows` | `22/22` | population only — still 0 skips |
+
+`tests/test_requirements.py:145` (`errors == 11` on an empty spine) is **unchanged and was expected
+to be**: it counts uncovered *non-GAP* rows, and the stub was `GAP`.
+
+### The new case, and its mutation
+
+`case_no_placeholder_stub_row_in_the_per_project_table` — asserts the per-project table ships with
+header + separator and **no data rows**. Added because the deletion is not self-enforcing: per the
+table above, nothing else in the build can see a re-added stub. `CASES` 37 → 38, all passing.
+
+Keyed on "the table has no data rows", **not** on the id. The mutation proves why: re-adding the row
+as `SEC-YYY-001` reddened three cases (`_parses_into_rows` 22→23, `_gap_row_count_is_eleven` 11→12,
+and the new case naming the offending id) — an id-specific assertion would have passed it clean.
+`control-matrix.md` reverted byte-identically (sha256 compared before/after).
+
+Session 10's measured figures above are left as written. They were true when measured; correcting a
+dated record to match a later tree would falsify the log. This section is where the delta lives.
+
+### Not done — deliberately out of scope
+
+The analysis recommended one addition beyond the deletion: widen `PLACEHOLDER_RE` from the single
+coverage-mapped verification cell to **every cell of every parsed matrix row**, so a half-filled row
+in a real project is caught too. That is the more general defect and it is **not** in this increment.
+Unowned.
+
+### Decisions
+
+| Date | Decision | Rationale |
+|---|---|---|
+| 08-16 | `SEC-XXX-001` **deleted**, not relabelled or exempted | An id-pattern exemption (option b) fixes the count but keeps the bait and adds a mechanism that invites more exemptions. Making `parse_matrix_rows` section-aware (option d) was rejected outright: in a real project the per-project rows are the ones that most need checking, so section-blindness would become a permanent hole |
+| 08-16 | The empty table keeps its heading, column header, **and a prose note stating why it is empty** | An unexplained empty table reads as an accidental deletion and invites someone to re-add a stub. The note carries the same weight as the matrix's own rule that an unstated gap is an unmanaged risk |
+| 08-16 | The new case keys on *no data rows*, not on the id `SEC-XXX-001` | Proven by the mutation, which used `SEC-YYY-001`. The defect is the placeholder row, not the label on it |

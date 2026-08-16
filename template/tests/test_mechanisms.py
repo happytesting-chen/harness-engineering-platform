@@ -26,7 +26,7 @@ def case_matrix_parses_into_rows():
         f"parse_matrix_rows and parse_matrix disagree: "
         f"{set(rows) ^ set(flat)}"
     )
-    assert len(rows) == 23, f"expected 23 matrix rows, got {len(rows)}"
+    assert len(rows) == 22, f"expected 22 matrix rows, got {len(rows)}"
 
 
 def case_every_matrix_row_has_a_status_token():
@@ -34,27 +34,70 @@ def case_every_matrix_row_has_a_status_token():
 
     Three rows lacked one before this series: SEC-TOOL-001 (merged into
     SEC-PHASE-001), SEC-EGRESS-001 (labelled MECHANICAL, objective narrowed)
-    and SEC-XXX-001 (labelled GAP — nothing implements a placeholder).
+    and SEC-XXX-001, the per-project placeholder — which was labelled GAP on
+    2026-08-15 and then deleted outright on 2026-08-16 (see
+    case_no_placeholder_stub_row_in_the_per_project_table).
     """
     rows = cc.parse_matrix_rows(cc.MATRIX_PATH.read_text())
     unlabelled = sorted(k for k, r in rows.items() if r.status_token is None)
     assert unlabelled == [], f"unlabelled matrix rows: {unlabelled}"
 
 
-def case_gap_row_count_is_twelve():
+def case_gap_row_count_is_eleven():
     """8 shipped GAP (Known-Gaps table) + 3 new GAP rows (SEC-PROOF-GAP-001,
-    SEC-HARDEN-GAP-001, SEC-KIRO-GAP-001) + 1 per-project placeholder row
-    (SEC-XXX-001, labelled GAP because a placeholder claims nothing) = 12.
+    SEC-HARDEN-GAP-001, SEC-KIRO-GAP-001) = 11.
 
-    An earlier plan draft derived 11 (8 shipped + 3 new) and stopped there,
-    omitting SEC-XXX-001. That row is not optional: it must carry SOME status
-    token to satisfy case_every_matrix_row_has_a_status_token, and GAP is the
-    only honest one for a placeholder — so the count is inescapably 12, not
-    11. Do not "fix" this back to 11; that was the arithmetic slip, not this.
+    This asserted 12 until 2026-08-16, the twelfth being SEC-XXX-001, the
+    per-project `{{PLACEHOLDER}}` stub. Its docstring argued the count was
+    "inescapably 12" and said not to fix it back to 11 — correct arithmetic over
+    the wrong population. Labelling the stub GAP was the least-bad choice while
+    the row existed (an unlabelled row is direction-4 error in I4), but it made
+    the published gap count read 12 real gaps when the tree has 11 plus a
+    fill-in-the-blank. The row is now deleted rather than relabelled, so 11 is
+    the measured figure and no exemption is needed to get it.
     """
     rows = cc.parse_matrix_rows(cc.MATRIX_PATH.read_text())
     gaps = sorted(k for k, r in rows.items() if r.status_token == "GAP")
-    assert len(gaps) == 12, f"expected 12 GAP rows, got {len(gaps)}: {gaps}"
+    assert len(gaps) == 11, f"expected 11 GAP rows, got {len(gaps)}: {gaps}"
+
+
+def case_no_placeholder_stub_row_in_the_per_project_table():
+    """The per-project table ships EMPTY — header + separator, no data rows.
+
+    Deleted 2026-08-16, and pinned here because deleting it is not
+    self-enforcing: nothing else in the build can see such a row. I1 excludes
+    GAP rows from its candidate set, I4 accepts a GAP row with no register row,
+    I6 `continue`s on GAP rows before the coverage loop, and init.sh's
+    placeholder grep reads only its five REQUIRED_FILES — control-matrix.md is
+    not one of them. The single mechanism that could catch it, PLACEHOLDER_RE at
+    check_coverage.py:24, fires only on a row a coverage.json entry maps to, and
+    the shipped template has no coverage.json.
+
+    So the stub was invisible to all six invariants AND to the build, while
+    /security-tailor was measured mapping a real `applies` control onto it
+    (progress.md, eval run 2026-08-14). This case is the only thing standing
+    between the shipped matrix and a re-added stub.
+
+    Keyed on "the table has no data rows", NOT on the id SEC-XXX-001: an
+    id-specific assertion would pass the moment someone names the next stub
+    SEC-YYY-001, and the defect is the placeholder row, not the label on it.
+    """
+    md = cc.MATRIX_PATH.read_text()
+    per_project = md.split("## Per-project rows", 1)[1].split(
+        "## Completion Rules", 1)[0]
+    data_rows = []
+    for line in per_project.splitlines():
+        stripped = line.strip()
+        if not stripped.startswith("|"):
+            continue
+        if set(stripped) <= {"|", "-", " "}:
+            continue                                   # separator
+        cells = [c.strip() for c in stripped.strip("|").split("|")]
+        if cells[0].strip("`").strip() in ("Control ID", ""):
+            continue                                   # header
+        data_rows.append(cells[0])
+    assert data_rows == [], (
+        f"per-project table must ship empty, found {data_rows}")
 
 
 def case_every_control_row_has_five_cells():
@@ -386,7 +429,7 @@ def case_i3_glob_disjunct_is_anchored():
 # --- I4: no orphans ------------------------------------------------------
 
 def case_i4_passes_on_the_shipped_pair():
-    """Measured 2026-08-16: 23 matrix rows, 1 skip.
+    """Measured 2026-08-16: 22 matrix rows, 1 skip.
 
     The plan's draft of this case asserted `skips == 0` with the rationale
     "every matrix row is labelled, so nothing skips" — which conflates two
@@ -589,7 +632,8 @@ def case_i5_missing_drafter_is_an_error():
 CASES = [
     case_matrix_parses_into_rows,
     case_every_matrix_row_has_a_status_token,
-    case_gap_row_count_is_twelve,
+    case_gap_row_count_is_eleven,
+    case_no_placeholder_stub_row_in_the_per_project_table,
     case_every_control_row_has_five_cells,
     case_sec_tool_001_is_gone,
     case_i1_joins_nine_of_ten_rows,

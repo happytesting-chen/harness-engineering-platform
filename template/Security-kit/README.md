@@ -288,7 +288,7 @@ added as a *sixth row of the report*, never as an early return. The distinction 
 the whole point: an early return fires before the print loop and would replace all
 six lines with one, so a single unreadable spine would leave I1–I5 unreported at
 exactly the moment you most need to know they still pass. On that branch the printed
-line reads `0/23 matrix rows checked, skipped 23`, which is the honest description of
+line reads `0/22 matrix rows checked, skipped 22`, which is the honest description of
 a walk that never happened.
 
 The spine was drafted by a model and installed by a human, because
