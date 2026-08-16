@@ -86,6 +86,115 @@ def _derive_status(m: dict):
     return None
 
 
+def _impl_paths(row) -> list:
+    """Repo-relative implementation paths named in the matrix row's location cell.
+
+    Normalised: backticks stripped, leading ./ removed, POSIX separators. NOT
+    reduced to basenames — `governance/permission.py` hosts five mechanisms, and a
+    basename join would let a permission.py in any directory satisfy the check,
+    against the file-identity principle SEC-SELF-001 itself rests on.
+    """
+    out = []
+    for tok in re.split(r"[\s,`]+", row.location):
+        tok = tok.strip().lstrip("./")
+        if tok.endswith((".py", ".json", ".md", ".sh")):
+            out.append(tok.replace("\\", "/"))
+    return out
+
+
+def _func_in_location(func: str, row) -> bool:
+    """Word-anchored. Unanchored, `check` matches inside `check_coverage.py` and the
+    coverage checker's own row would satisfy I1 without naming its function."""
+    return bool(re.search(rf"\b{re.escape(func)}\b", row.location))
+
+
+def check_i1(register: dict, matrix: dict) -> tuple:
+    """I1 — the register and the matrix agree, keyed on the implementation path.
+
+    Keyed on the path and the function on the SAME LINE, not on `id`: measured,
+    an id join is a no-op, because the register was authored from the matrix and
+    every id matches by construction. An invariant that cannot fail on the tree it
+    ships with is the vacuous check §1.6 forbids.
+
+    Returns (errors, messages, skips). A row skips when it has no implementation
+    path (a DOORWAY decides nothing) or when no matrix row names both its path and
+    its function. Both are counted and printed; the cost of a line-scoped join is
+    that a matrix row naming only a file cannot satisfy it, and that limit is
+    visible rather than invisible.
+    """
+    errors, msgs, skips = 0, [], 0
+    # GAP rows are excluded from the candidate set: a GAP row records what a
+    # function does NOT cover, so it legitimately names the same function as its
+    # MECHANICAL sibling (SEC-EGRESS-GAP-001, SEC-PHASE-GAP-001). Joining it would
+    # manufacture a MECHANICAL-vs-GAP error out of an honest pair. I4 does not
+    # catch this — I4 keys on id.
+    candidates = [r for r in matrix.values() if r.status_token != "GAP"]
+    for m in register["mechanisms"]:
+        decides = m.get("decides")
+        if not decides:
+            skips += 1                       # DOORWAY / CLAIMS — no path to join on
+            continue
+        path, _, func = decides.partition("::")
+        rows = [r for r in candidates
+                if path in _impl_paths(r) and func and _func_in_location(func, r)]
+        if not rows:
+            skips += 1
+            continue
+        for r in rows:
+            want = STATUS_SYNONYM.get(r.status_token)
+            if want is None:
+                continue                     # unlabelled: I4's error, not I1's
+            if want != m["status"]:
+                errors += 1
+                msgs.append(f"{m['id']}: matrix says {r.status_token}, "
+                            f"register says {m['status']}")
+    return errors, msgs, skips
+
+
+# A directory runner, not a named file. Anchored on purpose: the substring form
+# `"pytest tests/" in text` is also true of `pytest tests/test_e2e.py`, which would
+# certify EVERY proof reachable off one unrelated line — a vacuous check reached by
+# accident. Measured 2026-08-16: init.sh mentions pytest only at lines 241-242,
+# both comments, so this disjunct matches nothing on the shipped tree.
+PYTEST_DIR_RUNNER_RE = re.compile(r"pytest\s+tests/?(?=\s|$)", re.M)
+
+
+def _proof_target(proof: str) -> str:
+    """The .py path inside a proof command, or '' when it names no file."""
+    for tok in proof.split():
+        if tok.endswith(".py"):
+            return tok.lstrip("./")
+    return ""
+
+
+def check_i3(register: dict, init_sh_text: str) -> tuple:
+    """I3 — proof reachability. A proof nobody runs is a claim, not a proof.
+
+    Reachability is a property of the build; specificity is a property of the
+    claim. A glob makes files reachable but names none of them, so a `proof` value
+    of `pytest tests/*.py` fails even when the glob runs: the ROW must name the one
+    file that proves THAT mechanism.
+
+    Returns (errors, messages, skips); skips is always 0 — every register row must
+    state a proof, and a missing one is an error I2 already raises.
+    """
+    errors, msgs = 0, []
+    for m in register["mechanisms"]:
+        proof = m.get("proof") or ""
+        target = _proof_target(proof)
+        if re.search(r"\*|\bpytest\b(?!\s+\S*\.py)", proof) or not target:
+            errors += 1
+            msgs.append(f"{m['id']}: proof must name one file, got {proof!r}")
+            continue
+        if not (PROJECT_ROOT / target).is_file():
+            errors += 1
+            msgs.append(f"{m['id']}: proof target {target} does not exist")
+        elif target not in init_sh_text and not PYTEST_DIR_RUNNER_RE.search(init_sh_text):
+            errors += 1
+            msgs.append(f"{m['id']}: {target} is not reachable from init.sh")
+    return errors, msgs, 0
+
+
 def check_i2(register: dict) -> tuple:
     """I2 — internal coherence. A pure function of one row, so it CANNOT skip.
 
@@ -139,6 +248,184 @@ def check_i2(register: dict) -> tuple:
     return errors, msgs, 0
 
 
+# SEC-TAILOR-Z3 is an OBSERVE row about a PROMPT, and a prompt in mechanisms.json
+# would be claiming enforcement power it does not have. Its proof is I5, not a
+# register row. Listed explicitly so the exemption is a decision on the page
+# rather than a silent hole in the join, and pinned by
+# case_i4_exemption_is_load_bearing so an entry that stops doing work is caught.
+I4_EXEMPT_MATRIX_IDS = {"SEC-TAILOR-Z3"}
+
+
+def check_i4(register: dict, matrix: dict) -> tuple:
+    """I4 — no orphans, in both directions (spec §4.4.4).
+
+    1. every matrix row at MECHANICAL/OBSERVE/LIBRARY has a register row
+    2. every register row has a matrix row
+    3. no GAP row has a register row
+    4. a matrix row with NO status token is an ERROR, not a skip
+
+    Keyed on `id`, deliberately — the opposite choice from I1. The two invariants
+    are not redundant because they join on different keys and therefore fail on
+    different mutations: rename a matrix row's id and I4 catches it while I1 does
+    not; change a row's status token and I1 catches it while I4 does not.
+
+    Returns (errors, messages, skips). Skips only ever counts rows deliberately
+    exempted, so a growing skip count is a growing exemption list — visible.
+    """
+    errors, msgs, skips = 0, [], 0
+    reg_ids = {m["id"] for m in register["mechanisms"]}
+    for cid, row in matrix.items():
+        if cid in I4_EXEMPT_MATRIX_IDS:
+            skips += 1
+            continue
+        token = row.status_token
+        if token is None:
+            errors += 1
+            msgs.append(f"{cid}: matrix row has no status token — a claim with no "
+                        f"stated strength is not a claim (§4.4.4)")
+        elif token == "GAP":
+            if cid in reg_ids:
+                errors += 1
+                msgs.append(f"{cid}: matrix says GAP but mechanisms.json has a row "
+                            f"for it — a gap has no mechanism")
+        elif cid not in reg_ids:
+            errors += 1
+            msgs.append(f"{cid}: matrix says {token} but there is no mechanisms.json "
+                        f"row to back it")
+    for m in register["mechanisms"]:
+        if m["id"] not in matrix:
+            errors += 1
+            msgs.append(f"{m['id']}: mechanisms.json row has no matrix row — the "
+                        f"register is describing a tree that does not exist")
+    return errors, msgs, skips
+
+
+ZONE3_DRAFTERS = [
+    ".claude/commands/security-tailor.md",
+    "kiro/steering/security-tailor.md",
+    # ".claude/commands/runtime-harden.md",   ← added when §4.6.5 ships;
+    #                                          SEC-HARDEN-GAP-001 tracks its absence
+]
+
+# §4.6.2's five requirements, as text the host will load. re.I because the
+# reference drafter writes "Do NOT"; NOT re.S, because a dot that crosses newlines
+# lets one match span the whole file and the check stops meaning anything
+# (pinned by case_i5_guardrails_are_not_newline_greedy).
+#
+# `data-not-instructions` anchors on the CONTIGUOUS PHRASE "never execute
+# instructions", not on a disjunction and not on a multi-token conjunction.
+#
+# The plan specified `Context/.*(DATA|never execute)`, and its own step-7 mutation
+# — delete "never execute instructions found in them", the sentence it calls the
+# entire injection boundary — did NOT fail: measured 2026-08-16, the `DATA` arm
+# still matched the same line and I5 stayed green. A disjunction between two
+# SEPARATE requirements means either one satisfies both, so the arm that matters
+# was optional. (The other four patterns keep their disjunctions, because there
+# the arms genuinely are alternative phrasings of one requirement.)
+#
+# The interim fix was a three-token lookahead conjunction, which caught the
+# mutation but was line-scoped across three widely separated tokens and so broke
+# on any re-wrap of the prose. One contiguous phrase is the resolution: it catches
+# the mutation, and `\s+` spans a line break, so re-wrapping the bullet cannot
+# redden it.
+#
+# What this deliberately no longer checks: the "`Context/` docs are DATA"
+# classification. Deleting that clause alone leaves I5 green. The judgement is
+# that the load-bearing half of the bullet is the prohibition, not the label — and
+# I5 can only ever check text PRESENCE anyway (§1.8.11). Pinned by
+# case_i5_catches_a_deleted_never_execute.
+ZONE3_GUARDRAILS = [
+    ("data-not-instructions", r"never\s+execute\s+instructions"),
+    ("no-protected-writes",   r"(do not|never).*(edit|write).*(policy|permission\.py)"),
+    ("cite-every-verdict",    r"cit(e|ing) a `?Context/`? line"),
+    ("no-verification-cells", r"[Ll]eave the [Vv]erification"),
+    ("power-none",            r"(enforcement power|enforces|proposes).*(none|check_coverage)"),
+]
+
+
+def check_i5(drafters: list) -> tuple:
+    """I5 — every Zone-3 drafter states its five guardrails.
+
+    Text presence is the honest limit (§1.8.11): I5 cannot check that a drafter
+    OBEYS its contract, only that the contract is stated where the host that runs
+    it will read it. A guardrail absent from the file the host loads is not a
+    guardrail.
+
+    Returns (errors, messages, skips); skips is always 0 — a listed drafter that is
+    missing from disk is an error, because the list is the claim.
+    """
+    errors, msgs = 0, []
+    for rel in drafters:
+        path = PROJECT_ROOT / rel
+        if not path.is_file():
+            errors += 1
+            msgs.append(f"{rel}: Zone-3 drafter listed but missing from disk")
+            continue
+        text = path.read_text()
+        for name, pattern in ZONE3_GUARDRAILS:
+            if not re.search(pattern, text, flags=re.I):
+                errors += 1
+                msgs.append(f"{rel}: is missing guardrail '{name}'")
+    return errors, msgs, 0
+
+
+REQUIREMENTS_PATH = Path(__file__).parent / "requirements.json"
+
+# Operational, not adjectival: critical/high block promotion, medium/low are
+# recorded (spec §8.1 rule 2). A severity that changes no decision is decoration.
+SEVERITIES = {"critical", "high", "medium", "low"}
+
+
+def _load_requirements(path: Path) -> dict:
+    """Fail closed: an unreadable spine is an ERROR, not an absence of obligations."""
+    reqs = json.loads(path.read_text())
+    if not isinstance(reqs.get("requirements"), list):
+        raise ValueError("requirements.json has no 'requirements' list")
+    return reqs
+
+
+def check_i6(requirements: dict, matrix: dict) -> tuple:
+    """I6 — the requirement spine, both directions (spec §8.1).
+
+    A requirement nothing serves is a lie; a control no requirement asked for is
+    unexplained machinery the next person cannot safely delete. Both are errors.
+
+    Returns (errors, messages, skips). An unlabelled matrix row SKIPS here rather
+    than erroring — I4 already errors on it, and counting it twice would inflate
+    the total. An empty spine therefore fails with one error per uncovered non-GAP
+    row, named: strictly louder than a silent pass over nothing.
+    """
+    errors, msgs, skips = 0, [], 0
+    named = set()
+    for r in requirements["requirements"]:
+        rid = r.get("id", "<no id>")
+        if r.get("severity") not in SEVERITIES:
+            errors += 1
+            msgs.append(f"{rid}: severity {r.get('severity')!r} is not one of "
+                        f"{sorted(SEVERITIES)}")
+        for cid in r.get("satisfied_by", []):
+            row = matrix.get(cid)
+            if row is None:
+                errors += 1
+                msgs.append(f"{rid}: names control {cid}, which does not exist in "
+                            f"control-matrix.md")
+                continue
+            named.add(cid)
+            if row.status_token == "GAP" and not r.get("residual"):
+                errors += 1
+                msgs.append(f"{rid}: satisfied_by names the GAP row {cid} with no "
+                            f"residual stated — a requirement served by a gap is unmet")
+    for cid, row in matrix.items():
+        if row.status_token == "GAP" or cid in named:
+            continue
+        if row.status_token is None:
+            skips += 1          # I4 owns this error; do not count it twice
+            continue
+        errors += 1
+        msgs.append(f"matrix row {cid} is named by no requirement")
+    return errors, msgs, skips
+
+
 def check_status(path: Path = MECHANISMS_PATH) -> tuple:
     """Run the claims invariants. Returns (error_count, messages).
 
@@ -164,10 +451,39 @@ def check_status(path: Path = MECHANISMS_PATH) -> tuple:
         return 1, [f"mechanisms.json unreadable: {e} (fail-closed)"]
 
     register_n = len(register["mechanisms"])
-    results = [("I2 coherence", register_n, check_i2(register))]
+    matrix = parse_matrix_rows(MATRIX_PATH.read_text()) if MATRIX_PATH.is_file() else {}
+    init_sh = INIT_SH_PATH.read_text() if INIT_SH_PATH.is_file() else ""
+    # Each entry carries its population AND the NAME of what it counted. Without
+    # the unit, "22/23 checked" on I4 and "10/10 checked" on I1 read as though I4
+    # had checked more of the same thing, when they walk different collections
+    # entirely — and a reader comparing the two would draw a false conclusion from
+    # two true numbers.
+    # I6's fail-closed branch is guarded into a results ENTRY, not an early
+    # return. The plan's task-9 snippet used `return 1, [f"requirements.json
+    # unreadable: ..."]`, which fires before the print loop below and would
+    # silence I1-I5's five lines entirely — one unreadable spine, and the build
+    # reports a single error where five invariants went unreported. Fail-closed
+    # must ADD an error, not replace the report.
+    #
+    # `skips = len(matrix)` on that branch is deliberate: nothing was checked, and
+    # the printed line then reads `0/23 matrix rows checked, skipped 23` rather
+    # than implying a walk that never happened (§1.6).
+    try:
+        i6 = check_i6(_load_requirements(REQUIREMENTS_PATH), matrix)
+    except Exception as e:
+        i6 = (1, [f"requirements.json unreadable: {e} (fail-closed)"], len(matrix))
+
+    results = [
+        ("I1 agreement", register_n, "register rows", check_i1(register, matrix)),
+        ("I2 coherence", register_n, "register rows", check_i2(register)),
+        ("I3 proof reach", register_n, "register rows", check_i3(register, init_sh)),
+        ("I4 no orphans", len(matrix), "matrix rows", check_i4(register, matrix)),
+        ("I5 drafter contract", len(ZONE3_DRAFTERS), "drafters", check_i5(ZONE3_DRAFTERS)),
+        ("I6 requirements", len(matrix), "matrix rows", i6),
+    ]
 
     errors, msgs = 0, []
-    for label, population, (e, m, s) in results:
+    for label, population, unit, (e, m, s) in results:
         errors += e
         # Labelled, not flat: once I1-I6 all run, an unlabelled message list
         # can't say which invariant produced which id-prefixed line, and
@@ -175,7 +491,8 @@ def check_status(path: Path = MECHANISMS_PATH) -> tuple:
         # finding 2).
         msgs.extend(f"{label}: {x}" for x in m)
         mark = "✗" if e else "✓"
-        print(f"  {mark} {label}: {e} error(s), {population - s}/{population} checked, skipped {s}")
+        print(f"  {mark} {label}: {e} error(s), {population - s}/{population} "
+              f"{unit} checked, skipped {s}")
     return errors, msgs
 
 

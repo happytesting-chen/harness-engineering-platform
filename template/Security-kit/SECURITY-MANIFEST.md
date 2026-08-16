@@ -41,8 +41,12 @@ These exist only for security. A no-security build deletes them.
 | `.claude/commands/security-tailor.md` | `/security-tailor` slash command (explicit Tier 1 — outside Security-kit/ dir) | all |
 | `kiro/steering/security-tailor.md` | Kiro security-tailor steering (explicit Tier 1 — outside Security-kit/ dir) | all |
 | `kiro/steering/active-controls.md` | Layer-D steering mirror for the Kiro host (explicit Tier 1 — outside Security-kit/ dir) | all |
+| `Security-kit/mechanisms.json` | Claims register — what each mechanism is, joined by I1–I4 | all |
+| `Security-kit/requirements.json` | Requirement spine — obligations, severity, residuals; joined by I6 | all |
+| `tests/test_mechanisms.py` | I1–I5 invariant tests + the matrix census | all |
+| `tests/test_requirements.py` | I6 invariant tests, both directions | all |
 
-> Note: `Security-kit/check_coverage.py`, `Security-kit/coverage.json`, `Security-kit/coverage.schema.md`, `Security-kit/active-controls.md`, and `Security-kit/eval/` are covered by the top-level `Security-kit/` directory deletion in `install.sh`. `tests/test_coverage.py` and `tests/test_eval_selection.py` are covered by the `tests/` directory deletion. Only `.claude/commands/security-tailor.md`, `kiro/steering/security-tailor.md` and `kiro/steering/active-controls.md` require explicit entries in TIER1: `install.sh` removes whole directories, and `kiro/steering/` is not one of them.
+> Note: `Security-kit/check_coverage.py`, `Security-kit/coverage.json`, `Security-kit/coverage.schema.md`, `Security-kit/active-controls.md`, `Security-kit/eval/`, `Security-kit/mechanisms.json` and `Security-kit/requirements.json` are covered by the top-level `Security-kit/` directory deletion in `install.sh`. `tests/test_coverage.py`, `tests/test_eval_selection.py`, `tests/test_mechanisms.py` and `tests/test_requirements.py` are covered by the `tests/` directory deletion. Only `.claude/commands/security-tailor.md`, `kiro/steering/security-tailor.md` and `kiro/steering/active-controls.md` require explicit entries in TIER1: `install.sh` removes whole directories, and `kiro/steering/` is not one of them.
 
 ## Tier 2 — Pure harness / non-security (kept in every build)
 

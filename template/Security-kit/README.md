@@ -257,6 +257,54 @@ Two boundaries worth stating plainly:
   has no hook system; there, enforcement is a function you wrote calling another function
   you wrote. The kit ships the first today; the second is specified, not built.
 
+### The claims register and its six invariants
+
+The table above is a claim. `Security-kit/mechanisms.json` is the same information
+in a form a program can check, and `check_coverage.py` checks it on every
+`./init.sh`:
+
+| File | Plane | Owner |
+|---|---|---|
+| `control-matrix.md` | what the kit CLAIMS, in prose a human reviews | human |
+| `mechanisms.json` | what each mechanism IS — `decides`, `attaches_at`, `can_deny`, `proof` | human, at merge time |
+| `requirements.json` | what the project is OBLIGED to guarantee, with residuals | human, at merge time |
+
+Six invariants join them. Each prints its **skip count** and the **population it
+walked**, because a check that silently skipped everything and a check that passed
+everything otherwise produce the same output:
+
+| Invariant | Asserts | Notable limit |
+|---|---|---|
+| **I1** | the register and the matrix agree, keyed on the implementation path **and the function on the same line** | a matrix row naming only a file cannot join, and skips — counted, not hidden |
+| **I2** | each row is internally coherent, and `status` equals the value **derived** from `(decides, attaches_at, can_deny)` | a pure function of one row: it can never skip |
+| **I3** | each `proof` names one file that exists **and** that `init.sh` selects | reachability is a property of the build; specificity is a property of the claim |
+| **I4** | no orphans in either direction; an **unlabelled** matrix row is an error | `SEC-TAILOR-Z3` is exempt: a prompt in the register would claim power it lacks |
+| **I5** | every Zone-3 drafter states its five guardrails | text **presence** only — it cannot check that a drafter obeys them |
+| **I6** | every requirement names a real control; every non-`GAP` row is asked for by a requirement | a `GAP` row may serve a requirement, but only if that requirement states a `residual` |
+
+**I6 fails closed, and fails closed without going quiet.** An unreadable or missing
+`requirements.json` is an error, not an absence of obligations — but the error is
+added as a *sixth row of the report*, never as an early return. The distinction is
+the whole point: an early return fires before the print loop and would replace all
+six lines with one, so a single unreadable spine would leave I1–I5 unreported at
+exactly the moment you most need to know they still pass. On that branch the printed
+line reads `0/23 matrix rows checked, skipped 23`, which is the honest description of
+a walk that never happened.
+
+The spine was drafted by a model and installed by a human, because
+`requirements.json` is human-owned at merge time — a model-written claims register is
+the inversion the plane split exists to prevent.
+
+Two properties are worth more than the six checks. **`status` is derived, not
+chosen**, so the register cannot flatter itself: hand-set a row to `MECHANICAL`
+while its `can_deny` is `false` and I2 says so. And **every invariant ships a
+mutation** — break the property, watch exactly one invariant redden, revert. An
+invariant without a mutation is a claim, not a check.
+
+Neither file is a control. They make the kit's *description* of its controls
+mechanically true, which is a smaller thing than enforcement and a different
+thing from documentation.
+
 ---
 
 The Security Kit is the template's security navigation and review layer. It does not
