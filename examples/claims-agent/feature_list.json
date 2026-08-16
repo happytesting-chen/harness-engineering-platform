@@ -1,0 +1,33 @@
+{
+  "project": "Claims Agent Core Harness Evaluation",
+  "description": "Human-gated phase DAG for a local, synthetic, deterministic evaluation. Exit zero plus attributable evidence is required; only a human may mark a phase passing.",
+  "features": [
+    {
+      "id": "phase-01",
+      "name": "Build A readiness review",
+      "behavior": "The filled harness is validated and explicitly approved by a human while Claims implementation and executable domain fixtures remain absent.",
+      "dependencies": [],
+      "status": "active",
+      "verification": "./init.sh && test -z \"$(find claims -type f ! -name '.gitkeep' -print -quit)\" && test ! -d security && test ! -e context/SECURITY.md && test ! -e .kiro/steering/security.md && test ! -e .kiro/steering/security-review.md",
+      "evidence": "Record readiness checks and human decision in evaluation/build-a/readiness-review.md; approval is not yet recorded."
+    },
+    {
+      "id": "phase-02",
+      "name": "Deterministic Build A implementation",
+      "behavior": "After recorded approval, reviewed synthetic fixtures are processed through validate, normalize, terminal route, and exactly one minimal local result with no prohibited effect.",
+      "dependencies": ["phase-01"],
+      "status": "not-started",
+      "verification": "./init.sh && python3 -m unittest discover -s claims/tests -p 'test_*.py'",
+      "evidence": "Record attributable, non-sensitive test evidence in evaluation/build-a/evidence-index.md."
+    },
+    {
+      "id": "phase-03",
+      "name": "Build A evaluation and snapshot proposal",
+      "behavior": "A fresh-session evaluation records correctness, local reproducibility, traceability, verification, gaps, and a human-reviewable snapshot proposal without creating Build B.",
+      "dependencies": ["phase-02"],
+      "status": "not-started",
+      "verification": "./init.sh && test -s evaluation/build-a/evidence-index.md && test -s evaluation/build-a/scorecard.md && test -s evaluation/build-a/worked-gaps-backlog.md && test -s evaluation/build-a/snapshot-decision.md",
+      "evidence": "Snapshot creation requires a separate recorded human confirmation after all four dimensions pass."
+    }
+  ]
+}

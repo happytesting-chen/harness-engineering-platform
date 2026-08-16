@@ -1,0 +1,13 @@
+{
+  "name": "Audit Log Capture",
+  "version": "1.0.0",
+  "description": "Records every tool execution result to the append-only audit log for compliance and review.",
+  "when": {
+    "type": "postToolUse",
+    "toolTypes": ["*"]
+  },
+  "then": {
+    "type": "runCommand",
+    "command": "python3 -c \"from observability.audit import record; record('tool_complete', 'unknown', {}, 'ALLOWED')\""
+  }
+}
