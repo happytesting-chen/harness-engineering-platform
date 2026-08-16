@@ -42,9 +42,18 @@ chmod +x init.sh
 ./init.sh
 ```
 
-`init.sh` fails on a fresh copy **by design** — it prints every `{{placeholder}}` still
-needing a value. Fill them (next section), re-run `./init.sh` until it exits `0`, then
-start working. That is the whole loop.
+`init.sh` fails on a fresh copy **by design**. A fresh template reports
+`FAIL — 5 error(s)`, and they are two different kinds of work:
+
+- **4 errors are unfilled `{{placeholders}}`** — fill them (next section).
+- **1 error is `coverage.json missing — run /security-tailor (fail-closed)`**, plus a
+  paired `security coverage incomplete` line. No amount of placeholder-filling clears
+  these two: they need [`/security-tailor`](#step-5b--tailor-the-security-controls-security-tailor),
+  which decides which of the 20 OWASP LLM/Agentic risks apply to *your* product.
+
+So the loop is: fill the placeholders → run `/security-tailor` → re-run `./init.sh` until
+it exits `0`. If you skip the tailor step, `init.sh` never reaches `PASS` — that is the
+gate working, not a bug.
 
 > New here? Skip to the [step-by-step walkthrough](#step-by-step-build-your-first-agent),
 > which fills the template for a concrete example agent end to end.
@@ -186,6 +195,32 @@ is `passing`:
 }
 ```
 
+### Step 5b — Tailor the security controls (`/security-tailor`)
+
+**Required to reach `PASS`.** Two of the five errors on a fresh copy are the coverage
+pair, and only this step clears them. The template ships without a `coverage.json`
+deliberately: which risks apply is a property of *your* product, and a template that
+guessed would be claiming coverage it cannot justify.
+
+```
+/security-tailor          # Claude Code; Kiro reads kiro/steering/security-tailor.md
+```
+
+It reads `Context/` as **data**, classifies all 20 OWASP ids (LLM01–10, ASI01–10) as
+`applies` / `n_a` / `gap` — each with a citation to a `Context/` line, never a guess —
+writes `Security-kit/coverage.json`, regenerates `Security-kit/active-controls.md`, and
+runs `python3 Security-kit/check_coverage.py --stamp` to hash-stamp the result.
+
+Two things it deliberately does **not** do, and you must:
+
+1. **Fill the blank Verification cells** it leaves in `Security-kit/control-matrix.md`.
+   The drafter is forbidden from authoring verification commands — a control is only
+   `MECHANICAL` when a *named test* proves the path.
+2. **Record a residual-risk decision** for every `n_a` and `gap` it reports.
+
+No Claude Code or Kiro? Write `coverage.json` by hand against
+`Security-kit/coverage.schema.md`, then run the `--stamp` command yourself.
+
 ### Step 6 — Run the health check and read it
 
 ```bash
@@ -195,11 +230,21 @@ is `passing`:
 A clean run walks these sections; a `RESULT: PASS` (exit 0) means you're ready:
 
 - **Placeholders** — every `{{...}}` in the required files is filled.
-- **Tests** — `test_fixtures.py`, `test_e2e.py` (and `test_hooks.py`,
-  `test_content_trust.py`) pass.
+- **Tests** — the suites in `tests/` pass. `init.sh` names them individually and runs them
+  without `pytest`, which is what keeps the health check dependency-free. Measured
+  2026-08-16: it names **9 of the 11** files; `test_mechanisms.py` and
+  `test_requirements.py` run only under the CI pytest step. That gap is stated as
+  `SEC-PROOF-GAP-001` in `Security-kit/control-matrix.md` rather than left implied.
 - **Security-kit integrity** — the enforcement engine is present, wired into
   `.claude/settings.json`, and its proofs pass. *(A stripped or unwired kit fails here —
   the template will not report PASS with its governance disabled.)*
+- **Security coverage** — `coverage.json` exists, is fresh against `Context/`, and every
+  `applies` control maps to a matrix row with a real verification. Missing or stale is an
+  **error**, not a warning ([Step 5b](#step-5b--tailor-the-security-controls-security-tailor)).
+- **Claims invariants** — six checks (I1–I6) that the security kit's own claims agree
+  with its code: register↔matrix agreement, internal coherence, proof reachability, no
+  orphans, the drafter contract, and the requirement spine. Each prints its own
+  population and skip count.
 - **Fresh Session Test** — can a brand-new session answer: *What is this? How do I run
   it? How do I verify it? What's done? What's next?*
 
@@ -291,7 +336,7 @@ context, guidance, policy, enforcement, verification, and review evidence. It ap
 
 | Layer | Purpose | Where |
 |---|---|---|
-| **Context** | The approved posture, threats, controls | `Security-kit/SECURITY.md` (40 source-tagged controls) |
+| **Context** | The approved posture, threats, controls | `Security-kit/SECURITY.md` (41 source-tagged controls, S1.1 – S8.6) |
 | **Guidance** | Shape everyday coding behaviour | `kiro/steering/security.md` (Kiro auto); `.claude/rules/` (Claude, optional) |
 | **Workflow** | Review sensitive changes consistently | `kiro/steering/security-review.md` |
 | **Policy** | Permitted tools, egress, approvals | `governance/deny-list.json`, `governance/mcp-allowlist.json`, `Harness-Best-Practice/feature_list.json` |
@@ -299,8 +344,12 @@ context, guidance, policy, enforcement, verification, and review evidence. It ap
 | **Verification** | Prove controls work + resist attack | `tests/test_hooks.py`, `test_e2e.py`, `test_content_trust.py`, `fixtures.json` |
 | **Evidence** | Record decisions, findings, residual risk | `Security-kit/control-matrix.md`, `progress.md`, git history |
 
-**Fill per project:** the rows of `Security-kit/control-matrix.md` (control → code →
-verification → evidence), your threat model, and any domain-specific test cases.
+**Fill per project:** `Security-kit/coverage.json` — which of the 20 OWASP LLM/Agentic ids
+apply here ([Step 5b](#step-5b--tailor-the-security-controls-security-tailor) drafts it) —
+then the rows of `Security-kit/control-matrix.md` (control → code → verification →
+evidence), your threat model, and any domain-specific test cases. The template ships the
+matrix's per-project table **empty**: no placeholder row, because a stub row draws wrong
+answers that no invariant can catch.
 
 **AI-specific risk coverage.** `Security-kit/owasp-crosswalk.md` maps every item of the
 **OWASP Top 10 for LLM Applications (2025)** and the **OWASP Top 10 for Agentic
@@ -346,12 +395,19 @@ my-agent/
 │
 ├── Security-kit/          ← SECURITY KIT (generic, not domain-specific)
 │   ├── README.md
-│   ├── SECURITY.md         ·  41-control reference (source-tagged)
+│   ├── SECURITY.md         ·  41-control reference (source-tagged, S1.1–S8.6)
 │   ├── owasp-crosswalk.md  ·  OWASP LLM/Agentic → mechanism map
 │   ├── SECURITY-MANIFEST.md·  what is security vs non-security
 │   ├── control-matrix.md   ·  control → code → test → evidence             [FILL rows]
+│   ├── coverage.schema.md  ·  the shape /security-tailor must produce
+│   ├── coverage.json       ·  which OWASP ids apply here    [WRITTEN by /security-tailor]
+│   ├── active-controls.md  ·  the applicable subset, @-imported by CLAUDE.md [GENERATED]
+│   ├── requirements.json   ·  obligation spine (SEC-REQ-001…011)      [human-owned]
+│   ├── mechanisms.json     ·  claims register: what actually EXISTS    [human-owned]
+│   ├── check_coverage.py   ← [MECHANISM] coverage gate + invariants I1–I6  [never edit]
 │   ├── content_trust.py    ← [MECHANISM] data-plane content boundary        [never edit]
-│   └── secret_scan.py      ← [MECHANISM] secret-block hook adapter          [never edit]
+│   ├── secret_scan.py      ← [MECHANISM] secret-block hook adapter          [never edit]
+│   └── eval/               ·  labelled corpus + scorer for the tailor's accuracy
 │
 ├── Harness-Best-Practice/ ← IDENTITY + WORKFLOW STATE
 │   ├── AGENTS.md          ← Open standard: identity, run/verify             [FILL]
@@ -362,29 +418,42 @@ my-agent/
 │       ├── audit.py       ← [MECHANISM] append-only audit log               [never edit]
 │       └── audit_hook.py  ← [MECHANISM] PostToolUse audit adapter           [never edit]
 │
-├── tests/                 ← VERIFICATION
+├── tests/                 ← VERIFICATION (11 suites; all stdlib, pytest optional)
 │   ├── fixtures.json          ·  ground-truth gate cases                    [EXTEND]
 │   ├── test_fixtures.py       ·  data-driven gate runner
 │   ├── test_e2e.py            ·  end-to-end enforcement proof
 │   ├── test_hooks.py          ·  hook-integration proof (Claude path)
-│   └── test_content_trust.py  ·  data-plane boundary proof
+│   ├── test_content_trust.py  ·  data-plane boundary proof
+│   ├── test_protected_paths.py·  S2.4 self-modification proof + pinned gaps
+│   ├── test_shipped_policy.py ·  the real deny-list.json, both directions
+│   ├── test_coverage.py       ·  the coverage gate itself (fail-closed, staleness)
+│   ├── test_mechanisms.py     ·  claims-register census + invariants I1–I5
+│   ├── test_requirements.py   ·  requirement spine ↔ controls (I6)
+│   ├── test_eval_selection.py ·  the scorer behind Security-kit/eval/
+│   └── test_steady_state.py   ·  all-phases-passing must not brick the gate
 │
 ├── Context/               ← [POLICY] PROJECT AI-dev assets                   [FILL stubs]
 │   ├── README.md           ·  what belongs here
 │   ├── ai-stack.md.template     ·  framework + model choice        [copy→fill]
 │   └── deployment.md.template   ·  on-prem/cloud, egress, secrets  [copy→fill]
 │
-├── demo/                  ← EVALUATION (not the production path)
+├── demo/                  ← DEMONSTRATION (not the production path)
 │   ├── harness.py · demo.py · fake_model.py   (zero-dependency LLM mock)
+│
+├── evaluation/            ← MEASUREMENT — the third proof after tests/ and demo/
+│   ├── eval.py            ·  accuracy / cost / reproducibility metrics (run by init.sh)
+│   ├── SNAPSHOT.template.md ·  filled by `eval.py --snapshot DIR` for sign-off
+│   └── README.md
 │
 ├── .claude/               ← CLAUDE CODE (active runtime)
 │   ├── settings.json      ← hooks: governance-check · secret-block · audit-capture · clean-state
-│   └── commands/          ← /session-cycle, /domain-workflow
+│   └── commands/          ← /init-project · /security-tailor · /session-cycle · /domain-workflow
 │
 └── kiro/                  ← KIRO ADD-ON (opt-in: `cp -r kiro/ .kiro/` to activate)
     ├── README.md
     ├── hooks/             ← governance · secret-block · audit · clean-state
     └── steering/          ← session-cycle · domain-workflow · security · security-review
+                             · security-tailor · active-controls
 ```
 
 Every module also carries an `ARCHITECTURE.md` describing its role.
@@ -419,10 +488,13 @@ truth that loads in every runtime.
 
 | Symptom | Cause | Fix |
 |---|---|---|
-| `./init.sh` fails on a fresh copy | Placeholders unfilled | Expected — fill them ([Step 2](#step-2--fill-the-identity-files-claudemd-agentsmd)); re-run |
+| `./init.sh` fails on a fresh copy with 5 errors | 4 placeholders + the coverage pair | Expected — fill the placeholders ([Step 3](#step-3--fill-the-identity-files-claudemd-harness-best-practiceagentsmd)), then run `/security-tailor` ([Step 5b](#step-5b--tailor-the-security-controls-security-tailor)) |
 | `init.sh` FAILs on unfilled `{{...}}` | A required file still has a placeholder | `grep -ro '{{[^}]*}}' .` to find them |
+| `coverage.json missing — run /security-tailor (fail-closed)` | No applicability decision exists yet, so the gate refuses to assume one | Run [`/security-tailor`](#step-5b--tailor-the-security-controls-security-tailor), or hand-write `Security-kit/coverage.json` per `coverage.schema.md` and run `python3 Security-kit/check_coverage.py --stamp` |
+| `coverage.json stale — Context/ changed` | `Context/` was edited after the last stamp, so the applicability decision may no longer hold | Re-run `/security-tailor`, or re-read the decision and re-stamp with `check_coverage.py --stamp` |
+| `security coverage incomplete` with a named control | An `applies` control has no matrix row, or its row has no verification | Add the row / fill its Verification cell in `Security-kit/control-matrix.md` — the drafter deliberately leaves that cell blank |
 | Every tool call is blocked | `permission.py` receives no active phase | Ensure exactly one phase is `active` in `feature_list.json` |
-| A harmless command containing a word (e.g. `curly`) is blocked | Deny-list substring match too broad | Change that pattern to `{"pattern":"...","mode":"word"}` ([Step 4](#step-4--set-policy-governancedeny-listjson-toolsmcp-allowlistjson)) |
+| A harmless command containing a word (e.g. `curly`) is blocked | Deny-list substring match too broad | Change that pattern to `{"pattern":"...","mode":"word"}` ([Step 5](#step-5--set-policy-governancedeny-listjson-governancemcp-allowlistjson)) |
 | A tool is denied as "gated" | Its `gated_until` phase isn't `passing` yet | Complete + sign off that phase first (don't retry) |
 | "Security-kit integrity" section fails | `permission.py` missing, unwired, or a proof fails | Restore the file / re-wire `.claude/settings.json`; run `python3 tests/test_hooks.py` |
 | Hook error mentions `$TOOL_NAME` | Stale/old settings.json | Ensure the hook command is `python3 governance/permission.py` (reads stdin) |

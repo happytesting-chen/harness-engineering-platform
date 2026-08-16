@@ -465,3 +465,65 @@ Unowned.
 | 08-16 | `SEC-XXX-001` **deleted**, not relabelled or exempted | An id-pattern exemption (option b) fixes the count but keeps the bait and adds a mechanism that invites more exemptions. Making `parse_matrix_rows` section-aware (option d) was rejected outright: in a real project the per-project rows are the ones that most need checking, so section-blindness would become a permanent hole |
 | 08-16 | The empty table keeps its heading, column header, **and a prose note stating why it is empty** | An unexplained empty table reads as an accidental deletion and invites someone to re-add a stub. The note carries the same weight as the matrix's own rule that an unstated gap is an unmanaged risk |
 | 08-16 | The new case keys on *no data rows*, not on the id `SEC-XXX-001` | Proven by the mutation, which used `SEC-YYY-001`. The defect is the placeholder row, not the label on it |
+
+---
+
+## Session 12 — 2026-08-17 (the READMEs were the broken link in the setup chain)
+
+No mechanism changed. This session fixed **documentation that could not lead a reader to `PASS`**,
+plus one claims-plane row that understated its own gap. Baseline re-verified after the edits:
+`exit 1`, `RESULT: FAIL — 5 error(s), 2 warning(s)`, `✗` set unchanged (6 lines, identical to
+`.github/workflows/harness-baseline.yml`'s pinned list), `python3 tests/test_mechanisms.py` 38 passed,
+`python3 tests/test_requirements.py` 9 passed, `pytest tests/ -q` 64 passed.
+
+### The defect: a documented loop that never terminates
+
+Measured before editing: `security-tailor` appeared **0 times** in `template/README.md` and
+`coverage.json` **0 times**, while 2 of the 5 baseline errors *are* the coverage pair
+(`init.sh:253-256`, `check_coverage.py:583`). Both READMEs told the reader the fresh-copy failure was
+"unfilled placeholders" and that "filling those in is the whole setup" — so a reader who followed
+either document exactly would fill 4 placeholders, re-run `./init.sh`, still see `FAIL`, and have no
+instruction left to try. The runbook that *is* complete (`.claude/commands/init-project.md:39`,
+"Step 2b — Tailor security controls") is only reachable if you already knew to open it.
+
+### Fixed in `template/README.md`
+
+| Was | Now |
+|---|---|
+| Quick start: "it will FAIL and list what you must fill" | states the 5 errors are **two kinds of work** — 4 placeholders vs the coverage pair — and that no amount of filling clears the second |
+| no Step 5b | **`### Step 5b — Tailor the security controls (/security-tailor)`** — what it writes, the two things it deliberately leaves to the human (verification cells, residual-risk decisions), and the no-Claude/no-Kiro path via `coverage.schema.md` + `--stamp` |
+| Step 6 listed 4 sections of a clean run | adds **Security coverage** and **Claims invariants (I1–I6)**; the Tests bullet now states the measured 9-of-11 wiring instead of implying all |
+| "40 source-tagged controls" | **41** (`grep -c "^| S[0-9]" SECURITY.md` = 41; 41 unique `S<n>.<n>` ids). Three other files already said 41 — this was the only holdout |
+| 2 dead anchors | `Step 2`→`Step 3` for the identity files, `Step 4`→`Step 5` for policy (and `tools/mcp-allowlist.json` → `governance/`) |
+| Troubleshooting: 7 rows, none about coverage | 10 rows — `coverage.json missing`, `coverage.json stale`, and `security coverage incomplete`, each quoting the **actual** emitted string |
+| directory map stale in 5 places | `tests/` 5→**11** files, `Security-kit/` +6 (`check_coverage.py`, `coverage.json`, `coverage.schema.md`, `active-controls.md`, `mechanisms.json`, `requirements.json`, `eval/`), `.claude/commands/` 2→**4**, `kiro/steering/` 4→**6**, `evaluation/` added |
+
+Anchor verification was mechanical, not eyeballed: a `github-slugger`-faithful slugifier over all
+headings and all 20 in-page links. First pass reported 8 dangling because my slug function kept em
+dashes and dropped the hyphen inside `` `/security-tailor` ``; corrected to GitHub's actual rule
+(strip ` -⁯`, keep `-`), the 5 new links were genuinely wrong (`securitytailor` for
+`security-tailor`) and were fixed. Both READMEs now report **0 dangling**.
+
+### Fixed in the root `README.md`
+
+`:202-204` carried the same claim — "unfilled placeholders, undefined phases, empty policy. Filling
+those in is the whole setup." Replaced with the same two-kinds-of-work split and the terminating loop
+(fill → `/security-tailor` → re-run until 0). Its "41-control reference" (`:146`) was already right.
+
+### `SEC-PROOF-GAP-001` was understating its own gap
+
+The row claimed `init.sh` "names 9 of the 10 `tests/test_*.py` files" with `test_mechanisms.py` as
+"the exception" (singular). Measured today: 9 of **11** named, and **two** unreached —
+`test_mechanisms.py` and `test_requirements.py`, the latter added in the I6 increment and never
+recorded here. Same failure mode as `case_gap_row_count_is_twelve` in Session 11: correct arithmetic
+over a population that had since grown. Row corrected in all three cells that carried the figure. The
+gap itself is unchanged and still unowned.
+
+### Decisions
+
+| Date | Decision | Rationale |
+|---|---|---|
+| 08-17 | New **Step 5b**, rather than renumbering Steps 6-8 to make room | Renumbering would break the root README's "an 8-step guide" claim and three in-page anchors, for a cosmetic gain. `init-project.md` already calls its equivalent "Step 2b", so 5b matches the runbook it documents |
+| 08-17 | Troubleshooting rows quote the **emitted** strings verbatim | A reader greps the error they actually saw. Paraphrasing (`coverage.json is stale` for `coverage.json stale — Context/ changed`) makes the table unfindable; caught by re-reading `check_coverage.py:583-597` after drafting |
+| 08-17 | README states the per-project matrix table ships **empty on purpose** | Session 11 removed the stub; a reader who finds an empty table and no explanation re-adds one. The `[FILL rows]` tag alone reads as an omission |
+| 08-17 | `SEC-PROOF-GAP-001` corrected in place, with the old wording quoted | The row's own history is the evidence for why census figures need a pinned population — deleting the wrong number would erase the lesson |
