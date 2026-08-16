@@ -57,6 +57,42 @@ def case_gap_row_count_is_twelve():
     assert len(gaps) == 12, f"expected 12 GAP rows, got {len(gaps)}: {gaps}"
 
 
+def case_every_control_row_has_five_cells():
+    """A literal `|` in a prose cell is invisible to row COUNT but not to column
+    count. `parse_matrix_rows` rejects `< 5` cells but silently accepts `> 5`: a
+    stray pipe in, say, an Objective cell splits it into two cells, shifting every
+    later column left by one — Verification silently becomes the old Location
+    text, and `check()` rule 3 then validates the wrong string against the wrong
+    row. `case_matrix_parses_into_rows`'s row-count assertion cannot see this
+    class of defect at all, because a 6-cell row still parses as exactly one row.
+
+    Scoped to the three control tables (Template baseline / Known gaps /
+    Per-project rows) between `## Template baseline` and `## Completion Rules` —
+    NOT the whole document. The Status legend table above them is legitimately
+    2 cells wide (`| Status | Meaning |`), and it is correctly skipped by
+    `parse_matrix_rows` too (it has no Control ID column); a naive document-wide
+    `!= 5` check would misfire on it.
+    """
+    md = cc.MATRIX_PATH.read_text()
+    control_tables_text = md.split("## Template baseline", 1)[1].split(
+        "## Completion Rules", 1
+    )[0]
+    bad = []
+    for line in control_tables_text.splitlines():
+        stripped = line.strip()
+        if not stripped.startswith("|"):
+            continue
+        cells = [c.strip() for c in stripped.strip("|").split("|")]
+        if set(stripped) <= {"|", "-", " "}:
+            continue  # separator row, e.g. |---|---|---|---|---|
+        first = cells[0].strip("`").strip()
+        if first in ("Control ID", ""):
+            continue  # header row
+        if len(cells) != 5:
+            bad.append(f"{first or stripped[:40]!r}: {len(cells)} cells")
+    assert bad == [], f"control rows with != 5 cells (literal '|' in a cell?): {bad}"
+
+
 def case_sec_tool_001_is_gone():
     """The merge, not a second token: one function cannot be two mechanisms."""
     md = cc.MATRIX_PATH.read_text()
@@ -71,6 +107,7 @@ CASES = [
     case_matrix_parses_into_rows,
     case_every_matrix_row_has_a_status_token,
     case_gap_row_count_is_twelve,
+    case_every_control_row_has_five_cells,
     case_sec_tool_001_is_gone,
 ]
 
