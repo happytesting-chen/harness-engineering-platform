@@ -44,7 +44,7 @@ class MatrixRow(NamedTuple):
     location: str
     verification: str
     evidence: str
-    status_token: str  # or None when the row states no strength — an I4 error
+    status_token: str | None  # None when the row states no strength — an I4 error
 
 
 def parse_matrix_rows(md_text: str) -> dict:
