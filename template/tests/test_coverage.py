@@ -65,7 +65,7 @@ def _coverage(context_dir, controls):
 
 def _run_check(matrix, context_files, coverage=None, active=None):
     """Build a temp project, point cc.* constants at it, return (errors, msgs). Restores constants."""
-    saved = (cc.COVERAGE_PATH, cc.MATRIX_PATH, cc.ACTIVE_CONTROLS_PATH, cc.CONTEXT_DIR)
+    saved = (cc.COVERAGE_PATH, cc.MATRIX_PATH, cc.ACTIVE_CONTROLS_PATH, cc.CONTEXT_DIR, cc.KIRO_MIRROR_PATH)
     with tempfile.TemporaryDirectory() as d:
         root = Path(d)
         sec = root / "Security-kit"; sec.mkdir()
@@ -75,6 +75,10 @@ def _run_check(matrix, context_files, coverage=None, active=None):
         cc.COVERAGE_PATH = sec / "coverage.json"
         cc.ACTIVE_CONTROLS_PATH = sec / "active-controls.md"
         cc.CONTEXT_DIR = ctx
+        # No kiro/steering/ created in this fake project, so KIRO_MIRROR_PATH points at a
+        # path that does not exist — isolates these check() cases from check_kiro_mirror()'s
+        # own tests and from the real repo's kiro/steering/active-controls.md.
+        cc.KIRO_MIRROR_PATH = root / "kiro" / "steering" / "active-controls.md"
         # coverage may be a dict, the string "MALFORMED", or None (absent)
         if coverage == "MALFORMED":
             cc.COVERAGE_PATH.write_text("{not json")
@@ -85,7 +89,7 @@ def _run_check(matrix, context_files, coverage=None, active=None):
         try:
             return cc.check(root)
         finally:
-            cc.COVERAGE_PATH, cc.MATRIX_PATH, cc.ACTIVE_CONTROLS_PATH, cc.CONTEXT_DIR = saved
+            cc.COVERAGE_PATH, cc.MATRIX_PATH, cc.ACTIVE_CONTROLS_PATH, cc.CONTEXT_DIR, cc.KIRO_MIRROR_PATH = saved
 
 
 def case_fail_when_coverage_missing():
@@ -149,6 +153,34 @@ def case_pass_when_zero_applies():
     assert errs == 0, msgs
 
 
+def case_kiro_mirror_required_when_steering_exists():
+    """With kiro/steering/ present, a missing mirror is an ERROR.
+
+    The Kiro host loads kiro/steering/*.md, not Security-kit/active-controls.md.
+    A layer-D file that exists for one host only is steering the agent on one
+    host only — and nothing said so.
+    """
+    with tempfile.TemporaryDirectory() as d:
+        root = Path(d)
+        (root / "kiro" / "steering").mkdir(parents=True)
+        errors, msgs = cc.check_kiro_mirror(root)
+        assert errors == 1, f"expected 1 error, got {errors}"
+        assert any("kiro/steering/active-controls.md" in m for m in msgs), msgs
+
+
+def case_kiro_mirror_skipped_when_steering_absent():
+    """Without kiro/steering/, the rule SKIPS — and says so.
+
+    A Claude-only copy of the template has no Kiro host to steer. Silence here
+    would be indistinguishable from a passing check (spec §1.6).
+    """
+    with tempfile.TemporaryDirectory() as d:
+        root = Path(d)
+        errors, msgs = cc.check_kiro_mirror(root)
+        assert errors == 0, f"expected 0 errors, got {errors}"
+        assert any("skipped" in m and "no kiro/steering" in m for m in msgs), msgs
+
+
 CASES = [
     case_hash_ignores_template_stubs,
     case_hash_changes_when_real_doc_changes,
@@ -160,6 +192,8 @@ CASES = [
     case_fail_when_malformed,
     case_pass_when_applies_mapped_and_active_matches,
     case_pass_when_zero_applies,
+    case_kiro_mirror_required_when_steering_exists,
+    case_kiro_mirror_skipped_when_steering_absent,
 ]
 
 
