@@ -103,12 +103,58 @@ def case_sec_tool_001_is_gone():
     assert "SEC-TOOL-001" not in rows, "SEC-TOOL-001 still has its own row"
 
 
+# --- I2: internal coherence ----------------------------------------------
+
+def case_register_has_ten_rows():
+    """The template baseline (spec §4.5.3). A product adds its own rows later."""
+    reg = cc._load_register(cc.MECHANISMS_PATH)
+    ids = [m["id"] for m in reg["mechanisms"]]
+    assert len(ids) == 10, f"expected 10 rows, got {len(ids)}: {ids}"
+    assert len(set(ids)) == 10, f"duplicate ids: {ids}"
+
+
+def case_i2_passes_on_the_shipped_register():
+    errors, msgs, skips = cc.check_i2(cc._load_register(cc.MECHANISMS_PATH))
+    assert errors == 0, msgs
+    assert skips == 0, "I2 is a pure function of one row — it cannot skip"
+
+
+def case_i2_rejects_a_gate_that_cannot_deny():
+    """§4.5.7's mutation, as a permanent test: category is forced by the boundary."""
+    reg = {"schema": 1, "mechanisms": [{
+        "id": "SEC-FAKE-001", "category": "GATE",
+        "decides": "governance/permission.py::check_deny_list",
+        "attaches_at": "PreToolUse", "can_deny": False,
+        "proof": "python3 tests/test_fixtures.py", "status": "OBSERVE",
+        "portable_to_runtime": True}]}
+    errors, msgs, _ = cc.check_i2(reg)
+    assert errors >= 1, "a GATE that cannot deny must be rejected"
+    assert any("can_deny" in m for m in msgs), msgs
+
+
+def case_i2_rejects_a_flattered_status():
+    """Hand-set MECHANICAL while can_deny is false: status is derived, not chosen."""
+    reg = {"schema": 1, "mechanisms": [{
+        "id": "SEC-FAKE-002", "category": "RECORD",
+        "decides": "Harness-Best-Practice/observability/audit.py::record",
+        "attaches_at": "PostToolUse", "can_deny": False,
+        "proof": "python3 tests/test_hooks.py", "status": "MECHANICAL",
+        "portable_to_runtime": True}]}
+    errors, msgs, _ = cc.check_i2(reg)
+    assert errors >= 1, "a register must not be able to flatter itself"
+    assert any("derives to OBSERVE" in m for m in msgs), msgs
+
+
 CASES = [
     case_matrix_parses_into_rows,
     case_every_matrix_row_has_a_status_token,
     case_gap_row_count_is_twelve,
     case_every_control_row_has_five_cells,
     case_sec_tool_001_is_gone,
+    case_register_has_ten_rows,
+    case_i2_passes_on_the_shipped_register,
+    case_i2_rejects_a_gate_that_cannot_deny,
+    case_i2_rejects_a_flattered_status,
 ]
 
 

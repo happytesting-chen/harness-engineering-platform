@@ -24,6 +24,149 @@ CONTEXT_DIR = PROJECT_ROOT / "Context"
 PLACEHOLDER_RE = re.compile(r"\{\{.*?\}\}|TODO|TBD|NEEDS-CONFIRMATION")
 STATUS_RE = re.compile(r"\*\*(MECHANICAL|OBSERVE|LIBRARY|GAP)\b")
 
+MECHANISMS_PATH = Path(__file__).parent / "mechanisms.json"
+INIT_SH_PATH = PROJECT_ROOT / "init.sh"
+
+# `[MECH]`/`[OBS]`/`[LIB]` are the register's vocabulary; the matrix's is the long
+# form. Written years apart, so the join needs a map rather than an assumption.
+# `[GAP]` maps to NO register row, and `[GUIDE]`/`[APP]` are deliberately ignored:
+# they are advice to a human or an application, not mechanism statuses, and
+# treating them as statuses would force fake register rows (spec §1.8.7).
+STATUS_SYNONYM = {
+    "MECHANICAL": "MECHANICAL", "MECH": "MECHANICAL",
+    "OBSERVE": "OBSERVE", "OBS": "OBSERVE",
+    "LIBRARY": "LIBRARY", "LIB": "LIBRARY",
+}
+
+LEGAL = {
+    "GATE":    {"can_deny": {True},    "decides": "required", "attaches_at": "required"},
+    "RECORD":  {"can_deny": {False},   "decides": "required", "attaches_at": "required"},
+    "SCREEN":  {"can_deny": {False},   "decides": "required", "attaches_at": None},
+    "DOORWAY": {"can_deny": {"n/a"},   "decides": None,       "attaches_at": "required"},
+    "CHECKER": {"can_deny": {"n/a"},   "decides": "required", "attaches_at": "required"},
+    "DRAFTER": {"can_deny": {"n/a"},   "decides": "required", "attaches_at": "required"},
+    "CLAIMS":  {"can_deny": {"n/a"},   "decides": None,       "attaches_at": None},
+}
+
+
+def _load_register(path: Path) -> dict:
+    """Fail closed: a missing or malformed register is an ERROR, never an empty pass.
+
+    An empty register would make I1 and I2 report zero errors over zero rows —
+    §1.6's vacuous check, arrived at by deleting a file.
+    """
+    reg = json.loads(path.read_text())
+    if not isinstance(reg.get("mechanisms"), list):
+        raise ValueError("mechanisms.json has no 'mechanisms' list")
+    return reg
+
+
+def _derive_status(m: dict):
+    """Spec §4.5.4's table. Returns None when no row of the table applies.
+
+    `is True` / `is False`, not `==`: in Python `True == 1`, and can_deny is
+    tri-valued with a string third value.
+    """
+    d, a, c = m.get("decides"), m.get("attaches_at"), m.get("can_deny")
+    if d is None and a is None:
+        return "GAP"                       # not permitted in this file (§4.5.5)
+    if d is None:
+        return "MECHANICAL" if c == "n/a" else None      # DOORWAY
+    if a is None:
+        return "LIBRARY" if c is False else None
+    if c is True:
+        return "MECHANICAL"
+    if c is False:
+        return "OBSERVE"
+    if c == "n/a":
+        return "MECHANICAL"                # CHECKER / DRAFTER
+    return None
+
+
+def check_i2(register: dict) -> tuple:
+    """I2 — internal coherence. A pure function of one row, so it CANNOT skip.
+
+    Returns (errors, messages, skips) with skips always 0. The third element is
+    kept so every invariant has one shape.
+    """
+    errors, msgs = 0, []
+    for m in register["mechanisms"]:
+        mid = m.get("id", "<no id>")
+        for key in ("id", "category", "decides", "attaches_at", "can_deny",
+                    "proof", "status", "portable_to_runtime"):
+            if key not in m:
+                errors += 1
+                msgs.append(f"{mid}: required key '{key}' is missing")
+        if errors and "category" not in m:
+            continue
+        cat = m.get("category")
+        rule = LEGAL.get(cat)
+        if rule is None:
+            errors += 1
+            msgs.append(f"{mid}: category {cat!r} is not one of {sorted(LEGAL)}")
+            continue
+        if m.get("can_deny") not in rule["can_deny"]:
+            errors += 1
+            msgs.append(f"{mid}: {cat} requires can_deny in "
+                        f"{sorted(rule['can_deny'], key=str)}, got {m.get('can_deny')!r}")
+        for field in ("decides", "attaches_at"):
+            want = rule[field]
+            got = m.get(field)
+            if want == "required" and got is None:
+                errors += 1
+                msgs.append(f"{mid}: {cat} requires a non-null {field}")
+            if want is None and got is not None:
+                errors += 1
+                msgs.append(f"{mid}: {cat} requires {field} to be null, got {got!r}")
+        derived = _derive_status(m)
+        if derived is None:
+            errors += 1
+            msgs.append(f"{mid}: (decides, attaches_at, can_deny) matches no row of "
+                        f"§4.5.4's derivation table")
+        elif derived == "GAP":
+            errors += 1
+            msgs.append(f"{mid}: derives to GAP — a gap has no mechanism row (§4.5.5)")
+        elif derived != m.get("status"):
+            errors += 1
+            msgs.append(f"{mid}: status says {m.get('status')}, derives to {derived}")
+        if cat == "DOORWAY" and m.get("portable_to_runtime") is not False:
+            errors += 1
+            msgs.append(f"{mid}: every DOORWAY is portable_to_runtime false — the "
+                        f"pre-tool event is a property of the host, not of the control")
+    return errors, msgs, 0
+
+
+def check_status() -> tuple:
+    """Run the claims invariants. Returns (error_count, messages).
+
+    Prints one line per invariant INCLUDING its skip count, because a check that
+    silently skipped everything and a check that passed everything are otherwise
+    the same output (spec §1.6; precedent f16525a).
+
+    Each invariant prints its OWN population, not one shared figure: I1-I3
+    range over the register (len(register)), I4 and I6 range over the matrix
+    (len(matrix)), and I5 ranges over ZONE3_DRAFTERS. A single shared number
+    would make an invariant that measured nothing look identical to one that
+    measured everything — exactly the vacuous-check failure mode this file
+    exists to prevent (precedent f16525a: a sampling test reported 100% while
+    57% of the matrix went unmeasured).
+    """
+    try:
+        register = _load_register(MECHANISMS_PATH)
+    except Exception as e:
+        return 1, [f"mechanisms.json unreadable: {e} (fail-closed)"]
+
+    register_n = len(register["mechanisms"])
+    results = [("I2 coherence", register_n, check_i2(register))]
+
+    errors, msgs = 0, []
+    for label, population, (e, m, s) in results:
+        errors += e
+        msgs.extend(m)
+        mark = "✗" if e else "✓"
+        print(f"  {mark} {label}: {e} error(s), {population - s}/{population} checked, skipped {s}")
+    return errors, msgs
+
 
 def context_hash(context_dir: Path) -> str:
     """sha256 over sorted non-.template *.md under context_dir (see Global Constraints)."""
@@ -177,4 +320,10 @@ if __name__ == "__main__":
         print(f"  – {m}")
     if n == 0:
         print("  ✓ coverage complete (all applicable controls mapped)")
-    sys.exit(1 if (n or kn) else 0)
+    # The claims invariants run REGARDLESS of the coverage verdict: rule 1 returns
+    # early on a missing coverage.json — the shipped state — and I1-I6 are about the
+    # register and the matrix, neither of which waits on a tailored product.
+    sn, smessages = check_status()
+    for m in smessages:
+        print(f"  ✗ {m}")
+    sys.exit(1 if (n or kn or sn) else 0)
