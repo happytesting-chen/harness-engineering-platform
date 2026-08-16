@@ -17,6 +17,7 @@ PROJECT_ROOT = Path(__file__).parent.parent
 COVERAGE_PATH = Path(__file__).parent / "coverage.json"
 MATRIX_PATH = Path(__file__).parent / "control-matrix.md"
 ACTIVE_CONTROLS_PATH = Path(__file__).parent / "active-controls.md"
+KIRO_MIRROR_PATH = PROJECT_ROOT / "kiro" / "steering" / "active-controls.md"
 CONTEXT_DIR = PROJECT_ROOT / "Context"
 
 PLACEHOLDER_RE = re.compile(r"\{\{.*?\}\}|TODO|TBD|NEEDS-CONFIRMATION")
@@ -51,6 +52,26 @@ def parse_matrix(md_text: str) -> dict:
 
 def _fail(msgs, text):
     msgs.append(text)
+
+
+def check_kiro_mirror(project_root: Path) -> tuple:
+    """Layer-D exists for every host that has one. Returns (errors, messages).
+
+    Conditional on purpose: a Claude-only copy has no Kiro host, and demanding a
+    mirror there would be an over-block. But the skip is PRINTED — a silent skip
+    is the failure mode of a vacuous check (spec §1.6).
+
+    Runs OUTSIDE check()'s applies-loop deliberately: rule 1 returns early when
+    coverage.json is missing, which is the shipped state, so a mirror check
+    living in that loop would never execute in the template.
+    """
+    steering = project_root / "kiro" / "steering"
+    mirror = project_root / "kiro" / "steering" / "active-controls.md"
+    if not steering.is_dir():
+        return 0, ["layer-D Kiro mirror: skipped — no kiro/steering directory"]
+    if not mirror.is_file():
+        return 1, ["kiro/steering/active-controls.md missing — layer-D unwired for the Kiro host"]
+    return 0, []
 
 
 def check(project_root: Path) -> tuple:
@@ -93,9 +114,13 @@ def check(project_root: Path) -> tuple:
         errors += 1
     else:
         text = ACTIVE_CONTROLS_PATH.read_text()
+        mirror_text = KIRO_MIRROR_PATH.read_text() if KIRO_MIRROR_PATH.is_file() else None
         for c in applies:
             if c["id"] not in text:
                 _fail(msgs, f"active-controls.md does not mention applies control {c['id']}")
+                errors += 1
+            if mirror_text is not None and c["id"] not in mirror_text:
+                _fail(msgs, f"kiro/steering/active-controls.md does not mention applies control {c['id']}")
                 errors += 1
     return errors, msgs
 
@@ -115,8 +140,11 @@ if __name__ == "__main__":
         print(f"  ✓ stamped {stamp()}")
         sys.exit(0)
     n, messages = check(PROJECT_ROOT)
-    for m in messages:
+    kn, kmessages = check_kiro_mirror(PROJECT_ROOT)
+    for m in messages + [m for m in kmessages if "skipped" not in m]:
         print(f"  ✗ {m}")
+    for m in [m for m in kmessages if "skipped" in m]:
+        print(f"  – {m}")
     if n == 0:
         print("  ✓ coverage complete (all applicable controls mapped)")
-    sys.exit(1 if n else 0)
+    sys.exit(1 if (n or kn) else 0)
