@@ -41,11 +41,20 @@ def case_every_matrix_row_has_a_status_token():
     assert unlabelled == [], f"unlabelled matrix rows: {unlabelled}"
 
 
-def case_gap_row_count_is_eleven():
-    """8 shipped + SEC-PROOF-GAP-001 + SEC-HARDEN-GAP-001 + SEC-KIRO-GAP-001."""
+def case_gap_row_count_is_twelve():
+    """8 shipped GAP (Known-Gaps table) + 3 new GAP rows (SEC-PROOF-GAP-001,
+    SEC-HARDEN-GAP-001, SEC-KIRO-GAP-001) + 1 per-project placeholder row
+    (SEC-XXX-001, labelled GAP because a placeholder claims nothing) = 12.
+
+    An earlier plan draft derived 11 (8 shipped + 3 new) and stopped there,
+    omitting SEC-XXX-001. That row is not optional: it must carry SOME status
+    token to satisfy case_every_matrix_row_has_a_status_token, and GAP is the
+    only honest one for a placeholder — so the count is inescapably 12, not
+    11. Do not "fix" this back to 11; that was the arithmetic slip, not this.
+    """
     rows = cc.parse_matrix_rows(cc.MATRIX_PATH.read_text())
     gaps = sorted(k for k, r in rows.items() if r.status_token == "GAP")
-    assert len(gaps) == 11, f"expected 11 GAP rows, got {len(gaps)}: {gaps}"
+    assert len(gaps) == 12, f"expected 12 GAP rows, got {len(gaps)}: {gaps}"
 
 
 def case_sec_tool_001_is_gone():
@@ -61,7 +70,7 @@ def case_sec_tool_001_is_gone():
 CASES = [
     case_matrix_parses_into_rows,
     case_every_matrix_row_has_a_status_token,
-    case_gap_row_count_is_eleven,
+    case_gap_row_count_is_twelve,
     case_sec_tool_001_is_gone,
 ]
 
