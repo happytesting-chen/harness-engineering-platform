@@ -454,7 +454,7 @@ def check_status(path: Path = MECHANISMS_PATH) -> tuple:
     matrix = parse_matrix_rows(MATRIX_PATH.read_text()) if MATRIX_PATH.is_file() else {}
     init_sh = INIT_SH_PATH.read_text() if INIT_SH_PATH.is_file() else ""
     # Each entry carries its population AND the NAME of what it counted. Without
-    # the unit, "22/23 checked" on I4 and "10/10 checked" on I1 read as though I4
+    # the unit, "21/22 checked" on I4 and "10/10 checked" on I1 read as though I4
     # had checked more of the same thing, when they walk different collections
     # entirely — and a reader comparing the two would draw a false conclusion from
     # two true numbers.
@@ -466,7 +466,7 @@ def check_status(path: Path = MECHANISMS_PATH) -> tuple:
     # must ADD an error, not replace the report.
     #
     # `skips = len(matrix)` on that branch is deliberate: nothing was checked, and
-    # the printed line then reads `0/23 matrix rows checked, skipped 23` rather
+    # the printed line then reads `0/22 matrix rows checked, skipped 22` rather
     # than implying a walk that never happened (§1.6).
     try:
         i6 = check_i6(_load_requirements(REQUIREMENTS_PATH), matrix)

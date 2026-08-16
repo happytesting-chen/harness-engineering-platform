@@ -55,9 +55,15 @@ assumed — the tool name and observed behaviour are given so the claim is check
 
 ## Per-project rows
 
+Empty in the shipped template, deliberately. A `SEC-XXX-001` placeholder stub row lived here
+until 2026-08-16 and was removed: every invariant is blind to it by construction (I1 excludes
+`GAP` rows, I4 accepts a `GAP` row with no register row, I6 skips `GAP` rows, and `init.sh`'s
+placeholder check reads only its five `REQUIRED_FILES`), while `/security-tailor` was measured
+mapping a real `applies` control onto it. A row nothing can check, that draws wrong answers, is
+worse than no row. Follow the Completion Rules below and use the column header above as the shape.
+
 | Control ID | Objective and boundary | Implementation location | Verification | Review evidence |
 |---|---|---|---|---|
-| `SEC-XXX-001` | **GAP** — {{PROJECT_SPECIFIC_SECURITY_OBJECTIVE}} | {{IMPLEMENTATION_LOCATION}} | {{VERIFICATION_COMMAND}} | {{REVIEW_RECORD_OR_DECISION}} |
 
 ## Completion Rules
 
