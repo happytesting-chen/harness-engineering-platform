@@ -129,7 +129,11 @@ def case_i2_rejects_a_gate_that_cannot_deny():
         "portable_to_runtime": True}]}
     errors, msgs, _ = cc.check_i2(reg)
     assert errors >= 1, "a GATE that cannot deny must be rejected"
-    assert any("can_deny" in m for m in msgs), msgs
+    # Pinned to the can_deny-violation text specifically (fix round 1, finding
+    # 4): "can_deny" alone is also a substring of the missing-key message
+    # ("required key 'can_deny' is missing"), which this fixture never
+    # triggers today but would make the assertion vacuous if it ever did.
+    assert any("requires can_deny in" in m for m in msgs), msgs
 
 
 def case_i2_rejects_a_flattered_status():
@@ -145,6 +149,75 @@ def case_i2_rejects_a_flattered_status():
     assert any("derives to OBSERVE" in m for m in msgs), msgs
 
 
+def case_load_register_rejects_non_dict_elements():
+    """A `mechanisms` list of strings, not objects, must be a load failure —
+    not an uncaught AttributeError inside check_i2 (fix round 1, finding 3).
+
+    Without the element-shape check, `check_i2` calls `m.get(...)` on a plain
+    str and crashes; the operator sees a traceback instead of the fail-closed
+    'mechanisms.json unreadable' message, and once I1-I6 all run, every
+    invariant after the crash prints nothing at all.
+    """
+    tmp_dir = Path(tempfile.mkdtemp())
+    bad = tmp_dir / "mechanisms.json"
+    bad.write_text(json.dumps({"schema": 1, "mechanisms": ["not-a-dict"]}))
+    try:
+        cc._load_register(bad)
+        assert False, "expected _load_register to reject non-dict elements"
+    except ValueError as e:
+        assert "object" in str(e) or "dict" in str(e).lower(), str(e)
+
+
+# --- check_status: the aggregator itself, including its fail-closed path -
+
+def case_check_status_fails_closed_on_a_missing_register():
+    """Deleting the `check_status()` call in `__main__` — or pointing it at a
+    missing file — must not leave this component silently green (fix round 1,
+    finding 1). `check_status` takes `path` as a real parameter precisely so
+    this branch is reachable without mutating cc.MECHANISMS_PATH.
+    """
+    missing = Path(tempfile.mkdtemp()) / "does-not-exist.json"
+    errors, msgs = cc.check_status(missing)
+    assert errors >= 1, "a missing register must be a build failure, not a skip"
+    assert any("mechanisms.json unreadable" in m and "fail-closed" in m
+               for m in msgs), msgs
+
+
+def case_check_status_fails_closed_on_a_malformed_register():
+    tmp_dir = Path(tempfile.mkdtemp())
+    malformed = tmp_dir / "mechanisms.json"
+    malformed.write_text("{not valid json")
+    errors, msgs = cc.check_status(malformed)
+    assert errors >= 1, "a malformed register must be a build failure, not a skip"
+    assert any("mechanisms.json unreadable" in m and "fail-closed" in m
+               for m in msgs), msgs
+
+
+def case_check_status_passes_on_the_shipped_register():
+    errors, msgs = cc.check_status(cc.MECHANISMS_PATH)
+    assert errors == 0, msgs
+
+
+def case_check_status_labels_its_messages_by_invariant():
+    """A flat, unlabelled message list can't say which invariant produced
+    which line once I1-I6 all run and several emit messages about the same
+    ids (fix round 1, finding 2). Every message check_status returns must be
+    prefixed with its invariant's label.
+    """
+    tmp_dir = Path(tempfile.mkdtemp())
+    bad = tmp_dir / "mechanisms.json"
+    bad.write_text(json.dumps({"schema": 1, "mechanisms": [{
+        "id": "SEC-FAKE-003", "category": "GATE",
+        "decides": "governance/permission.py::check_deny_list",
+        "attaches_at": "PreToolUse", "can_deny": False,
+        "proof": "python3 tests/test_fixtures.py", "status": "OBSERVE",
+        "portable_to_runtime": True}]}))
+    errors, msgs = cc.check_status(bad)
+    assert errors >= 1
+    assert msgs, "expected at least one message"
+    assert all(m.startswith("I2 coherence: ") for m in msgs), msgs
+
+
 CASES = [
     case_matrix_parses_into_rows,
     case_every_matrix_row_has_a_status_token,
@@ -155,6 +228,11 @@ CASES = [
     case_i2_passes_on_the_shipped_register,
     case_i2_rejects_a_gate_that_cannot_deny,
     case_i2_rejects_a_flattered_status,
+    case_load_register_rejects_non_dict_elements,
+    case_check_status_fails_closed_on_a_missing_register,
+    case_check_status_fails_closed_on_a_malformed_register,
+    case_check_status_passes_on_the_shipped_register,
+    case_check_status_labels_its_messages_by_invariant,
 ]
 
 
