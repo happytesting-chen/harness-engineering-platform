@@ -12,6 +12,7 @@ import json
 import re
 import sys
 from pathlib import Path
+from typing import NamedTuple
 
 PROJECT_ROOT = Path(__file__).parent.parent
 COVERAGE_PATH = Path(__file__).parent / "coverage.json"
@@ -21,6 +22,7 @@ KIRO_MIRROR_PATH = PROJECT_ROOT / "kiro" / "steering" / "active-controls.md"
 CONTEXT_DIR = PROJECT_ROOT / "Context"
 
 PLACEHOLDER_RE = re.compile(r"\{\{.*?\}\}|TODO|TBD|NEEDS-CONFIRMATION")
+STATUS_RE = re.compile(r"\*\*(MECHANICAL|OBSERVE|LIBRARY|GAP)\b")
 
 
 def context_hash(context_dir: Path) -> str:
@@ -34,8 +36,25 @@ def context_hash(context_dir: Path) -> str:
     return hashlib.sha256("\n".join(parts).encode()).hexdigest()
 
 
-def parse_matrix(md_text: str) -> dict:
-    """Map Control ID (col 1, backtick-stripped) -> verification cell text (col 4)."""
+class MatrixRow(NamedTuple):
+    """One control-matrix row, by column. The status token lives in `objective`
+    (cell 2) and the paths and function names in `location` (cell 3)."""
+    id: str
+    objective: str
+    location: str
+    verification: str
+    evidence: str
+    status_token: str  # or None when the row states no strength — an I4 error
+
+
+def parse_matrix_rows(md_text: str) -> dict:
+    """Map Control ID (col 1, backtick-stripped) -> MatrixRow.
+
+    The status regex is `**WORD\\b`, not `**WORD**`: two rows write
+    `**GAP, and …**`, and matching on the closing `**` reports them as
+    unlabelled. Measured 2026-08-15 — the loose form finds 5 unlabelled rows
+    where the tree has 3.
+    """
     rows = {}
     for line in md_text.splitlines():
         if not line.strip().startswith("|"):
@@ -46,8 +65,19 @@ def parse_matrix(md_text: str) -> dict:
         cid = cells[0].strip("`").strip()
         if cid in ("Control ID", "") or set(cells[0]) <= {"-", " "}:
             continue
-        rows[cid] = cells[3]
+        m = STATUS_RE.search(cells[1])
+        rows[cid] = MatrixRow(cid, cells[1], cells[2], cells[3], cells[4],
+                              m.group(1) if m else None)
     return rows
+
+
+def parse_matrix(md_text: str) -> dict:
+    """Map Control ID (col 1, backtick-stripped) -> verification cell text (col 4).
+
+    Kept as the narrow view the coverage rules use; `parse_matrix_rows` is the
+    same parse with every column. One parser, two projections.
+    """
+    return {k: r.verification for k, r in parse_matrix_rows(md_text).items()}
 
 
 def _fail(msgs, text):
