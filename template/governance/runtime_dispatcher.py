@@ -7,7 +7,18 @@ each tool executes. An optional result-screen callback can screen untrusted tool
 output before it is returned to the agent.
 """
 
+from pathlib import Path
+import sys
+
 from governance.permission import make_permission_check, normalize_tool_name
+
+# *** newly changed ***
+# Reuse the existing observability recorder for deployed runtime tool decisions.
+_OBSERVABILITY_DIR = Path(__file__).parent.parent / "Harness-Best-Practice" / "observability"
+if str(_OBSERVABILITY_DIR) not in sys.path:
+    sys.path.insert(0, str(_OBSERVABILITY_DIR))
+from audit import record
+# *** newly changed ***
 
 
 class _PermissionBlock:
@@ -30,7 +41,11 @@ class RuntimeDispatcher:
         args = dict(tool_input or {})
 
         if tool_name not in self._tools:
-            raise PermissionError(f"runtime tool not registered: {tool_name}")
+            # *** newly changed ***
+            reason = f"runtime tool not registered: {tool_name}"
+            record("tool_call", tool_name, args, "DENIED", reason)
+            # *** newly changed ***
+            raise PermissionError(reason)
 
         block = _PermissionBlock(normalize_tool_name(tool_name), args)
 
@@ -38,13 +53,22 @@ class RuntimeDispatcher:
             allowed, reason = self._permission_check(block)
         except Exception as exc:
             # Runtime permission failures must fail closed.
-            raise PermissionError(
-                f"runtime permission check failed closed: {exc}"
-            ) from exc
+            # *** newly changed ***
+            reason = f"runtime permission check failed closed: {exc}"
+            record("tool_call", tool_name, args, "DENIED", reason)
+            # *** newly changed ***
+            raise PermissionError(reason) from exc
 
         if not allowed:
-            raise PermissionError(reason or f"runtime tool denied: {tool_name}")
+            # *** newly changed ***
+            reason = reason or f"runtime tool denied: {tool_name}"
+            record("tool_call", tool_name, args, "DENIED", reason)
+            # *** newly changed ***
+            raise PermissionError(reason)
 
+        # *** newly changed ***
+        record("tool_call", tool_name, args, "ALLOWED")
+        # *** newly changed ***
         result = self._tools[tool_name](**args)
 
         if self._result_screen is not None:
