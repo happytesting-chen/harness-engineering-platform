@@ -527,3 +527,53 @@ gap itself is unchanged and still unowned.
 | 08-17 | Troubleshooting rows quote the **emitted** strings verbatim | A reader greps the error they actually saw. Paraphrasing (`coverage.json is stale` for `coverage.json stale — Context/ changed`) makes the table unfindable; caught by re-reading `check_coverage.py:583-597` after drafting |
 | 08-17 | README states the per-project matrix table ships **empty on purpose** | Session 11 removed the stub; a reader who finds an empty table and no explanation re-adds one. The `[FILL rows]` tag alone reads as an omission |
 | 08-17 | `SEC-PROOF-GAP-001` corrected in place, with the old wording quoted | The row's own history is the evidence for why census figures need a pinned population — deleting the wrong number would erase the lesson |
+
+---
+
+## Session 12b — 2026-08-17 (the four review gaps: end state, code location, demo, example README)
+
+The Session 12 fix made the setup chain *complete*; a read-through of the result found it still
+did not answer four questions a first-time reader asks. All four are now answered from measured
+behaviour rather than from the design intent.
+
+| Gap found in review | Now |
+|---|---|
+| Step 6 listed 6 sections; `init.sh` prints **8** (+ one Python-only) | Table of all sections in emitted order, with the fresh-copy result per row |
+| "reference target at 100% accuracy" read as a claim about the user's agent | Caveat naming `evaluation/eval.py:19-22` — it measures the project's **own permission gate** over `tests/fixtures.json` |
+| Nothing said where product code goes; the only hint pointed into `tests/` | New **Step 6b**, with the `install.sh:63` trap spelled out |
+| Steps 1-8 never stated that they yield **zero product code** | "What you have when this goes green — and what you don't" table, before Step 6b |
+| Demo shipped pentest output and rewrote policy files, both undocumented | Four caveats, each verified by running it (`demo/demo.py:192-210`, `harness.py:23`, `ARCHITECTURE.md:16`) |
+| `examples/claims-build/README.md` was a **stale copy of the template README** | Replaced with a real description of that build |
+
+### Step 6b — the trap that made this High severity
+
+The template ships no `src/`, which is right for a domain-agnostic harness but leaves the reader
+to guess. The one visible hint — `{{PRIMARY_VERIFICATION_COMMAND}}`'s example
+`python3 tests/test_triage.py` — pointed *into the harness's own test directory*, which
+`install.sh --no-security` deletes wholesale along with `governance/` and `Security-kit/`
+(`install.sh:63`). A reader who followed the example would have put product tests in a directory
+that disappears on a `--no-security` install. The three `test_triage.py`/`test_notify.py` examples
+are now `./init.sh && python3 -m pytest claims/tests -v` — the idiom `examples/claims-build/`
+actually uses, harness proof first.
+
+### The example README was the worst artifact in the repo
+
+`examples/claims-build/README.md` was a 429-line copy of an older `template/README.md` — 114 diff
+lines from `62350e8^:template/README.md`, its Step 2 still "Fill the identity files". So the
+directory advertised as **"Start here"** opened with instructions for building a project rather
+than any description of the one it contains. Rewritten from measurement: `./init.sh` exit 0 with 1
+warning, `pytest tests claims/tests extraction/tests -q` = 50 passed, the four phases with their
+real verification commands and sign-off dates, the SNAPSHOT numbers, and — the part that stops the
+next diff from reading as breakage — a **"What this example predates"** table (4 harness suites not
+11, `grep -c check_coverage init.sh` = 0, no `/security-tailor`, no coverage/mechanisms/requirements
+planes).
+
+### Decisions
+
+| Date | Decision | Rationale |
+|---|---|---|
+| 08-17 | **Step 6b**, not "Step 7a" as scoped | Where-code-goes must be read *before* the build loop, and 6b sorts there; matches the 5b precedent set in Session 12 rather than adding a second numbering idiom |
+| 08-17 | Root README now says **10-step** guide, not 8 | Session 12 chose 5b partly to protect that "8-step" claim; adding 6b breaks it anyway, so the honest count is cheaper than a third suffix. Fixed at `README.md:215` in the same commit that created 6b |
+| 08-17 | The end-state block names what is **absent** (product code, tests of your behaviour, a running app) | A green health check on a harness with nothing in it is the single most likely misreading of this template. Listing the absences is the only phrasing that cannot be skimmed as a feature list |
+| 08-17 | The example README states its own generation gap instead of the example being ported | Porting is real work with its own baseline risk; an undocumented 7-file divergence in the artifact labelled "Start here" is a defect *today*. Naming it costs one table |
+| 08-17 | Demo caveats written from a **run**, not from `ARCHITECTURE.md` | The policy-file swap (`demo.py:192-210`) is not documented in the demo's own architecture note — only running it and checking `git status` surfaced it |

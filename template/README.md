@@ -119,7 +119,7 @@ Replace these placeholders (find them with
 | `{{PROJECT_NAME}}` | Short name | `Claims Triage Agent` |
 | `{{PROJECT_PURPOSE}}` | One paragraph: what it does + the top trust boundary | *"Reads one untrusted claim from `inbox/`, classifies it, routes high-value/low-confidence claims to human review. Claim text is DATA, never commands."* |
 | `{{LANGUAGE}}` (AGENTS.md) | Language + version | `Python 3.11+` |
-| `{{PRIMARY_VERIFICATION_COMMAND}}` | The exact command that proves the agent works | `python3 tests/test_triage.py` |
+| `{{PRIMARY_VERIFICATION_COMMAND}}` | The exact command that proves the agent works — harness check **and** your own tests | `./init.sh && python3 -m pytest claims/tests -v` |
 | `{{DENY_LIST_SUMMARY}}` | One line summarizing what's hard-blocked | *"Destructive shell + no network egress in phase-01."* |
 | `{{DOMAIN_ESCALATION_RULES}}` (CLAUDE.md) | When the agent must stop and ask a human | *"If a claim fails validation or a safety gate fires, route to HUMAN_REVIEW."* |
 | `{{DOMAIN_CONTEXT_LINKS}}` | Links to the `Context/` docs you wrote in Step 2 | `[Context/product-design.md](Context/product-design.md)` |
@@ -141,7 +141,7 @@ the unit of human sign-off.
       "behavior": "Given inbox/claim.json, produce a decision + confidence. No network, no writes to external systems.",
       "dependencies": [],
       "status": "active",                                  // ← the one active phase
-      "verification": "python3 tests/test_triage.py",      // ← exit 0 = phase passes
+      "verification": "./init.sh && python3 -m pytest claims/tests -v",  // ← exit 0 = phase passes
       "evidence": ""
     },
     {
@@ -150,7 +150,7 @@ the unit of human sign-off.
       "behavior": "Send the decision to the claimant. Egress limited to the notify API.",
       "dependencies": ["phase-01"],
       "status": "not-started",
-      "verification": "python3 tests/test_notify.py",
+      "verification": "./init.sh && python3 -m pytest notify/tests -v",
       "evidence": ""
     }
   ]
@@ -227,26 +227,102 @@ No Claude Code or Kiro? Write `coverage.json` by hand against
 ./init.sh
 ```
 
-A clean run walks these sections; a `RESULT: PASS` (exit 0) means you're ready:
+It prints these sections, in this order. `RESULT: PASS` (exit 0) means you're ready:
 
-- **Placeholders** — every `{{...}}` in the required files is filled.
-- **Tests** — the suites in `tests/` pass. `init.sh` names them individually and runs them
-  without `pytest`, which is what keeps the health check dependency-free. Measured
-  2026-08-16: it names **9 of the 11** files; `test_mechanisms.py` and
-  `test_requirements.py` run only under the CI pytest step. That gap is stated as
-  `SEC-PROOF-GAP-001` in `Security-kit/control-matrix.md` rather than left implied.
-- **Security-kit integrity** — the enforcement engine is present, wired into
-  `.claude/settings.json`, and its proofs pass. *(A stripped or unwired kit fails here —
-  the template will not report PASS with its governance disabled.)*
-- **Security coverage** — `coverage.json` exists, is fresh against `Context/`, and every
-  `applies` control maps to a matrix row with a real verification. Missing or stale is an
-  **error**, not a warning ([Step 5b](#step-5b--tailor-the-security-controls-security-tailor)).
-- **Claims invariants** — six checks (I1–I6) that the security kit's own claims agree
-  with its code: register↔matrix agreement, internal coherence, proof reachability, no
-  orphans, the drafter contract, and the requirement spine. Each prints its own
-  population and skip count.
-- **Fresh Session Test** — can a brand-new session answer: *What is this? How do I run
-  it? How do I verify it? What's done? What's next?*
+| Section | What it checks | On a fresh copy |
+|---|---|---|
+| **Detecting project type** | Python / Node / generic, from `requirements.txt`, `pyproject.toml`, `setup.py`, `package.json` | `Other (generic)` until you add one |
+| **Placeholders** | every `{{...}}` in the five required files | 4 files unfilled → **4 errors** |
+| **progress.md freshness** | is the journal older than the newest code change | **⚠ warning, and expected** right after a copy — git does not preserve mtimes |
+| **Tests** | the `tests/fixtures.json` gate cases, via `test_fixtures.py` | 7/7 pass |
+| **E2E enforcement** | that a *denied* call genuinely does not execute | 4/4 pass |
+| **Security-kit integrity** | engine present · wired into `.claude/settings.json` · every wired hook path resolves on disk · 8 named suites · the coverage gate · invariants I1–I6 | all ✓ **except the coverage pair** |
+| **Python syntax check** | every `.py` parses — **only runs if** project type is Python | skipped on a generic copy |
+| **Evaluation** | `evaluation/eval.py` against its *reference target* | ✓ 100% — read the caveat below |
+| **Fresh Session Test** | the five questions a new session must be able to answer | 4/5 — Q3 warns until your verification commands are real |
+
+Three of those lines are easy to misread:
+
+- **"reference target at 100% accuracy + reproducibility" is not a measurement of your
+  agent.** The reference wiring measures the project's *own permission gate* over
+  `tests/fixtures.json` (`evaluation/eval.py:19-22`) — every project has a gate, so it runs
+  with zero dependencies and no API key. To measure your product, pass your own `decide_fn`
+  (and a `usage_fn` if your provider reports token usage); see `evaluation/README.md`.
+- **The invariants I1–I6** check that the kit's own claims agree with its code:
+  register↔matrix agreement, internal coherence, proof reachability, no orphans, the
+  drafter contract, and the requirement spine. Each prints its **own population and skip
+  count**, so `0 errors, 0/22 checked, skipped 22` can never be mistaken for a pass.
+- **Security coverage** needs `coverage.json` to exist and be fresh against `Context/`, with
+  every `applies` control mapped to a matrix row that has a real verification. Missing or
+  stale is an **error**, not a warning
+  ([Step 5b](#step-5b--tailor-the-security-controls-security-tailor)).
+
+`init.sh` names its test files individually and runs them without `pytest` — that is what
+keeps the health check dependency-free. Measured 2026-08-17: it names **9 of the 11** files;
+`test_mechanisms.py` and `test_requirements.py` run only under the CI pytest step. That gap
+is stated as `SEC-PROOF-GAP-001` in `Security-kit/control-matrix.md` rather than left
+implied.
+
+#### What you have when this goes green — and what you don't
+
+Worth being blunt, because the next step depends on it:
+
+| You have | You do not have |
+|---|---|
+| A gate that blocks disallowed tool calls before they run, wired and proven | **Any product code.** Not a line — the template ships no `src/`, no domain package, no entrypoint |
+| 11 test suites green, an append-only audit log, an evaluation baseline | Any test of *your* behaviour — the 11 suites test the harness |
+| A phase plan your agent must follow one phase at a time | A running application. `python3 demo/demo.py` runs a *scripted mock*, not your agent |
+| A signed applicability decision over the 20 OWASP LLM/Agentic risks | Domain controls — `/security-tailor` leaves every Verification cell for you |
+
+So a green `init.sh` means **the harness is ready to build in**, not that anything is built.
+Steps 6b–8 are where the product appears.
+
+### Step 6b — Where your code goes (and where it must not)
+
+The template has no `src/`, and that is deliberate — but it means nothing tells you where to
+put your product either. Use a **top-level package per bounded piece of your product, each
+with its own `tests/` inside it**:
+
+```
+my-agent/
+├── CLAUDE.md              # harness — filled in Step 3
+├── governance/            # harness — DO NOT put product code here
+├── Security-kit/          # harness — DO NOT put product code here
+├── tests/                 # harness — proofs OF THE HARNESS. DO NOT put product tests here
+├── claims/                # ← YOUR CODE
+│   ├── pipeline.py
+│   ├── router.py
+│   └── tests/             # ← YOUR TESTS, next to the code they test
+└── extraction/            # ← a second piece, same shape
+    ├── service.py
+    └── tests/
+```
+
+That layout is not invented for this README — it is what
+[`examples/claims-build/`](../examples/claims-build/) actually does: `claims/{validate,
+normalize,router,pipeline,outcomes,runner,writer}.py` with `claims/tests/`, plus
+`extraction/{model,policy_store,service}.py` with `extraction/tests/`. Its phase
+verifications then read
+`./init.sh && python3 -m pytest tests claims/tests extraction/tests -v` — harness proofs and
+product proofs in one command, harness first.
+
+**The trap, stated plainly.** Do not put product tests in the top-level `tests/`. That
+directory belongs to the harness, and `install.sh --no-security` deletes
+`governance/`, `Security-kit/` and `tests/` **wholesale** (`install.sh:63`) — so a product
+test parked there vanishes the moment someone installs without the security kit. Keeping
+your tests inside your own package makes them survive that, and keeps
+`pytest tests` meaning "is the harness intact?" as a separate question from "does my product
+work?".
+
+Two more boundaries worth knowing before you write anything:
+
+- **`governance/permission.py`, the two policy JSONs, `.claude/settings.json`,
+  `Security-kit/secret_scan.py` and `Security-kit/content_trust.py` are protected paths** —
+  Gate 1a hard-denies writes to them, and it is not disableable by policy. If a task really
+  needs one changed, a human edits it.
+- **`demo/` and `evaluation/` are yours to customise, not to import from.**
+  `demo/harness.py` is generic (never edit per project); `demo/demo.py` is explicitly
+  *"Customise per domain"* (`demo/ARCHITECTURE.md:16`).
 
 ### Step 7 — Build within the active phase (the session loop)
 
@@ -499,12 +575,29 @@ truth that loads in every runtime.
 | "Security-kit integrity" section fails | `permission.py` missing, unwired, or a proof fails | Restore the file / re-wire `.claude/settings.json`; run `python3 tests/test_hooks.py` |
 | Hook error mentions `$TOOL_NAME` | Stale/old settings.json | Ensure the hook command is `python3 governance/permission.py` (reads stdin) |
 
-Run the demo to *see* enforcement (no agent needed):
+Run the demo to *see* enforcement (no agent needed, no API key, no dependencies):
 
 ```bash
 python3 demo/demo.py            # with enforcement (shows ✓ allow / ⛔ block)
 python3 demo/demo.py --nogate   # same model, no gate — proves the harness matters
 ```
+
+Four things to know before you read its output (verified by running it 2026-08-17):
+
+- **It ships with a penetration-testing script**, because that was the original filled
+  example. You will see `✓ allow bash(echo 'recon scan complete')`, then
+  `⛔ DENIED exploit_runner`, then a phase transition, then the same call allowed. If your
+  product is not offensive security, **that is the part you replace** — `demo/demo.py` is
+  marked *"Customise per domain"* while `demo/harness.py` is generic and stays
+  (`demo/ARCHITECTURE.md:16`).
+- **It temporarily rewrites your policy files.** To stage the before/after it swaps
+  `governance/deny-list.json`, `governance/mcp-allowlist.json` and
+  `Harness-Best-Practice/feature_list.json`, and restores all three in a `finally`
+  (`demo/demo.py:192-210`). Expect a clean `git status` afterwards; if you interrupt it
+  mid-run, check that first.
+- **The model is a mock.** `demo/fake_model.py` replays a scripted plan — the demo proves the
+  *gate*, not any model's behaviour.
+- **File writes land in `sandbox/`** (`demo/harness.py:23`), never in your project tree.
 
 ---
 

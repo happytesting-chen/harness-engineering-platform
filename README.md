@@ -212,9 +212,11 @@ work, and mistaking one for the other is the usual way people get stuck:
 
 So: fill the placeholders → run `/security-tailor` → re-run `./init.sh` until it exits 0.
 
-**→ Full walkthrough: [`template/README.md`](template/README.md)** — an 8-step guide from
-empty copy to a first signed-off phase, plus a per-file directory map, tool-compatibility
-notes and troubleshooting. That document is the manual; this page is the front door.
+**→ Full walkthrough: [`template/README.md`](template/README.md)** — a 10-step guide from
+empty copy to a first signed-off phase, including where your own code goes (the template
+ships no `src/`, on purpose) and what a green `init.sh` does *not* mean. Plus a per-file
+directory map, tool-compatibility notes and troubleshooting. That document is the manual;
+this page is the front door.
 
 ---
 
@@ -222,7 +224,7 @@ notes and troubleshooting. That document is the manual; this page is the front d
 
 | Example | Maturity | What it shows |
 |---|---|---|
-| [`examples/claims-build/`](examples/claims-build/) | **Most complete.** Phases 01–03 signed off, 04 active. | An insurance-claims triage agent built end to end on the current layout: deterministic decision engine, three proofs (`tests/` correct · `demo/` matters · `evaluation/` good), and real signed evidence per phase. **Start here.** |
+| [`examples/claims-build/`](examples/claims-build/) | **Most complete.** Phases 01–03 signed off, 04 active. `./init.sh` exits 0; 50 tests pass. | An insurance-claims triage agent built end to end *inside* the harness: deterministic decision engine with one decision authority, product code in `claims/` + `extraction/` with their own tests, three proofs (`tests/` correct · `demo/` matters · `evaluation/` good), signed evidence per phase. Built on an **earlier template generation** — no coverage gate, 4 harness suites not 11 — and [its README says exactly which parts](examples/claims-build/README.md#what-this-example-predates). **Start here.** |
 | [`examples/claims-agent/`](examples/claims-agent/evaluation/TEMPLATE-EVALUATION-REPORT.md) | Evaluation write-up only. | A live A/B build used to *test the template itself* — whether Claude could follow it, and whether the security kit actually changed the built agent. Useful as a critique of the harness. |
 | [`examples/red-team-harness/`](examples/red-team-harness/) | Legacy — **pre-refactor layout**. | The original filled example (authorized penetration testing). Structurally dated (flat `governance/`, `observability/`, `tools/`), still useful for seeing policy tailored to a high-risk domain. |
 
