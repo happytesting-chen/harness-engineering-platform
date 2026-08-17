@@ -16,7 +16,30 @@
       "description": "{{GATED_TOOL_DESC}} — locked until phase-01 verification passes",
       "version": "{{VERSION}}",
       "gated_until": "phase-01"
+    },
+    {
+      "name": "fetch_news",
+      "description": "Fetch content from an approved external news source",
+      "version": "1.0"
+    },
+    {
+      "name": "get_trending_repos",
+      "description": "Retrieve trending AI/security repository metadata from GitHub",
+      "version": "1.0"
+    },
+    {
+      "name": "save_digest",
+      "description": "Save the generated news digest locally",
+      "version": "1.0"
     }
   ],
-  "egress_hosts": ["localhost", "127.0.0.1"]
+  "egress_hosts": [
+    "localhost",
+    "127.0.0.1",
+    "thehackernews.com",
+    "github.com",
+    "api.github.com",
+    "techcrunch.com"
+  ],
+  "_runtime_news_note": "** newly added ** AI News runtime tools and approved egress destinations. ** newly added **"
 }
