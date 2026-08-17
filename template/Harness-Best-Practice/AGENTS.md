@@ -53,12 +53,15 @@ python3 evaluation/eval.py      # Quantify accuracy/reproducibility/latency/cost
 
 {{DENY_LIST_SUMMARY}}
 
+*** newly added ***
 - Build-time enforcement is mechanical — Claude/Kiro hooks route gated development tool calls through `governance/permission.py`
+*** newly added ***
 - Four gates in order: protected-paths → deny-list → phase-gate → egress (fail-closed, first denial wins)
 - The agent CANNOT bypass, modify, or disable the permission gate
 - Phase transitions require human sign-off (agent cannot self-promote phases)
 - Patterns in `governance/deny-list.json` are blocked unconditionally
 
+*** newly added ***
 ## Runtime Tool Permission
 
 - This requirement is for the **deployed AI application's runtime**, not the Claude/Kiro build-time hook path.
@@ -80,6 +83,7 @@ ALLOW / DENY
         ↓
 Actual Tool
 ```
+*** newly added ***
 
 ## Current State
 
