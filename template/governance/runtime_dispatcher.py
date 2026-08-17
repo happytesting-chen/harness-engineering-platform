@@ -3,7 +3,8 @@
 
 The deployed agent/orchestrator should call this dispatcher instead of calling
 raw tool functions directly. The existing permission engine is evaluated before
-each tool executes.
+each tool executes. An optional result-screen callback can screen untrusted tool
+output before it is returned to the agent.
 """
 
 from governance.permission import make_permission_check, normalize_tool_name
@@ -18,11 +19,12 @@ class _PermissionBlock:
 
 
 class RuntimeDispatcher:
-    """Single runtime path: permission check first, tool execution second."""
+    """Single runtime path: permission check, tool execution, optional result screen."""
 
-    def __init__(self, tools):
+    def __init__(self, tools, result_screen=None):
         self._tools = dict(tools)
         self._permission_check = make_permission_check()
+        self._result_screen = result_screen
 
     def execute(self, tool_name, tool_input=None):
         args = dict(tool_input or {})
@@ -43,6 +45,11 @@ class RuntimeDispatcher:
         if not allowed:
             raise PermissionError(reason or f"runtime tool denied: {tool_name}")
 
-        return self._tools[tool_name](**args)
+        result = self._tools[tool_name](**args)
+
+        if self._result_screen is not None:
+            result = self._result_screen(result)
+
+        return result
 
 # ** newly added **
