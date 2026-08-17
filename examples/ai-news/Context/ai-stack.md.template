@@ -1,0 +1,11 @@
+# AI Stack — <PROJECT_NAME>
+
+> Rename to `ai-stack.md` and fill. Records the AI-development choices for this agent
+> and *why*. Link it from CLAUDE.md's Domain Context.
+
+## Agent framework
+
+- **Choice:** <e.g. LangChain / LangGraph / Strands / LlamaIndex / custom loop>
+- **Why:** <what this project needs that drove the choice — tool orchestration,
+  multi-agent, streaming, graph control flow, minimal deps, …>
+- **Version pin:** <exact

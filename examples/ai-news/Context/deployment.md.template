@@ -1,0 +1,32 @@
+# Deployment Target — <PROJECT_NAME>
+
+> Rename to `deployment.md` and fill. Records where and how this agent runs. Deployment
+> choices drive egress policy, secret handling, and several security controls — keep this
+> consistent with `tools/mcp-allowlist.json` and `security/`.
+
+## Target
+
+- **Environment:** <on-prem / private cloud / public cloud (AWS/GCP/Azure) / local-only>
+- **Why:** <data residency, latency, compliance, cost, existing infra…>
+- **Runtime:** <container / serverless / VM / local process; OS/arch if it matters>
+
+## Data residency & boundaries
+
+- **Where does data live:** <region / on-prem store>
+- **What may leave the environment:** <maps to `egress_hosts` in tools/mcp-allowlist.json>
+- **Sensitive data classes handled:** <PII / secrets / regulated data — see security/SECURITY.md §3>
+
+## Secrets & identity
+
+- **Secret source:** <env vars / secret manager — never hardcoded (secret-block hook enforces)>
+- **Agent identity / auth:** <how the agent authenticates to tools/services; short-lived creds?>
+
+## Egress
+
+- **Allowed outbound hosts:** <list — must match `tools/mcp-allowlist.json` egress_hosts>
+- **Default:** deny (the permission gate blocks unlisted hosts)
+
+## Operational
+
+- **Observability sink:** <where observability/audit.log ships in production>
+- **Rollback / kill switch:** <how to stop the agent safely>

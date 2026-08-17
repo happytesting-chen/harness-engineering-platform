@@ -1,0 +1,22 @@
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+.pytest_cache/
+.venv/
+venv/
+
+# OS
+.DS_Store
+
+# Runtime artifacts (regenerated; not source of truth)
+Harness-Best-Practice/observability/audit.log
+Security-kit/eval/recorded/
+
+# Patch-workflow debris. §5.5 ships protected-path fixes as patches, so *.patch
+# stays TRACKABLE on purpose — a patch is an artifact somebody has to review.
+# A .rej/.orig is the opposite: proof that a hunk did NOT apply, of no value once
+# the outcome is known, and `git add -A` would commit it into the template that
+# every project is copied from.
+*.rej
+*.orig

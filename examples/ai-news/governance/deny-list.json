@@ -1,0 +1,44 @@
+{
+  "_comment": "Hard-deny policy. Two independent keys: `patterns` matches shell COMMAND strings; `protected_paths` matches the TARGET of a file write (Write/Edit/MultiEdit/NotebookEdit). `protected_paths` is Gate 1a, `patterns` is Gate 1b. Add domain-specific entries below.",
+  "_guidance": "These are catastrophic-only defaults. Review and extend for your domain.",
+  "patterns": [
+    {
+      "_note": "Roots, not paths under them. Replaces the bare literal 'rm -rf /', which substring mode made wrong BOTH ways: it denied every `rm -rf /<path>` (scratch cleanup) and allowed the roots not spelled with a leading slash (~, $HOME, ., *, ../..). See build design 6.2 item 14. Residual: a scoped absolute path such as /etc is NOT matched, because enumerating system roots re-creates the over-block.",
+      "pattern": "\\brm\\s+(-\\S+\\s+)*(/\\*|\\$HOME/|\\.\\./\\.\\.|~/|/|\\*|~|\\$HOME|\\.\\.|\\.)(\\s|$)",
+      "mode": "regex"
+    },
+    "mkfs",
+    "> /dev/",
+    ":(){ :|:& };:",
+    "shutdown",
+    "reboot",
+    {
+      "_note": "S2.4 shell vector: a file_path check cannot see a shell redirect or in-place edit, so block the obvious command forms that target the harness's own mechanism/policy. Pattern-based and therefore incomplete by nature - see SECURITY.md S2.4 for the residual gap.",
+      "pattern": ">>?\\s*[^|;&]*(governance/(permission\\.py|deny-list\\.json|mcp-allowlist\\.json)|\\.claude/settings\\.json)",
+      "mode": "regex"
+    },
+    {
+      "pattern": "\\b(sed|perl|awk)\\s+[^|;&]*-i[^|;&]*(governance/|\\.claude/settings\\.json|Security-kit/)",
+      "mode": "regex"
+    },
+    {
+      "pattern": "\\b(tee|truncate)\\s+[^|;&]*(governance/|\\.claude/settings\\.json|Security-kit/)|\\bdd\\s+of=[^|;&]*(governance/|\\.claude/settings\\.json|Security-kit/)",
+      "mode": "regex"
+    },
+    {
+      "pattern": "\\b(chmod|chown|rm|mv)\\s+[^|;&]*(governance/|\\.claude/settings\\.json|Security-kit/(secret_scan|content_trust)\\.py)",
+      "mode": "regex"
+    }
+  ],
+  "_protected_paths_note": "Write targets the agent may never modify - the mechanism and policy that constrain it (S2.4). Paths are project-root-relative and compared by file IDENTITY, so '../', './', absolute forms, symlinks and (on macOS/Windows) case variants all resolve to the same target and cannot smuggle a write past the check. ADDITIVE: permission.py enforces BUILTIN_PROTECTED_PATHS unconditionally, so deleting an entry here (or this whole key) does not unprotect it. Add project-specific files you want frozen.",
+  "protected_paths": [
+    "governance/permission.py",
+    "governance/deny-list.json",
+    "governance/mcp-allowlist.json",
+    ".claude/settings.json",
+    "Security-kit/secret_scan.py",
+    "Security-kit/content_trust.py",
+    "Harness-Best-Practice/observability/audit_hook.py",
+    "Harness-Best-Practice/observability/audit.log"
+  ]
+}

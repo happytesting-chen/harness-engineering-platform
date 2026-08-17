@@ -1,0 +1,34 @@
+{
+  "project": "{{PROJECT_NAME}}",
+  "description": "Feature list — the harness primitive. Each item has the triple: behavior + verification + state. Only one feature may be ACTIVE at a time. Transition to PASSING requires verification exit 0 + human sign-off.",
+  "_recommended_final_phase": "Make the LAST phase an evaluation-and-snapshot phase: a fresh-session run of evaluation/eval.py that records accuracy/reproducibility/latency/cost and proposes a human-reviewable SNAPSHOT.md WITHOUT starting new work. Verification: '<primary> && python3 evaluation/eval.py'.",
+  "features": [
+    {
+      "id": "phase-01",
+      "name": "{{PHASE_1_NAME}}",
+      "behavior": "{{PHASE_1_BEHAVIOR — observable outcome that defines 'done'}}",
+      "dependencies": [],
+      "status": "active",
+      "verification": "{{PHASE_1_VERIFY_COMMAND — exact shell command, exit 0 = pass}}",
+      "evidence": ""
+    },
+    {
+      "id": "phase-02",
+      "name": "{{PHASE_2_NAME}}",
+      "behavior": "{{PHASE_2_BEHAVIOR}}",
+      "dependencies": ["phase-01"],
+      "status": "not-started",
+      "verification": "{{PHASE_2_VERIFY_COMMAND}}",
+      "evidence": ""
+    },
+    {
+      "id": "phase-03",
+      "name": "{{PHASE_3_NAME}}",
+      "behavior": "{{PHASE_3_BEHAVIOR}}",
+      "dependencies": ["phase-02"],
+      "status": "not-started",
+      "verification": "{{PHASE_3_VERIFY_COMMAND}}",
+      "evidence": ""
+    }
+  ]
+}
