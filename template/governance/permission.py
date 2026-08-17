@@ -25,6 +25,10 @@ import os
 import re
 from pathlib import Path
 
+# ** newly add **
+from urllib.parse import urlparse
+# ** newly add **
+
 # Layout: <project_root>/governance/permission.py
 #   deny-list.json + mcp-allowlist.json are siblings (in governance/)
 #   feature_list.json lives in <project_root>/Harness-Best-Practice/
@@ -293,16 +297,79 @@ def check_phase_gate(tool_name: str) -> str | None:
     return f"{tool_name} not in allowlist"
 
 
-def check_egress(command: str) -> str | None:
-    """Gate 3: default-deny outbound network access."""
+# ** newly add **
+# Common structured destination fields used by HTTP/API/MCP/webhook-style tools.
+# The walk is generic so framework adapters do not need application-specific egress logic.
+EGRESS_TARGET_FIELDS = {
+    "url", "uri", "endpoint", "base_url", "target_url", "webhook_url",
+    "callback_url", "host", "hostname",
+}
+_MAX_EGRESS_SCAN_DEPTH = 8
+
+
+def _normalise_host(value: str) -> str | None:
+    """Return a lowercase hostname from a URL/URI/host value, or None if invalid."""
+    if not isinstance(value, str) or not value.strip():
+        return None
+    raw = value.strip()
+    parsed = urlparse(raw if "://" in raw else f"//{raw}")
+    host = parsed.hostname
+    return host.lower().rstrip(".") if host else None
+
+
+def _host_allowed(host: str, allowed_hosts) -> bool:
+    """Allow an exact host or its subdomain; never substring-match hostnames."""
+    for configured in allowed_hosts:
+        allowed = _normalise_host(configured)
+        if allowed and (host == allowed or host.endswith(f".{allowed}")):
+            return True
+    return False
+
+
+def _iter_egress_targets(node, depth=0):
+    """Yield structured network destinations from nested tool input."""
+    if depth > _MAX_EGRESS_SCAN_DEPTH:
+        return
+    if isinstance(node, dict):
+        for key, value in node.items():
+            if str(key).lower() in EGRESS_TARGET_FIELDS and isinstance(value, str):
+                yield value
+            elif isinstance(value, (dict, list, tuple)):
+                yield from _iter_egress_targets(value, depth + 1)
+    elif isinstance(node, (list, tuple)):
+        for value in node:
+            yield from _iter_egress_targets(value, depth + 1)
+# ** newly add **
+
+
+# ** newly add **
+def check_egress(command: str, tool_input: dict | None = None) -> str | None:
+    """Gate 3: default-deny outbound network access.
+
+    Preserves the existing shell-command check and additionally validates common
+    structured URL/URI/endpoint/host fields for any runtime tool.
+    """
+    allowlist = _load_json(ALLOWLIST_PATH)
+    allowed_hosts = allowlist.get("egress_hosts", [])
+
+    # Generic runtime tools commonly carry destinations as structured arguments
+    # rather than shell command text. Validate those before any network tool runs.
+    for target in _iter_egress_targets(tool_input or {}):
+        host = _normalise_host(target)
+        if not host:
+            return "default-deny egress: invalid or missing target host"
+        if not _host_allowed(host, allowed_hosts):
+            return f"default-deny egress: target host '{host}' not on allowlist"
+
+    # Keep the original shell-command behavior intact for build-time Bash and
+    # runtime shell tools; this avoids changing existing policy semantics.
     network_tokens = ["curl ", "wget ", "nc ", "ssh ", "nmap "]
     if not any(tok in command for tok in network_tokens):
         return None
-    allowlist = _load_json(ALLOWLIST_PATH)
-    allowed_hosts = allowlist.get("egress_hosts", [])
     if any(host in command for host in allowed_hosts):
         return None
     return "default-deny egress: target host not on allowlist"
+# ** newly add **
 
 
 def make_permission_check(auto_deny_on_ask=True):
@@ -334,10 +401,11 @@ def make_permission_check(auto_deny_on_ask=True):
             return False, reason
 
         # Gate 3: egress
-        if tool == "bash":
-            reason = check_egress(cmd)
-            if reason:
-                return False, reason
+        # ** newly add **
+        reason = check_egress(cmd, tool_input)
+        if reason:
+            return False, reason
+        # ** newly add **
 
         return True, ""
     return permission_check
