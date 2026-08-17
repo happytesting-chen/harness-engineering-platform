@@ -10,7 +10,8 @@
       "can_deny": true,
       "proof": "python3 tests/test_protected_paths.py",
       "status": "MECHANICAL",
-      "portable_to_runtime": true
+      "portable_to_runtime": true,
+      "limits": "covers the five tools in the PreToolUse matcher only (SEC-COVER-GAP-001). Strong on structured write targets (file identity, not spelling); the shell is a separate pattern-matching mechanism with measured partial coverage - 68 of 140 verb/path cells open, in exactly two shapes, pinned by test_the_open_set_has_exactly_two_shapes. The 10 built-in paths include both pre-model screens as of 2026-08-17; before that an Edit to Security-kit/result_screen.py was ALLOW, and blanking it fails OPEN (exit 0, empty stdout = no replacement), so each screen is independently sufficient to disable a control"
     },
     {
       "id": "SEC-CMD-001",
@@ -28,9 +29,10 @@
       "decides": "governance/permission.py::check_phase_gate",
       "attaches_at": ".claude/settings.json PreToolUse pre:governance-check",
       "can_deny": true,
-      "proof": "python3 tests/test_fixtures.py",
+      "proof": "python3 tests/test_steady_state.py",
       "status": "MECHANICAL",
-      "portable_to_runtime": true
+      "portable_to_runtime": true,
+      "limits": "the unlock is `signed_off_phases` in the protected mcp-allowlist.json, so it asserts a HUMAN signed a phase off, never that the phase's verification actually passed - nothing re-runs the verification command here. Until 2026-08-17 the unlock was read from the agent-writable feature_list.json and three one-file edits reached ALLOW; test_steady_state.py drives all three. feature_list.json still decides WHICH phase is active, so the worklog can still steer the ambiguity branch into fail-closed denial (availability, not escalation). Covers the five tools in the PreToolUse matcher only (SEC-COVER-GAP-001)"
     },
     {
       "id": "SEC-POLICY-001",
@@ -62,6 +64,28 @@
       "status": "MECHANICAL",
       "portable_to_runtime": true,
       "limits": "regex/AST patterns over named fields; catches the shipped pattern set, not all credentials"
+    },
+    {
+      "id": "SEC-PROMPT-001",
+      "category": "GATE",
+      "decides": "Security-kit/prompt_screen.py::main",
+      "attaches_at": ".claude/settings.json UserPromptSubmit prompt:injection-screen",
+      "can_deny": true,
+      "proof": "python3 tests/test_prompt_screen.py",
+      "status": "MECHANICAL",
+      "portable_to_runtime": true,
+      "limits": "the same regex marker list as content_trust.py; a paraphrase defeats it. Enforcement is exact, coverage is best-effort — see SEC-PROMPT-GAP-001"
+    },
+    {
+      "id": "SEC-RESULT-001",
+      "category": "GATE",
+      "decides": "Security-kit/result_screen.py::main",
+      "attaches_at": ".claude/settings.json PostToolUse post:result-screen",
+      "can_deny": true,
+      "proof": "python3 tests/test_result_screen.py",
+      "status": "MECHANICAL",
+      "portable_to_runtime": true,
+      "limits": "withholds the tool OUTPUT, never the tool call — the side effect at ③ has already happened when this runs. Coverage is the same marker list as SEC-PROMPT-001, so a paraphrase defeats it (SEC-PROMPT-GAP-001). The substitution must preserve the tool's output shape or the runtime discards it and sends the ORIGINAL poisoned output with only a log line; tests/test_result_screen.py pins that"
     },
     {
       "id": "SEC-HOOK-001",

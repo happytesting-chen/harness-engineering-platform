@@ -1,0 +1,277 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>One attack, start to finish — harness demo</title>
+<link rel="stylesheet" href="story.css">
+</head>
+<body>
+
+<header class="masthead">
+  <p class="eyebrow">Harness demo · one attack, start to finish</p>
+  <h1>The model got fooled.<br>The credentials stayed put.</h1>
+  <p class="standfirst">
+    A document the agent reads tells it to send your AWS keys to an attacker.
+    The agent agrees. The keys do not move. Every panel below is the real
+    mechanism answering — nothing on this page is a mock-up of a verdict.
+  </p>
+  <div class="controls">
+    <button id="run" class="btn btn-primary">Run the attack</button>
+    <button id="run-stripped" class="btn">Run it with the harness removed</button>
+    <button id="reset" class="btn btn-quiet">Reset</button>
+  </div>
+  <p class="never-runs">The command is never executed, in either mode.</p>
+</header>
+
+<main>
+
+<ol class="beats" id="beats">
+
+  <li class="beat" id="beat-1" data-state="idle">
+    <div class="beat-mark"><span class="pos">1</span></div>
+    <div class="beat-body">
+      <h2>A poisoned document comes back from a tool</h2>
+      <p class="beat-what">
+        The agent fetches a supplier page to summarise an invoice. Someone else
+        wrote what came back.
+      </p>
+      <pre class="quote" id="poison"></pre>
+      <div class="beat-status">
+        <span class="chip chip-open">Nothing stopped this</span>
+        <p>
+          There is no hook that could. <code>PostToolUse</code> fires after the
+          side effect, and no event exists for <em>a tool result is about to
+          enter the context window</em> — <code>SEC-RESULT-GAP-001</code>.
+        </p>
+      </div>
+      <div class="aside" id="screen-aside" hidden>
+        <p class="aside-head">The template can <em>see</em> it, though</p>
+        <p><code>Security-kit/content_trust.py</code> flags the sentence. Real
+          output from the real function:</p>
+        <pre class="mono" id="screen-out"></pre>
+        <p class="aside-note" id="screen-note"></p>
+      </div>
+    </div>
+  </li>
+
+  <li class="beat" id="beat-2" data-state="idle">
+    <div class="beat-mark"><span class="pos">2</span></div>
+    <div class="beat-body">
+      <h2>The model believes it</h2>
+      <p class="beat-what">It cannot tell the supplier's words from yours. Both
+        arrived as text.</p>
+      <pre class="quote quote-model" id="model-plan"></pre>
+      <div class="beat-status">
+        <span class="chip chip-open">Not defended — on purpose</span>
+        <p>
+          This beat is scripted, not measured, and that is the honest position:
+          nothing here claims to stop a model from being persuaded. Everything
+          below assumes it already was.
+        </p>
+      </div>
+    </div>
+  </li>
+
+  <li class="beat" id="beat-3" data-state="idle">
+    <div class="beat-mark"><span class="pos">3</span></div>
+    <div class="beat-body">
+      <h2>The agent asks to run a command</h2>
+      <p class="beat-what">Obeying the document means one shell call. It has to
+        ask first.</p>
+      <pre class="mono envelope" id="envelope"></pre>
+      <div class="beat-status">
+        <span class="chip chip-watch">The one place a mechanism gets a vote</span>
+        <p>
+          <code>PreToolUse</code> — the request exists, the process does not.
+          Claude Code pipes this JSON to <code>governance/permission.py</code>
+          and waits for an exit code.
+        </p>
+      </div>
+    </div>
+  </li>
+
+  <li class="beat" id="beat-4" data-state="idle">
+    <div class="beat-mark"><span class="pos">4</span></div>
+    <div class="beat-body">
+      <h2>The gate refuses</h2>
+      <p class="beat-what">Four checks, fixed order, first denial wins.</p>
+      <ul class="checks" id="checks">
+        <li data-gate="1a"><span class="g">1a</span> Protected paths</li>
+        <li data-gate="1b"><span class="g">1b</span> Deny-listed commands</li>
+        <li data-gate="2"><span class="g">2</span> Phase and tool allowlist</li>
+        <li data-gate="3"><span class="g">3</span> Egress</li>
+      </ul>
+      <div class="verdict" id="verdict">
+        <div class="verdict-code"><span id="exit-code">—</span><em>exit code</em></div>
+        <div class="verdict-text">
+          <p class="verdict-reason" id="reason">Press <b>Run the attack</b>.</p>
+          <p class="verdict-meta" id="verdict-meta"></p>
+        </div>
+      </div>
+      <div class="aside" id="audit-aside" hidden>
+        <p class="aside-head">And it wrote this down</p>
+        <pre class="mono" id="audit-out"></pre>
+      </div>
+    </div>
+  </li>
+
+</ol>
+
+<section class="outcome" id="outcome" data-state="idle">
+  <p class="outcome-line" id="outcome-line">Nothing has run yet.</p>
+  <p class="outcome-sub" id="outcome-sub"></p>
+</section>
+
+<section class="arch">
+  <p class="eyebrow">What happened behind it</p>
+  <h2 class="arch-title">One loop. Five boundaries. A mechanism on one of them.</h2>
+  <p class="arch-lede">
+    An agent turn crosses the same five boundaries every time. The red path is the
+    attack you just ran: in at <b>4</b>, through the model, out at <b>2</b> — where
+    it stops.
+  </p>
+
+  <div class="diagram-wrap">
+  <svg id="diagram" class="diagram" viewBox="0 0 980 500" role="img"
+       aria-labelledby="diagram-title diagram-desc">
+    <title id="diagram-title">The agent loop with the permission gate at position 2</title>
+    <desc id="diagram-desc">
+      A user prompt enters the model at position 1. The model proposes a tool call at
+      position 2, where the permission gate evaluates four checks and can return exit 2
+      to block it. Allowed calls execute at position 3 and their results re-enter the
+      model's context at position 4, where no blocking hook exists. Position 5 is the
+      space between turns, where no state is kept. The attack path enters at position 4
+      and is stopped at position 2.
+    </desc>
+
+    <!-- the model -->
+    <g class="node node-model">
+      <rect x="300" y="34" width="380" height="82" rx="2"/>
+      <text class="n-title" x="490" y="66">THE MODEL</text>
+      <text class="n-sub" x="490" y="90">persuadable — assume it can be turned</text>
+    </g>
+
+    <!-- structural loop -->
+    <g class="wires">
+      <path d="M124 226 L124 75 L300 75" marker-end="url(#arrow)"/>
+      <path d="M340 116 L340 226" marker-end="url(#arrow)"/>
+      <path d="M468 274 L512 274" marker-end="url(#arrow)" class="wire-exec"/>
+      <path d="M712 274 L756 274" marker-end="url(#arrow)"/>
+      <path d="M856 226 L856 75 L680 75" marker-end="url(#arrow)"/>
+    </g>
+
+    <!-- positions -->
+    <g class="node" data-pos="1">
+      <rect x="24" y="226" width="200" height="96" rx="2"/>
+      <circle class="pip" cx="48" cy="250" r="12"/>
+      <text class="pip-n" x="48" y="255">1</text>
+      <text class="n-title n-left" x="72" y="255">Prompt in</text>
+      <text class="n-body" x="44" y="284">What the user typed —</text>
+      <text class="n-body" x="44" y="302">and anything pasted with it</text>
+      <text class="n-chip n-chip-open" x="44" y="342">no screen wired</text>
+    </g>
+
+    <g class="node node-gate" data-pos="2">
+      <rect x="268" y="226" width="200" height="96" rx="2"/>
+      <circle class="pip" cx="292" cy="250" r="12"/>
+      <text class="pip-n" x="292" y="255">2</text>
+      <text class="n-title n-left" x="316" y="255">Tool call proposed</text>
+      <text class="n-body" x="288" y="284">permission.py runs here,</text>
+      <text class="n-body" x="288" y="302">before the process starts</text>
+      <text class="n-chip n-chip-gate" x="288" y="342">THE GATE · 4 checks · exit 2 blocks</text>
+      <rect class="stopbar" x="268" y="318" width="200" height="5"/>
+    </g>
+
+    <g class="node" data-pos="3">
+      <rect x="512" y="226" width="200" height="96" rx="2"/>
+      <circle class="pip" cx="536" cy="250" r="12"/>
+      <text class="pip-n" x="536" y="255">3</text>
+      <text class="n-title n-left" x="560" y="255">Tool runs</text>
+      <text class="n-body" x="532" y="284">The side effect happens.</text>
+      <text class="n-body" x="532" y="302">Nothing left to veto</text>
+      <text class="n-chip" x="532" y="342">too late to vote</text>
+    </g>
+
+    <g class="node" data-pos="4">
+      <rect x="756" y="226" width="200" height="96" rx="2"/>
+      <circle class="pip" cx="780" cy="250" r="12"/>
+      <text class="pip-n" x="780" y="255">4</text>
+      <text class="n-title n-left" x="804" y="255">Result re-enters</text>
+      <text class="n-body" x="776" y="284">Someone else's text joins</text>
+      <text class="n-body" x="776" y="302">your instructions</text>
+      <text class="n-chip n-chip-open" x="776" y="342">no hook exists</text>
+    </g>
+
+    <!-- position 5: the band under everything -->
+    <g class="node node-band" data-pos="5">
+      <rect x="24" y="404" width="932" height="62" rx="2"/>
+      <circle class="pip" cx="48" cy="428" r="12"/>
+      <text class="pip-n" x="48" y="433">5</text>
+      <text class="n-title n-left" x="72" y="433">Between turns</text>
+      <text class="n-body" x="72" y="456">The gate holds no state. Twenty individually-legal calls that add up to an exfil are still twenty legal calls.</text>
+      <text class="n-chip n-chip-open" x="800" y="433">no state kept</text>
+    </g>
+
+    <!-- the attack, drawn only after a run -->
+    <g class="attack">
+      <path class="atk-in" d="M856 226 L856 75 L680 75"/>
+      <path class="atk-out" d="M340 116 L340 226"/>
+      <text class="atk-label" x="866" y="196">poisoned text enters here</text>
+      <text class="atk-label atk-label-stop" x="288" y="372">EXIT 2 — refused here</text>
+      <g class="atk-cross">
+        <path d="M478 258 L502 290"/>
+        <path d="M502 258 L478 290"/>
+        <text class="atk-label" x="490" y="212">never runs</text>
+      </g>
+    </g>
+
+    <defs>
+      <marker id="arrow" viewBox="0 0 10 10" refX="9" refY="5"
+              markerWidth="7" markerHeight="7" orient="auto-start-reverse">
+        <path d="M0 0 L10 5 L0 10 z"/>
+      </marker>
+    </defs>
+  </svg>
+  </div>
+
+  <ul class="legend">
+    <li><span class="sw sw-gate"></span><b>2 is the only enforcement point.</b>
+      A mechanism can refuse a request. It cannot refuse a belief.</li>
+    <li><span class="sw sw-open"></span><b>1, 4 and 5 are open</b>, and each has a row
+      in <code>Security-kit/control-matrix.md</code> saying so:
+      <code>SEC-PROMPT-GAP-001</code>, <code>SEC-RESULT-GAP-001</code>,
+      <code>SEC-SEQUENCE-GAP-001</code>. Documented as gaps, not as coverage.</li>
+    <li><span class="sw sw-stop"></span><b>So the design assumes 4 succeeds.</b>
+      The defence sits between the model's intent and the world, not inside the model.</li>
+  </ul>
+</section>
+
+<footer class="colophon">
+  <p class="eyebrow">Small print, because the demo is the argument</p>
+  <ul>
+    <li><b>Beat 4 is measured.</b> The exit code and the reason string come from
+      <code>governance/permission.py</code>, byte-identical to the one in this
+      repo, running in a scratch copy of the policy tree. Your policy files are
+      never written to.</li>
+    <li><b>Beat 2 is scripted.</b> No model was called. The template's own
+      evaluations use a scripted model for the same reason: a defence you can
+      only demonstrate with a cooperative model is not a defence.</li>
+    <li><b>Beat 1's screening is a library nobody calls yet.</b>
+      <code>content_trust.py</code> works — you just watched it — but no ingestion
+      path in this template invokes it, and once wired it reports rather than
+      blocks. <code>SEC-CONTENT-001</code>.</li>
+    <li><b>Nothing is executed.</b> Not in harness mode, not with the harness
+      removed. The proposed command is JSON on another process's stdin.</li>
+  </ul>
+  <p class="more">
+    Want to argue with the gate instead of watching it?
+    <a href="/detail">Open the instrument panel →</a>
+    Sixteen calls, including four the gate lets through that it probably should not.
+  </p>
+</footer>
+
+</main>
+<script src="story.js"></script>
+</body>
+</html>

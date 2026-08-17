@@ -176,6 +176,50 @@ if [ -d "governance" ]; then
         echo "  ⚠ no content-trust primitive — untrusted-content boundary is app-only"
         WARNINGS=$((WARNINGS + 1))
     fi
+    # (d.1) prompt-gate proof (the one control that stops injection BEFORE the model).
+    # Named individually rather than left to CI because SEC-PROMPT-001 cites it as its
+    # proof, and check_coverage.py's I3 requires a cited proof to be reachable from here.
+    if [ -f "Security-kit/prompt_screen.py" ] && [ -f "tests/test_prompt_screen.py" ]; then
+        if python3 tests/test_prompt_screen.py >/dev/null 2>&1; then
+            echo "  ✓ prompt-gate tests passed (tests/test_prompt_screen.py)"
+        else
+            echo "  ✗ prompt-gate tests FAILED — injected prompts may reach the model"
+            ERRORS=$((ERRORS + 1))
+        fi
+    else
+        echo "  ⚠ no prompt-screen gate — nothing screens a user turn before the model"
+        WARNINGS=$((WARNINGS + 1))
+    fi
+    # (d.2) result-gate proof (the second pre-model position: a tool result at ④).
+    # Named individually for the same reason as (d.1): SEC-RESULT-001 cites it as its
+    # proof, so I3 needs it reachable from here. The shape-preservation cases are the
+    # ones that matter — a substitution the runtime rejects fails OPEN silently.
+    if [ -f "Security-kit/result_screen.py" ] && [ -f "tests/test_result_screen.py" ]; then
+        if python3 tests/test_result_screen.py >/dev/null 2>&1; then
+            echo "  ✓ result-gate tests passed (tests/test_result_screen.py)"
+        else
+            echo "  ✗ result-gate tests FAILED — poisoned tool output may reach the model"
+            ERRORS=$((ERRORS + 1))
+        fi
+    else
+        echo "  ⚠ no result-screen gate — nothing screens a tool result before the model"
+        WARNINGS=$((WARNINGS + 1))
+    fi
+    # (d.3) detection-coverage proof. Distinct from (d.1)/(d.2), which prove the two
+    # mechanisms ENFORCE: this one pins what they can SEE, as a measured pair — attacks
+    # caught AND legitimate text withheld. Without it, marker tuning moves both numbers
+    # silently and "improving detection" can mean withholding every tool result.
+    if [ -f "tests/test_injection_corpus.py" ]; then
+        if python3 tests/test_injection_corpus.py >/dev/null 2>&1; then
+            echo "  ✓ injection-corpus coverage pinned (tests/test_injection_corpus.py)"
+        else
+            echo "  ✗ injection-corpus coverage MOVED — caught or false-positive count changed"
+            ERRORS=$((ERRORS + 1))
+        fi
+    else
+        echo "  ⚠ no injection corpus — marker coverage is asserted, not measured"
+        WARNINGS=$((WARNINGS + 1))
+    fi
     # (e) hook-path integrity: every hook script wired in settings.json must resolve on
     # disk. A missing path makes python3 exit 2 — indistinguishable from a real policy
     # BLOCK — so a wrong path silently fail-closes EVERY tool. This check catches that
@@ -236,10 +280,12 @@ for raw in re.findall(r"\$CLAUDE_PROJECT_DIR/(\S+?\.py)", blob):
             ERRORS=$((ERRORS + 1))
         fi
     fi
-    # (g3) phase-gate steady state — proves the gate still denies once every phase has
-    # passed, i.e. that "all prerequisites met" does not decay into "allow everything".
-    # Its __main__ prefers pytest but falls back to a stdlib runner, so this block does
-    # not make pytest a dependency.
+    # (g3) phase-gate steady state AND no self-promotion. Two properties: the gate must
+    # not brick once every phase has passed, and it must not let the agent unlock a
+    # gated tool by editing its own worklog — the unlock lives in signed_off_phases in
+    # the protected allowlist. This is the cited proof for SEC-PHASE-001. Its __main__
+    # prefers pytest but falls back to a stdlib runner, so this block does not make
+    # pytest a dependency.
     if [ -f "tests/test_steady_state.py" ]; then
         if python3 tests/test_steady_state.py >/dev/null 2>&1; then
             echo "  ✓ steady-state tests passed (tests/test_steady_state.py)"

@@ -1,5 +1,5 @@
 {
-  "_comment": "Ground-truth test cases for the Permission Gate. The runner (test_fixtures.py) provisions its policy in-memory — deny-list includes standard patterns, 'bash' is ungated, 'metasploit' is gated_until phase-01, egress_hosts = ['localhost', '127.0.0.1'], and phase-01 is active.",
+  "_comment": "Ground-truth test cases for the Permission Gate. The runner (test_fixtures.py) provisions its policy in-memory — deny-list includes standard patterns, 'bash' is ungated, 'metasploit' is gated_until phase-01, egress_hosts = ['localhost', '127.0.0.1'], no 'signed_off_phases' key (the shipped state, which must deny), and phase-01 is active.",
   "cases": [
     {
       "description": "Deny-list hit: rm -rf / is blocked regardless of tool or phase",
@@ -18,7 +18,7 @@
       "expected_reason": ""
     },
     {
-      "description": "Phase-gate denial: metasploit gated_until phase-01 which is active but not passing",
+      "description": "Phase-gate denial: metasploit gated_until phase-01, which no human has recorded in signed_off_phases",
       "tool": "metasploit",
       "input": {"command": "use exploit/multi/handler"},
       "expected_decision": "DENIED",

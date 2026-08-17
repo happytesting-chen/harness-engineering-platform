@@ -83,9 +83,10 @@ import json
 p='.claude/settings.json'; d=json.load(open(p))
 d.get('hooks',{}).pop('PreToolUse',None)
 d.get('hooks',{}).pop('PostToolUse',None)
+d.get('hooks',{}).pop('UserPromptSubmit',None)
 json.dump(d, open(p,'w'), indent=2)
 PY"
-  echo "  ~ .claude/settings.json (dropped PreToolUse/PostToolUse hooks)"
+  echo "  ~ .claude/settings.json (dropped PreToolUse/PostToolUse/UserPromptSubmit hooks)"
 fi
 
 # init.sh → drop REQUIRED_FILES governance entries (integrity block self-skips when governance/ is gone)
