@@ -199,9 +199,18 @@ cp -r harness-engineering-platform/template my-agent && cd my-agent
 ./init.sh          # exits non-zero on a fresh copy — by design
 ```
 
-`init.sh` is a health check, not a scaffolder. On an unfilled copy it fails and prints
-exactly what is missing: unfilled placeholders, undefined phases, empty policy. Filling
-those in is the whole setup.
+`init.sh` is a health check, not a scaffolder. On an unfilled copy it reports
+`FAIL — 5 error(s)` and prints exactly what is missing. Those five are **two** kinds of
+work, and mistaking one for the other is the usual way people get stuck:
+
+- **4 are unfilled `{{placeholders}}`** — identity, phases, policy. Fill them in.
+- **1 is `coverage.json missing — run /security-tailor (fail-closed)`**, with a paired
+  `security coverage incomplete` line. No amount of filling clears these: the template
+  ships no applicability decision because *which of the 20 OWASP LLM/Agentic risks apply*
+  is a property of your product, not of the template. `/security-tailor` drafts that
+  decision from your `Context/` docs; `check_coverage.py` refuses a bad draft.
+
+So: fill the placeholders → run `/security-tailor` → re-run `./init.sh` until it exits 0.
 
 **→ Full walkthrough: [`template/README.md`](template/README.md)** — an 8-step guide from
 empty copy to a first signed-off phase, plus a per-file directory map, tool-compatibility

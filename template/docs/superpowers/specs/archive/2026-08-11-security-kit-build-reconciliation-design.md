@@ -1,5 +1,12 @@
 # Security-Kit Build Reconciliation — Design Spec
 
+> **SUPERSEDED 2026-08-13** by [`2026-08-13-security-kit-build-design.md`](../2026-08-13-security-kit-build-design.md),
+> which is the single build truth — the reconciliation this document performed is now the
+> build design's §3 (ownership) and §4 (vocabulary map). **Do not plan from this file.**
+>
+> Retained for: the seam-by-seam derivation of the six shipped-file overlaps. **Note:** §2's
+> Seam 7 is stale — it asserts the runtime spec is uncommitted; it has since been committed.
+
 > **Purpose.** Three design specs describe the Security-Kit. They overlap on six shipped
 > files and contradict each other in seven measurable places. This spec resolves the
 > contradictions, assigns one owner per shared file, and gives one ordered build sequence.

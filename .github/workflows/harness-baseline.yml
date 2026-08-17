@@ -1,0 +1,101 @@
+# Asserts the BASELINE declared in
+# template/docs/superpowers/specs/2026-08-13-security-kit-build-design.md §7.4.1 —
+# NOT that the build is green.
+#
+# The shipped template is red by design: 4 files still hold {{PLACEHOLDER}} blocks that
+# /init-project fills, and Security-kit/coverage.json is absent until /security-tailor
+# runs. So `./init.sh` exits 1 in a correct tree, and a workflow asserting exit 0 could
+# never pass. This asserts the exact SHAPE of that failure instead, which is strictly
+# stronger: a NEW error becomes a diff rather than an increment nobody notices.
+#
+# What is pinned, and what deliberately is NOT:
+#   pinned      — exit code, error COUNT, and the exact set of ✗ error lines
+#   not pinned  — the warning count. One of the two warnings is mtime-derived
+#                 ("progress.md is older than recent code changes"), and git does not
+#                 record mtimes: a fresh `actions/checkout` gives every file the same
+#                 checkout time, so the comparison is undefined. Measured on a
+#                 uniform-mtime tree, init.sh reports 1 warning; run it a second time
+#                 and tests/test_e2e.py's save/restore of the three policy files has
+#                 bumped their mtimes past progress.md, so it reports 2. A pinned
+#                 warning count is therefore a coin flip, not a baseline.
+name: harness baseline
+
+on:
+  push:
+  pull_request:
+  workflow_dispatch:
+
+jobs:
+  baseline:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+
+      - name: template init.sh matches the declared baseline (spec §7.4.1)
+        working-directory: template
+        run: |
+          set +e
+          OUT="$(./init.sh 2>&1)"; CODE=$?
+          set -e
+          echo "$OUT"
+
+          if [ "$CODE" -ne 1 ]; then
+            echo "::error::expected exit 1 (red by design), got $CODE — baseline drifted, see spec §7.4.1"
+            exit 1
+          fi
+
+          if ! echo "$OUT" | grep -qE 'RESULT: FAIL — 5 error\(s\)'; then
+            echo "::error::baseline drifted — expected 5 error(s), see spec §7.4.1 and re-measure §2"
+            exit 1
+          fi
+
+          # The error SET, not just its size. 6 ✗ lines for 5 errors is correct: the
+          # coverage checker prints its own "coverage.json missing" line from a child
+          # process, and init.sh increments ERRORS once for the checker's non-zero exit.
+          echo "$OUT" | grep '✗' | sed 's/^[[:space:]]*//' | sort > /tmp/actual-errors.txt
+          # Both sides pass through the same leading-whitespace strip, so this block is
+          # indentation-proof — `sed -i` is not portable and is not used.
+          sed 's/^[[:space:]]*//' <<'EOF' | sort > /tmp/expected-errors.txt
+          ✗ UNFILLED placeholders in CLAUDE.md:
+          ✗ UNFILLED placeholders in Harness-Best-Practice/AGENTS.md:
+          ✗ UNFILLED placeholders in Harness-Best-Practice/feature_list.json:
+          ✗ UNFILLED placeholders in governance/mcp-allowlist.json:
+          ✗ coverage.json missing — run /security-tailor (fail-closed)
+          ✗ security coverage incomplete — run /security-tailor and fill verifications
+          EOF
+          if ! diff -u /tmp/expected-errors.txt /tmp/actual-errors.txt; then
+            echo "::error::the baseline ERROR SET changed (diff above). If this is intended, update spec §7.4.1 and this list together."
+            exit 1
+          fi
+
+          echo "baseline OK: exit 1, 5 errors, error set unchanged"
+
+      - name: full suite under pytest, when pytest is available
+        working-directory: template
+        # init.sh now names all 9 test files (spec §4.4), so every proof — including
+        # tests/test_protected_paths.py, the only proof of S2.4 — already ran in the step
+        # above, with no pytest and no pip install. This step is a second opinion, not the
+        # only execution path: pytest collects test FUNCTIONS individually, so it catches a
+        # test function that a file's own __main__ runner forgets to call.
+        #
+        # Non-fatal when pytest is absent, per spec §4.4:1778-1786. setup-python installs
+        # an interpreter, not pytest, and AGENTS.md:8 mandates zero external deps for
+        # mechanism code — so a bare `python3 -m pytest` here fails on a correct tree and
+        # an over-blocking gate is one its users switch off.
+        #
+        # NOTE this does NOT close spec §6.2 item 12(b) in general: init.sh errors on a
+        # MISSING test_protected_paths.py, but the other 8 files still vanish silently.
+        # Making any missing proof an error needs the required-set list.
+        run: |
+          if python3 -m pytest tests/ -q; then
+            echo "full suite passed under pytest"
+          elif python3 -c 'import pytest' 2>/dev/null; then
+            echo "::error::full suite FAILED under pytest (pytest tests/)"
+            exit 1
+          else
+            echo "pytest absent; the per-file checks in init.sh above still ran all 9 test files"
+          fi

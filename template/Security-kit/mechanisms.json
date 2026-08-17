@@ -1,0 +1,107 @@
+{
+  "schema": 1,
+  "generated_note": "HAND-WRITTEN. Humans own this file (spec §3.2). A drafter may PROPOSE a row in its report; it must not write this path — a model-written claims register is the artefact the build trusts, authored by the thing being audited.",
+  "mechanisms": [
+    {
+      "id": "SEC-SELF-001",
+      "category": "GATE",
+      "decides": "governance/permission.py::check_protected_paths",
+      "attaches_at": ".claude/settings.json PreToolUse pre:governance-check",
+      "can_deny": true,
+      "proof": "python3 tests/test_protected_paths.py",
+      "status": "MECHANICAL",
+      "portable_to_runtime": true
+    },
+    {
+      "id": "SEC-CMD-001",
+      "category": "GATE",
+      "decides": "governance/permission.py::check_deny_list",
+      "attaches_at": ".claude/settings.json PreToolUse pre:governance-check",
+      "can_deny": true,
+      "proof": "python3 tests/test_fixtures.py",
+      "status": "MECHANICAL",
+      "portable_to_runtime": true
+    },
+    {
+      "id": "SEC-PHASE-001",
+      "category": "GATE",
+      "decides": "governance/permission.py::check_phase_gate",
+      "attaches_at": ".claude/settings.json PreToolUse pre:governance-check",
+      "can_deny": true,
+      "proof": "python3 tests/test_fixtures.py",
+      "status": "MECHANICAL",
+      "portable_to_runtime": true
+    },
+    {
+      "id": "SEC-POLICY-001",
+      "category": "GATE",
+      "decides": "governance/permission.py::_load_json",
+      "attaches_at": ".claude/settings.json PreToolUse pre:governance-check",
+      "can_deny": true,
+      "proof": "python3 tests/test_protected_paths.py",
+      "status": "MECHANICAL",
+      "portable_to_runtime": true
+    },
+    {
+      "id": "SEC-EGRESS-001",
+      "category": "GATE",
+      "decides": "governance/permission.py::check_egress",
+      "attaches_at": ".claude/settings.json PreToolUse pre:governance-check",
+      "can_deny": true,
+      "proof": "python3 tests/test_fixtures.py",
+      "status": "MECHANICAL",
+      "portable_to_runtime": true
+    },
+    {
+      "id": "SEC-SECRET-001",
+      "category": "GATE",
+      "decides": "Security-kit/secret_scan.py::main",
+      "attaches_at": ".claude/settings.json PreToolUse pre:secret-block",
+      "can_deny": true,
+      "proof": "python3 tests/test_hooks.py",
+      "status": "MECHANICAL",
+      "portable_to_runtime": true,
+      "limits": "regex/AST patterns over named fields; catches the shipped pattern set, not all credentials"
+    },
+    {
+      "id": "SEC-HOOK-001",
+      "category": "DOORWAY",
+      "decides": null,
+      "attaches_at": ".claude/settings.json PreToolUse",
+      "can_deny": "n/a",
+      "proof": "python3 tests/test_hooks.py",
+      "status": "MECHANICAL",
+      "portable_to_runtime": false
+    },
+    {
+      "id": "SEC-AUDIT-001",
+      "category": "RECORD",
+      "decides": "Harness-Best-Practice/observability/audit.py::record",
+      "attaches_at": ".claude/settings.json PostToolUse post:audit-capture",
+      "can_deny": false,
+      "proof": "python3 tests/test_hooks.py",
+      "status": "OBSERVE",
+      "portable_to_runtime": true
+    },
+    {
+      "id": "SEC-CONTENT-001",
+      "category": "SCREEN",
+      "decides": "Security-kit/content_trust.py::screen_record",
+      "attaches_at": null,
+      "can_deny": false,
+      "proof": "python3 tests/test_content_trust.py",
+      "status": "LIBRARY",
+      "portable_to_runtime": true
+    },
+    {
+      "id": "SEC-COVERAGE-001",
+      "category": "CHECKER",
+      "decides": "Security-kit/check_coverage.py::check",
+      "attaches_at": "init.sh block 5b — python3 Security-kit/check_coverage.py",
+      "can_deny": "n/a",
+      "proof": "python3 tests/test_coverage.py",
+      "status": "MECHANICAL",
+      "portable_to_runtime": false
+    }
+  ]
+}
