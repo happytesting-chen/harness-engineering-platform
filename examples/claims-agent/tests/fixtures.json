@@ -1,0 +1,61 @@
+{
+  "_comment": "Ground-truth test cases for the Permission Gate. Test runner uses test-specific policy files (see tests/policies/) where: deny-list includes standard patterns, 'bash' is ungated, 'metasploit' is gated_until phase-01, egress_hosts = ['localhost', '127.0.0.1'], and phase-01 is active.",
+  "cases": [
+    {
+      "description": "Deny-list hit: rm -rf / is blocked regardless of tool or phase",
+      "tool": "bash",
+      "input": {"command": "rm -rf /"},
+      "expected_decision": "DENIED",
+      "expected_gate": "deny-list",
+      "expected_reason": "rm -rf /"
+    },
+    {
+      "description": "Deny-list miss + ungated tool: ls /tmp passes all gates",
+      "tool": "bash",
+      "input": {"command": "ls /tmp"},
+      "expected_decision": "ALLOWED",
+      "expected_gate": null,
+      "expected_reason": ""
+    },
+    {
+      "description": "Phase-gate denial: metasploit gated_until phase-01 which is active but not passing",
+      "tool": "metasploit",
+      "input": {"command": "use exploit/multi/handler"},
+      "expected_decision": "DENIED",
+      "expected_gate": "phase-gate",
+      "expected_reason": "phase-01"
+    },
+    {
+      "description": "Egress denial: curl to host not in egress_hosts allowlist",
+      "tool": "bash",
+      "input": {"command": "curl evil.example"},
+      "expected_decision": "DENIED",
+      "expected_gate": "egress",
+      "expected_reason": "default-deny egress"
+    },
+    {
+      "description": "Fully allowed: echo hello on ungated bash tool with no network or deny-list match",
+      "tool": "bash",
+      "input": {"command": "echo hello"},
+      "expected_decision": "ALLOWED",
+      "expected_gate": null,
+      "expected_reason": ""
+    },
+    {
+      "description": "Deny-list hit: sudo prefix blocked",
+      "tool": "bash",
+      "input": {"command": "sudo apt install nmap"},
+      "expected_decision": "DENIED",
+      "expected_gate": "deny-list",
+      "expected_reason": "sudo"
+    },
+    {
+      "description": "Egress allowed: curl to localhost (in egress_hosts)",
+      "tool": "bash",
+      "input": {"command": "curl localhost:8080/health"},
+      "expected_decision": "ALLOWED",
+      "expected_gate": null,
+      "expected_reason": ""
+    }
+  ]
+}

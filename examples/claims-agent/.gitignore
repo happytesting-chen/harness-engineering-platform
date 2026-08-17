@@ -1,0 +1,11 @@
+# Python-generated residue
+__pycache__/
+*.py[cod]
+.pytest_cache/
+
+# Runtime and evaluation residue
+*.log
+sandbox/
+
+# Editor and OS residue
+.DS_Store

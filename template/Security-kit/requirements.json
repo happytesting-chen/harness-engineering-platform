@@ -1,0 +1,93 @@
+{
+  "generated_note": "PROPOSED — NOT YET THE SPINE. This file was drafted by a model and is deliberately NOT named requirements.json, because humans own that path at merge time, the same freeze as mechanisms.json and for the same reason (spec §8.1 rule 4): a component that can write its own obligations has no obligations. Review every row, then `git mv requirements.proposed.json requirements.json` and uncomment the I6 line in check_coverage.py's check_status(). Nothing reads this path; check_coverage.py looks only at requirements.json.",
+  "requirements": [
+    {
+      "id": "SEC-REQ-001",
+      "risk": "self-modification",
+      "requirement": "The agent cannot edit the files that decide what it may do.",
+      "severity": "critical",
+      "satisfied_by": ["SEC-SELF-001"],
+      "residual": null
+    },
+    {
+      "id": "SEC-REQ-002",
+      "risk": "policy-unavailability",
+      "requirement": "A policy the gate cannot read denies the action instead of permitting it.",
+      "severity": "critical",
+      "satisfied_by": ["SEC-POLICY-001"],
+      "residual": null
+    },
+    {
+      "id": "SEC-REQ-003",
+      "risk": "destructive-command",
+      "requirement": "A command on the hard-blocked list never reaches a shell.",
+      "severity": "critical",
+      "satisfied_by": ["SEC-CMD-001", "SEC-INTERP-GAP-001"],
+      "residual": "SEC-INTERP-GAP-001: an interpreter one-liner opens a protected file for writing without using any blocked shell token. The requirement holds for shell forms and is unmet for interpreter forms; a test pins the gap so it cannot close silently without the documentation changing."
+    },
+    {
+      "id": "SEC-REQ-004",
+      "risk": "premature-authority",
+      "requirement": "No tool acts before the phase that authorises it has been signed off, and an unrecognised tool is refused.",
+      "severity": "high",
+      "satisfied_by": ["SEC-PHASE-001", "SEC-PHASE-GAP-001"],
+      "residual": "SEC-PHASE-GAP-001: the gate trusts a status field in a file that is not a protected path. Measured — editing it is allowed, and flipping the field takes a gated tool from BLOCK to ALLOW. The requirement is met against accident and unmet against intent."
+    },
+    {
+      "id": "SEC-REQ-005",
+      "risk": "credential-exfiltration",
+      "requirement": "A credential the agent has seen cannot be written into the repository.",
+      "severity": "high",
+      "satisfied_by": ["SEC-SECRET-001"],
+      "residual": "SEC-SECRET-001 is a pattern matcher over named fields. It catches the shipped pattern set, not all credentials, and a novel format passes."
+    },
+    {
+      "id": "SEC-REQ-006",
+      "risk": "unapproved-egress",
+      "requirement": "The agent cannot reach a network destination nobody approved.",
+      "severity": "high",
+      "satisfied_by": ["SEC-EGRESS-001", "SEC-EGRESS-GAP-001"],
+      "residual": "SEC-EGRESS-GAP-001: only five shell tokens in bash commands are checked. A fetch tool and an interpreter one-liner are complete egress channels with no egress check, so the requirement is unmet for every non-shell channel."
+    },
+    {
+      "id": "SEC-REQ-007",
+      "risk": "inert-enforcement",
+      "requirement": "A gate that has been disconnected fails the build instead of passing quietly.",
+      "severity": "critical",
+      "satisfied_by": ["SEC-HOOK-001", "SEC-COVER-GAP-001"],
+      "residual": "SEC-COVER-GAP-001: the wiring is proven for the five file and shell tools the matcher lists. Tools outside it reach no gate at all, so 'the gate is wired' is true of a subset of the tool surface."
+    },
+    {
+      "id": "SEC-REQ-008",
+      "risk": "unaccountable-action",
+      "requirement": "Every allow and every deny leaves a record the agent cannot rewrite.",
+      "severity": "medium",
+      "satisfied_by": ["SEC-AUDIT-001"],
+      "residual": null
+    },
+    {
+      "id": "SEC-REQ-009",
+      "risk": "untrusted-content",
+      "requirement": "Content the agent did not author cannot cause an action the user did not ask for.",
+      "severity": "high",
+      "satisfied_by": ["SEC-CONTENT-001", "SEC-RESULT-GAP-001"],
+      "residual": "SEC-CONTENT-001 is written, tested and UNWIRED — no ingestion path calls it. SEC-RESULT-GAP-001 records that nothing preventive stands where a tool result re-enters the model, and that it cannot be closed with a hook. The requirement is currently unmet."
+    },
+    {
+      "id": "SEC-REQ-010",
+      "risk": "unproven-claim",
+      "requirement": "No control may be described as enforced unless a named command proves it.",
+      "severity": "high",
+      "satisfied_by": ["SEC-COVERAGE-001"],
+      "residual": null
+    },
+    {
+      "id": "SEC-REQ-011",
+      "risk": "unguarded-drafter",
+      "requirement": "A component that reasons about security states its limits where the host that runs it will read them.",
+      "severity": "medium",
+      "satisfied_by": ["SEC-TAILOR-Z3"],
+      "residual": null
+    }
+  ]
+}

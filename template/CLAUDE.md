@@ -31,10 +31,15 @@
 
 {{DENY_LIST_SUMMARY}}
 
-Three enforcement gates fire on every tool call (mechanical, not advisory):
-1. **Deny-list** — Hard-blocked patterns → `governance/deny-list.json`
-2. **Phase-gate** — Tools locked until prerequisites pass → `governance/mcp-allowlist.json`
-3. **Egress** — Outbound network default-deny → `governance/mcp-allowlist.json` egress_hosts
+Four enforcement gates fire on every tool call, in this order (mechanical, not advisory).
+First denial wins; the gate fails closed.
+1. **Protected paths** — the mechanism's own files are unwritable → `permission.py` `BUILTIN_PROTECTED_PATHS`
+2. **Deny-list** — Hard-blocked patterns → `governance/deny-list.json`
+3. **Phase-gate** — Tools locked until prerequisites pass → `governance/mcp-allowlist.json`
+4. **Egress** — Outbound network default-deny → `governance/mcp-allowlist.json` egress_hosts
+
+Gate 1 runs **first** and is the one that enforces S2.4 — the guarantee that the agent cannot
+edit its own policy. A doc that lists only three gates omits the one that runs first.
 
 ## Verification Commands
 

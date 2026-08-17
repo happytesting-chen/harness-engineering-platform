@@ -64,6 +64,7 @@ TIER1=(
   "Harness-Best-Practice/observability/audit_hook.py"
   "kiro/steering/security.md" "kiro/steering/security-review.md" "kiro/hooks"
   "kiro/steering/security-tailor.md"
+  "kiro/steering/active-controls.md"
   ".claude/commands/security-tailor.md"
   "docs/superpowers" "progress.md"
 )

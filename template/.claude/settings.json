@@ -5,7 +5,7 @@
     "PreToolUse": [
       {
         "id": "pre:governance-check",
-        "description": "Permission gate: deny-list + phase-gate + egress. Exits 2 to BLOCK.",
+        "description": "Permission gate (4): protected-paths + deny-list + phase-gate + egress. Exits 2 to BLOCK.",
         "matcher": "Bash|Write|Edit|MultiEdit|NotebookEdit",
         "hooks": [
           {

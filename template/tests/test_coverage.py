@@ -63,9 +63,16 @@ def _coverage(context_dir, controls):
             "controls": controls}
 
 
-def _run_check(matrix, context_files, coverage=None, active=None):
-    """Build a temp project, point cc.* constants at it, return (errors, msgs). Restores constants."""
-    saved = (cc.COVERAGE_PATH, cc.MATRIX_PATH, cc.ACTIVE_CONTROLS_PATH, cc.CONTEXT_DIR)
+def _run_check(matrix, context_files, coverage=None, active=None, mirror=None):
+    """Build a temp project, point cc.* constants at it, return (errors, msgs). Restores constants.
+
+    `mirror`, when given, is written to KIRO_MIRROR_PATH (kiro/steering/active-controls.md
+    under the temp root) so cases can exercise check()'s mirror-content-consistency branch.
+    Left absent (None), KIRO_MIRROR_PATH stays pointed at a path that does not exist —
+    isolating these cases from check_kiro_mirror()'s own tests and from the real repo's
+    kiro/steering/active-controls.md.
+    """
+    saved = (cc.COVERAGE_PATH, cc.MATRIX_PATH, cc.ACTIVE_CONTROLS_PATH, cc.CONTEXT_DIR, cc.KIRO_MIRROR_PATH)
     with tempfile.TemporaryDirectory() as d:
         root = Path(d)
         sec = root / "Security-kit"; sec.mkdir()
@@ -75,6 +82,7 @@ def _run_check(matrix, context_files, coverage=None, active=None):
         cc.COVERAGE_PATH = sec / "coverage.json"
         cc.ACTIVE_CONTROLS_PATH = sec / "active-controls.md"
         cc.CONTEXT_DIR = ctx
+        cc.KIRO_MIRROR_PATH = root / "kiro" / "steering" / "active-controls.md"
         # coverage may be a dict, the string "MALFORMED", or None (absent)
         if coverage == "MALFORMED":
             cc.COVERAGE_PATH.write_text("{not json")
@@ -82,10 +90,13 @@ def _run_check(matrix, context_files, coverage=None, active=None):
             cc.COVERAGE_PATH.write_text(json.dumps(coverage))
         if active is not None:
             cc.ACTIVE_CONTROLS_PATH.write_text(active)
+        if mirror is not None:
+            cc.KIRO_MIRROR_PATH.parent.mkdir(parents=True, exist_ok=True)
+            cc.KIRO_MIRROR_PATH.write_text(mirror)
         try:
             return cc.check(root)
         finally:
-            cc.COVERAGE_PATH, cc.MATRIX_PATH, cc.ACTIVE_CONTROLS_PATH, cc.CONTEXT_DIR = saved
+            cc.COVERAGE_PATH, cc.MATRIX_PATH, cc.ACTIVE_CONTROLS_PATH, cc.CONTEXT_DIR, cc.KIRO_MIRROR_PATH = saved
 
 
 def case_fail_when_coverage_missing():
@@ -149,6 +160,67 @@ def case_pass_when_zero_applies():
     assert errs == 0, msgs
 
 
+def case_fail_when_mirror_content_mismatches_applies():
+    """check()'s layer-D content rule extends to the Kiro mirror: a mirror that exists but
+    omits an applies control id is an ERROR, same bar as active-controls.md omitting it.
+
+    Asserts on the message text, not just the count — a bare count can't distinguish this
+    failure from any other error the same call might raise.
+    """
+    cov = _fresh_cov({"a.md": "x"}, [{"id": "LLM01", "verdict": "applies",
+                                      "reason": "r", "matrix_row": "SEC-INPUT-001"}])
+    errs, msgs = _run_check(_MATRIX_OK, {"a.md": "x"}, coverage=cov,
+                            active="# Active\n- **[LLM01]** untrusted input\n",
+                            mirror="# Active\n- **[SOMETHING-ELSE]** unrelated\n")
+    assert errs >= 1, msgs
+    assert any("kiro/steering/active-controls.md does not mention applies control LLM01" in m
+               for m in msgs), msgs
+
+
+def case_pass_when_mirror_content_matches_applies():
+    """Same fixture, but the mirror DOES mention the applies control id — no mirror error.
+
+    Asserts the specific mirror-mismatch message is absent (not just that the total is
+    zero), so this case stays meaningful even if the fixture later grows unrelated errors.
+    """
+    cov = _fresh_cov({"a.md": "x"}, [{"id": "LLM01", "verdict": "applies",
+                                      "reason": "r", "matrix_row": "SEC-INPUT-001"}])
+    errs, msgs = _run_check(_MATRIX_OK, {"a.md": "x"}, coverage=cov,
+                            active="# Active\n- **[LLM01]** untrusted input\n",
+                            mirror="# Active\n- **[LLM01]** untrusted input\n")
+    assert not any("kiro/steering/active-controls.md does not mention applies control" in m
+                   for m in msgs), msgs
+    assert errs == 0, msgs
+
+
+def case_kiro_mirror_required_when_steering_exists():
+    """With kiro/steering/ present, a missing mirror is an ERROR.
+
+    The Kiro host loads kiro/steering/*.md, not Security-kit/active-controls.md.
+    A layer-D file that exists for one host only is steering the agent on one
+    host only — and nothing said so.
+    """
+    with tempfile.TemporaryDirectory() as d:
+        root = Path(d)
+        (root / "kiro" / "steering").mkdir(parents=True)
+        errors, msgs = cc.check_kiro_mirror(root)
+        assert errors == 1, f"expected 1 error, got {errors}"
+        assert any("kiro/steering/active-controls.md" in m for m in msgs), msgs
+
+
+def case_kiro_mirror_skipped_when_steering_absent():
+    """Without kiro/steering/, the rule SKIPS — and says so.
+
+    A Claude-only copy of the template has no Kiro host to steer. Silence here
+    would be indistinguishable from a passing check (spec §1.6).
+    """
+    with tempfile.TemporaryDirectory() as d:
+        root = Path(d)
+        errors, msgs = cc.check_kiro_mirror(root)
+        assert errors == 0, f"expected 0 errors, got {errors}"
+        assert any("skipped" in m and "no kiro/steering" in m for m in msgs), msgs
+
+
 CASES = [
     case_hash_ignores_template_stubs,
     case_hash_changes_when_real_doc_changes,
@@ -160,6 +232,10 @@ CASES = [
     case_fail_when_malformed,
     case_pass_when_applies_mapped_and_active_matches,
     case_pass_when_zero_applies,
+    case_fail_when_mirror_content_mismatches_applies,
+    case_pass_when_mirror_content_matches_applies,
+    case_kiro_mirror_required_when_steering_exists,
+    case_kiro_mirror_skipped_when_steering_absent,
 ]
 
 

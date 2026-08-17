@@ -1,5 +1,12 @@
 # Security-Tailor — Design Spec
 
+> **SUPERSEDED 2026-08-13** by [`2026-08-13-security-kit-build-design.md`](../2026-08-13-security-kit-build-design.md),
+> which is the single build truth. **Do not plan from this file.**
+>
+> Retained for: the Phase-1 commit SHAs, §4.2's `coverage.json` field contract, §4.5's
+> `active-controls.md` layer-D rationale, §6.2's corpus-and-recall method, and §7b's phasing —
+> all cited by the build design rather than restated in it.
+
 **Status:** rev 4 — **Phase 1 built; Phase 2 not started.** Not a draft and not archivable: §4.2's
 `coverage.json` contract is what Phase 2 and the inventory spec both build on.
 **Date:** 2026-08-04 (rev 4 status pass: 2026-08-11)
