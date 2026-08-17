@@ -13,14 +13,6 @@ venv/
 Harness-Best-Practice/observability/audit.log
 Security-kit/eval/recorded/
 
-# ** newly added **
-# Local/runtime secrets and generated AI News output must never be committed.
-.env
-.env.*
-!.env.example
-demo/latest_digest.md
-# ** newly added **
-
 # Patch-workflow debris. §5.5 ships protected-path fixes as patches, so *.patch
 # stays TRACKABLE on purpose — a patch is an artifact somebody has to review.
 # A .rej/.orig is the opposite: proof that a hunk did NOT apply, of no value once
