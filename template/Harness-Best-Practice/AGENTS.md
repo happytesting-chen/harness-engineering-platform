@@ -53,11 +53,33 @@ python3 evaluation/eval.py      # Quantify accuracy/reproducibility/latency/cost
 
 {{DENY_LIST_SUMMARY}}
 
-- Enforcement is mechanical — `governance/permission.py` evaluates every tool call
+- Build-time enforcement is mechanical — Claude/Kiro hooks route gated development tool calls through `governance/permission.py`
 - Four gates in order: protected-paths → deny-list → phase-gate → egress (fail-closed, first denial wins)
 - The agent CANNOT bypass, modify, or disable the permission gate
 - Phase transitions require human sign-off (agent cannot self-promote phases)
 - Patterns in `governance/deny-list.json` are blocked unconditionally
+
+## Runtime Tool Permission
+
+- This requirement is for the **deployed AI application's runtime**, not the Claude/Kiro build-time hook path.
+- Do not add or change `PreToolUse` hooks to implement runtime protection; keep the existing build harness behavior intact.
+- Runtime tool execution must use `governance/runtime_dispatcher.py` as the single tool-call path.
+- `runtime_dispatcher.py` must call the existing `governance/permission.py` permission check **before** invoking the actual tool, fail closed on permission-check errors, and execute the tool only when allowed.
+- The orchestrator/agent loop must call the dispatcher rather than raw tool functions. Keep this integration minimal and framework-specific only where necessary.
+
+Runtime path:
+
+```text
+Agent / Orchestrator
+        ↓
+governance/runtime_dispatcher.py
+        ↓
+governance/permission.py
+        ↓
+ALLOW / DENY
+        ↓
+Actual Tool
+```
 
 ## Current State
 
