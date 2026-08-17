@@ -85,6 +85,30 @@ Actual Tool
 ```
 *** newly added ***
 
+*** newly added ***
+## Runtime Content Trust
+
+- Keep the existing `Security-kit/content_trust.py` unchanged and reuse it as the runtime data-plane primitive.
+- External or untrusted tool results must be screened before they are added back to the model context.
+- Use `scan_text()` for generic free-text results. Use `screen_record()` when the application has a known structured schema and can define allowed fields.
+- Wire the application's screening function into the optional `result_screen` callback in `governance/runtime_dispatcher.py`.
+- Do not use Claude/Kiro build-time hooks as the deployed runtime content-trust implementation.
+
+Runtime result path:
+
+```text
+Actual Tool
+        ↓
+governance/runtime_dispatcher.py
+        ↓
+result_screen callback
+        ↓
+Security-kit/content_trust.py
+        ↓
+Agent / LLM
+```
+*** newly added ***
+
 ## Current State
 
 See `Harness-Best-Practice/progress.md` for session journal and
