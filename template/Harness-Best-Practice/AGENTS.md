@@ -62,6 +62,37 @@ python3 evaluation/eval.py      # Quantify accuracy/reproducibility/latency/cost
 - Patterns in `governance/deny-list.json` are blocked unconditionally
 
 *** newly added ***
+## Runtime Protection Scope
+
+For this implementation, focus on the **deployed AI application's runtime protection only**.
+
+- Keep the existing Claude/Kiro build-time hooks and development harness behavior unchanged.
+- Do not add, extend, or redesign `PreToolUse`, `PostToolUse`, or other build-time hook controls as part of this runtime work.
+- Reuse the existing security primitives where possible instead of duplicating them.
+- Runtime **tool-action protection** uses `governance/runtime_dispatcher.py` → `governance/permission.py` before a tool executes.
+- Runtime **data-plane protection** uses `Security-kit/content_trust.py` on external or untrusted tool results before those results are returned to the model.
+- Framework-specific code should only provide the minimum adapter/wiring needed to place these checks in the real runtime path.
+
+Runtime security boundary:
+
+```text
+Agent / Orchestrator
+        ↓
+runtime_dispatcher.py
+        ↓
+permission.py
+        ↓
+Actual Tool
+        ↓
+result_screen
+        ↓
+content_trust.py
+        ↓
+Agent / LLM
+```
+*** newly added ***
+
+*** newly added ***
 ## Runtime Tool Permission
 
 - This requirement is for the **deployed AI application's runtime**, not the Claude/Kiro build-time hook path.
