@@ -24,6 +24,35 @@ from audit import record
 from src.runtime_secret_scan import scan_tool_input
 
 
+# ** newly changed **
+# content_trust.py intentionally returns compact regex identifiers. Translate those
+# identifiers at the runtime adapter boundary into human-readable audit evidence so
+# operators and the model do not have to infer why content was blocked.
+def _describe_content_markers(markers: list[str]) -> list[str]:
+    descriptions = []
+    for marker in markers:
+        if "ignore\\s+" in marker and "previous" in marker:
+            descriptions.append("ignore previous/prior instructions")
+        elif "disregard\\s+" in marker:
+            descriptions.append("disregard previous policy/rules")
+        elif "you\\s+are\\s+now" in marker:
+            descriptions.append("role-redefinition instruction: 'you are now'")
+        elif "system\\s*:" in marker:
+            descriptions.append("system-style instruction marker")
+        elif "admin|developer|root" in marker:
+            descriptions.append("admin/developer/root mode instruction")
+        elif "auto[-\\s]?approve|approve" in marker:
+            descriptions.append("approval/override instruction")
+        elif "set\\s+(confidence|decision|amount)" in marker:
+            descriptions.append("instruction to set decision/confidence/amount")
+        elif "new\\s+instructions" in marker:
+            descriptions.append("new instructions directive")
+        else:
+            descriptions.append("instruction-shaped content")
+    return list(dict.fromkeys(descriptions))
+# ** newly changed **
+
+
 class RuntimeSecurity:
     """Single application-facing entry point for secured tool execution."""
 
@@ -43,14 +72,24 @@ class RuntimeSecurity:
 
         markers = scan_text(text)
         if markers:
-            reason = "content-trust: suspicious external content blocked from model context"
+            # ** newly changed **
+            detected_patterns = _describe_content_markers(markers)
+            reason = (
+                "content-trust: suspicious external content blocked from model context; "
+                "detected suspicious instruction-shaped content: "
+                + "; ".join(detected_patterns)
+            )
             record(
                 "content_trust",
                 "tool_result",
-                {"markers": markers},
+                {
+                    "markers": markers,
+                    "detected_patterns": detected_patterns,
+                },
                 "SUSPICIOUS",
                 reason,
             )
+            # ** newly changed **
             raise PermissionError(reason)
         return result
 
