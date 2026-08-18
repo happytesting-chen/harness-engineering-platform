@@ -12,6 +12,12 @@ venv/
 # Runtime artifacts (regenerated; not source of truth)
 Harness-Best-Practice/observability/audit.log
 Security-kit/eval/recorded/
+runtime/latest_digest.md
+
+# AI News local secrets
+.env
+.env.*
+!.env.example
 
 # Patch-workflow debris. §5.5 ships protected-path fixes as patches, so *.patch
 # stays TRACKABLE on purpose — a patch is an artifact somebody has to review.
