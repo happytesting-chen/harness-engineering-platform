@@ -1,0 +1,3 @@
+strands-agents[anthropic]==1.48.0
+streamlit==1.60.0
+pytest>=8,<10
