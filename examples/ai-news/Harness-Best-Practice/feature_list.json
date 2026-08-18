@@ -8,17 +8,17 @@
       "name": "Project setup and runtime-security wiring",
       "behavior": "Project context, governance policy, framework integration design, and testable runtime-security adapter contract are in place before application tools execute.",
       "dependencies": [],
-      "status": "active",
+      "status": "passing",
       "verification": "python3 -m pytest -q tests/test_content_trust.py tests/test_runtime_security.py",
-      "evidence": ""
+      "evidence": "Human-approved local verification on 2026-08-18: 12 passed in 0.44s."
     },
     {
       "id": "phase-02",
       "name": "News retrieval tools",
       "behavior": "Approved news and GitHub retrieval tools can fetch public data through the runtime permission/egress boundary and return screened results.",
       "dependencies": ["phase-01"],
-      "status": "not-started",
-      "verification": "python3 -m pytest -q tests/test_runtime_security.py -k 'egress or fetch or content'",
+      "status": "active",
+      "verification": "python3 -m pytest -q tests/test_runtime_security.py tests/test_news_tools.py",
       "evidence": ""
     },
     {
