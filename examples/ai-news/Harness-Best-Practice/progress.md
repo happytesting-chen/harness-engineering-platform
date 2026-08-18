@@ -3,7 +3,7 @@
 ## Current State
 
 - **Last updated:** 2026-08-18
-- **Active phase:** phase-03 — Strands Claude agent integration
+- **Active phase:** phase-04 — Application runners and Streamlit portal
 - **Session number:** 1
 
 ## Done
@@ -23,23 +23,28 @@
 - [x] Phase 02 locally verified and human-approved: `11 passed in 0.57s`.
 - [x] Added Strands-facing secured wrappers in `src/agent.py`; raw handlers are not registered with Strands.
 - [x] Disabled Strands directory auto-loading with `load_tools_from_directory=False`.
-- [x] Added Anthropic model construction using local `ANTHROPIC_API_KEY` and default `claude-sonnet-4-6` model ID.
+- [x] Added Anthropic model construction using local `ANTHROPIC_API_KEY` and configurable `CLAUDE_MODEL`.
 - [x] Added `tests/test_agent_integration.py` to verify secured registration, wrapper routing, no directory auto-loading, and fail-closed missing API key behavior.
-- [x] Pinned Strands/Anthropic and Streamlit runtime dependencies in `requirements.txt`.
+- [x] Phase 03 deterministic integration verification passed locally: `16 passed in 27.87s`.
+- [x] Live allowed egress verification passed: Claude/Strands called `get_trending_repos`, `api.github.com` was ALLOWED, and the audit event was recorded.
+- [x] Live blocked egress verification passed: Claude/Strands called `fetch_news` for legitimate `arstechnica.com`; runtime default-deny egress produced a DENIED audit event before network execution.
+- [x] Reorganized all live security tests under `tests/live/`; normal application code remains under `src/`.
+- [x] Added positive ALLOWED audit reasons in the runtime dispatcher.
+- [x] Added `src/run_news.py` as the normal terminal AI News application runner.
 
 ## In Progress
 
-- **Current task:** locally verify Phase 03 Strands integration and no-bypass registration.
-- **Blockers:** Phase 03 tests require `strands-agents[anthropic]` to be installed locally; no API call is required for the tests themselves.
-- **Attempts:** Phase 03 tests initially allowed a skip when Strands was absent; corrected so missing Strands now fails verification rather than producing a misleading pass.
+- **Current task:** verify the normal terminal application (`src/run_news.py`) generates and saves a daily digest through the secured runtime path.
+- **Blockers:** requires local `ANTHROPIC_API_KEY` and working TLS trust configuration for Anthropic/GitHub.
 
 ## Next Steps
 
 1. Pull the latest `runtime-permission-minimal` branch.
-2. From `examples/ai-news/`, install `requirements.txt` in a virtual environment if needed.
-3. Run `python3 -m pytest -q tests/test_runtime_security.py tests/test_news_tools.py tests/test_agent_integration.py`.
-4. Fix only issues exposed by verification.
-5. After exit 0 and human sign-off, mark phase-03 passing and activate phase-04 Streamlit UI implementation.
+2. Run the full deterministic regression suite with `python3 -m pytest -q`.
+3. Run `python3 src/run_news.py` and verify the normal digest is generated through approved sources/tools.
+4. Fix only issues exposed by the normal application run.
+5. Add the Streamlit `src/app.py` portal using the same `build_agent()` path; do not create a second security path.
+6. After the basic portal works, add live tool-permission, secret, and untrusted-content demonstrations under `tests/live/`.
 
 ## Decisions Made
 
@@ -52,25 +57,24 @@
 | 2026-08-18 | Do not automatically follow HTTP redirects in the raw news fetcher. | Prevents redirect-based egress bypass; any redirected URL must re-enter the secured runtime path. |
 | 2026-08-18 | Expose fixed network destinations as tool inputs where permission.py must enforce them. | Egress enforcement can only mechanically validate destinations visible before the handler executes. |
 | 2026-08-18 | Register only secured wrapper tools with Strands and disable directory auto-loading. | Prevents the agent from gaining a direct raw-handler path that bypasses `RuntimeSecurity`. |
-| 2026-08-18 | Pin `strands-agents[anthropic]==1.48.0`. | Reproducible Phase 03 integration against the current documented Strands API used by this example. |
+| 2026-08-18 | Keep normal app code in `src/` and all security tests in `tests/`. | Keeps application behavior and validation/demo scenarios clearly separated. |
 
 ## Notes for Next Session
 
-- Phase 03 verification command is defined in `Harness-Best-Practice/feature_list.json`.
-- No real Anthropic API key is needed for the current integration tests; `ANTHROPIC_API_KEY` is only needed for the later live agent run.
-- Strands also supports direct method-style tool invocation; because the toolkit contains only secured wrappers, that path still enters `RuntimeSecurity`.
+- Phase 03 is complete and human-approved.
+- `tests/live/test_allowed_egress.py` and `tests/live/test_blocked_egress.py` are the live egress demonstrations.
+- `src/run_news.py` is normal application behavior and contains no security-test scenario.
+- The Streamlit app must reuse `src.agent.build_agent()` rather than registering raw tools independently.
 
 ---
 
 ## Session Handoff
 
-**Current objective:** Verify Phase 03 Strands/Claude integration and prove only secured wrappers are agent-callable.
-
-**Files changed:** `src/agent.py`, `tests/test_agent_integration.py`, `requirements.txt`, `Harness-Best-Practice/feature_list.json`, and this progress file.
+**Current objective:** Verify `src/run_news.py`, then build the Streamlit portal on the same secured runtime path.
 
 **Resume steps:**
 1. Pull the latest branch.
-2. Install requirements if necessary.
-3. Run the Phase 03 verification command.
-4. Fix failures if any.
-5. Request human sign-off before phase transition.
+2. Run `python3 -m pytest -q`.
+3. Run `python3 src/run_news.py`.
+4. Inspect digest output and runtime audit events.
+5. Build `src/app.py` only after the terminal path is stable.
