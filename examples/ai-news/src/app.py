@@ -26,10 +26,11 @@ from src.run_news import DEFAULT_PROMPT
 
 AUDIT_LOG = PROJECT_ROOT / "Harness-Best-Practice" / "observability" / "audit.log"
 DIGEST_PATH = PROJECT_ROOT / "runtime" / "latest_digest.md"
+RUNTIME_EVENTS = {"tool_call", "secret_check", "content_trust"}
 
 
 def _read_audit_events(limit: int = 20) -> list[dict]:
-    """Read the newest structured runtime audit events for display only."""
+    """Read only AI News runtime-security events; hide build-time hook activity."""
     if not AUDIT_LOG.exists():
         return []
 
@@ -42,13 +43,13 @@ def _read_audit_events(limit: int = 20) -> list[dict]:
             event = json.loads(line)
         except json.JSONDecodeError:
             continue
-        if isinstance(event, dict):
+        if isinstance(event, dict) and event.get("event") in RUNTIME_EVENTS:
             events.append(event)
     return events[-limit:]
 
 
 def _event_row(event: dict) -> dict:
-    """Flatten one audit record into a compact, human-readable UI row."""
+    """Flatten one runtime audit record into a compact, human-readable UI row."""
     timestamp = event.get("timestamp")
     if isinstance(timestamp, (int, float)):
         time_text = datetime.fromtimestamp(timestamp).strftime("%H:%M:%S")
@@ -101,16 +102,16 @@ def _render_runtime_panel() -> None:
     )
 
     events = _read_audit_events(20)
-    st.markdown("#### Latest Security Activity")
+    st.markdown("#### Runtime Security Activity")
     if events:
         rows = [_event_row(event) for event in reversed(events)]
         st.dataframe(rows, use_container_width=True, hide_index=True)
     else:
-        st.info("No runtime audit events yet. Generate a digest or ask the agent a question.")
+        st.info("No runtime security events yet. Generate a digest or ask the agent a question.")
 
-    with st.expander("Raw audit trail"):
+    with st.expander("Raw runtime audit trail"):
         if not events:
-            st.caption("No audit records available.")
+            st.caption("No runtime audit records available.")
         for event in reversed(events):
             st.json(event)
 
