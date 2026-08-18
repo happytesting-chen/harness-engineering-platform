@@ -31,20 +31,22 @@
 - [x] Reorganized all live security tests under `tests/live/`; normal application code remains under `src/`.
 - [x] Added positive ALLOWED audit reasons in the runtime dispatcher.
 - [x] Added `src/run_news.py` as the normal terminal AI News application runner.
+- [x] Normal terminal application verified: Claude used `get_trending_repos`, two `fetch_news` calls, and `save_digest`, producing and saving an 8-story digest.
+- [x] Added live test scenarios for blocked tool permission, blocked fake secret, and untrusted instruction-shaped content under `tests/live/`.
 
 ## In Progress
 
-- **Current task:** verify the normal terminal application (`src/run_news.py`) generates and saves a daily digest through the secured runtime path.
-- **Blockers:** requires local `ANTHROPIC_API_KEY` and working TLS trust configuration for Anthropic/GitHub.
+- **Current task:** run the three new live runtime-security scenarios against the working application baseline.
+- **Blockers:** live tests require local `ANTHROPIC_API_KEY`; content-trust test uses only an allowlisted localhost fixture and does not require an external malicious site.
 
 ## Next Steps
 
 1. Pull the latest `runtime-permission-minimal` branch.
-2. Run the full deterministic regression suite with `python3 -m pytest -q`.
-3. Run `python3 src/run_news.py` and verify the normal digest is generated through approved sources/tools.
-4. Fix only issues exposed by the normal application run.
-5. Add the Streamlit `src/app.py` portal using the same `build_agent()` path; do not create a second security path.
-6. After the basic portal works, add live tool-permission, secret, and untrusted-content demonstrations under `tests/live/`.
+2. Run `python3 tests/live/test_blocked_tool.py` and verify DENIED with handler execution count 0.
+3. Run `python3 tests/live/test_blocked_secret.py` and verify BLOCKED with `runtime/latest_digest.md` unchanged.
+4. Run `python3 tests/live/test_untrusted_content.py` and verify ALLOWED fetch followed by SUSPICIOUS content-trust event.
+5. Fix only issues exposed by these live scenarios.
+6. Build the Streamlit `src/app.py` portal using the same `build_agent()` path; do not create a second security path.
 
 ## Decisions Made
 
@@ -58,23 +60,26 @@
 | 2026-08-18 | Expose fixed network destinations as tool inputs where permission.py must enforce them. | Egress enforcement can only mechanically validate destinations visible before the handler executes. |
 | 2026-08-18 | Register only secured wrapper tools with Strands and disable directory auto-loading. | Prevents the agent from gaining a direct raw-handler path that bypasses `RuntimeSecurity`. |
 | 2026-08-18 | Keep normal app code in `src/` and all security tests in `tests/`. | Keeps application behavior and validation/demo scenarios clearly separated. |
+| 2026-08-18 | Use a legitimate non-allowlisted news source for blocked-egress testing. | Demonstrates authorization policy rather than malicious-site classification. |
+| 2026-08-18 | Use synthetic credentials and a local malicious-content fixture for live tests. | Provides safe, reproducible evidence without exposing real secrets or relying on attacker-controlled external infrastructure. |
 
 ## Notes for Next Session
 
 - Phase 03 is complete and human-approved.
-- `tests/live/test_allowed_egress.py` and `tests/live/test_blocked_egress.py` are the live egress demonstrations.
+- `tests/live/test_allowed_egress.py` and `tests/live/test_blocked_egress.py` are the verified live egress demonstrations.
 - `src/run_news.py` is normal application behavior and contains no security-test scenario.
+- New live scenarios: `test_blocked_tool.py`, `test_blocked_secret.py`, and `test_untrusted_content.py`.
 - The Streamlit app must reuse `src.agent.build_agent()` rather than registering raw tools independently.
 
 ---
 
 ## Session Handoff
 
-**Current objective:** Verify `src/run_news.py`, then build the Streamlit portal on the same secured runtime path.
+**Current objective:** Verify the three remaining live security controls, then build the Streamlit portal on the same secured runtime path.
 
 **Resume steps:**
 1. Pull the latest branch.
-2. Run `python3 -m pytest -q`.
-3. Run `python3 src/run_news.py`.
-4. Inspect digest output and runtime audit events.
-5. Build `src/app.py` only after the terminal path is stable.
+2. Run the three `tests/live/` scenarios listed above.
+3. Inspect audit events and side-effect checks.
+4. Fix failures if any.
+5. Build `src/app.py` after the live controls are demonstrated.
