@@ -3,7 +3,7 @@
 ## Current State
 
 - **Last updated:** 2026-08-18
-- **Active phase:** phase-02 — News retrieval tools
+- **Active phase:** phase-03 — Strands Claude agent integration
 - **Session number:** 1
 
 ## Done
@@ -20,19 +20,26 @@
 - [x] Disabled automatic HTTP redirects in `fetch_news` so an approved URL cannot silently redirect to an unchecked destination.
 - [x] Made the GitHub API endpoint an explicit `get_trending_repos` tool argument so `permission.py` can check egress before execution.
 - [x] Added Phase 02 mocked-network tests in `tests/test_news_tools.py`.
+- [x] Phase 02 locally verified and human-approved: `11 passed in 0.57s`.
+- [x] Added Strands-facing secured wrappers in `src/agent.py`; raw handlers are not registered with Strands.
+- [x] Disabled Strands directory auto-loading with `load_tools_from_directory=False`.
+- [x] Added Anthropic model construction using local `ANTHROPIC_API_KEY` and default `claude-sonnet-4-6` model ID.
+- [x] Added `tests/test_agent_integration.py` to verify secured registration, wrapper routing, no directory auto-loading, and fail-closed missing API key behavior.
+- [x] Pinned Strands/Anthropic and Streamlit runtime dependencies in `requirements.txt`.
 
 ## In Progress
 
-- **Current task:** verify Phase 02 real tool handlers through the runtime security boundary.
-- **Blockers:** Phase 02 tests have not yet been run locally after the new tool implementation.
-- **Attempts:** a hard-coded GitHub API endpoint was initially placed inside the raw handler; corrected before verification because the runtime egress gate could not inspect a destination absent from tool input.
+- **Current task:** locally verify Phase 03 Strands integration and no-bypass registration.
+- **Blockers:** Phase 03 tests require `strands-agents[anthropic]` to be installed locally; no API call is required for the tests themselves.
+- **Attempts:** Phase 03 tests initially allowed a skip when Strands was absent; corrected so missing Strands now fails verification rather than producing a misleading pass.
 
 ## Next Steps
 
-1. Run `python3 -m pytest -q tests/test_runtime_security.py tests/test_news_tools.py` from the `examples/ai-news/` project root.
-2. Fix only issues exposed by verification.
-3. After exit 0 and human sign-off, mark phase-02 passing and activate phase-03.
-4. Phase 03 will add Strands/Claude agent-facing tool wrappers that call only `RuntimeSecurity.execute()`; raw handlers must not be registered directly with the agent.
+1. Pull the latest `runtime-permission-minimal` branch.
+2. From `examples/ai-news/`, install `requirements.txt` in a virtual environment if needed.
+3. Run `python3 -m pytest -q tests/test_runtime_security.py tests/test_news_tools.py tests/test_agent_integration.py`.
+4. Fix only issues exposed by verification.
+5. After exit 0 and human sign-off, mark phase-03 passing and activate phase-04 Streamlit UI implementation.
 
 ## Decisions Made
 
@@ -44,23 +51,26 @@
 | 2026-08-18 | Use a dedicated runtime secret scanner under `src/`. | Keeps deployed runtime behavior separate from Claude Code build-time hook mechanics. |
 | 2026-08-18 | Do not automatically follow HTTP redirects in the raw news fetcher. | Prevents redirect-based egress bypass; any redirected URL must re-enter the secured runtime path. |
 | 2026-08-18 | Expose fixed network destinations as tool inputs where permission.py must enforce them. | Egress enforcement can only mechanically validate destinations visible before the handler executes. |
+| 2026-08-18 | Register only secured wrapper tools with Strands and disable directory auto-loading. | Prevents the agent from gaining a direct raw-handler path that bypasses `RuntimeSecurity`. |
+| 2026-08-18 | Pin `strands-agents[anthropic]==1.48.0`. | Reproducible Phase 03 integration against the current documented Strands API used by this example. |
 
 ## Notes for Next Session
 
-- Phase 02 verification command is defined in `Harness-Best-Practice/feature_list.json`.
-- No Anthropic API key is required for Phase 02 tests because network behavior is mocked.
-- `get_trending_repos` is a proxy for fast-rising interest: recently created repositories sorted by stars, not an exact historical star-velocity measurement.
+- Phase 03 verification command is defined in `Harness-Best-Practice/feature_list.json`.
+- No real Anthropic API key is needed for the current integration tests; `ANTHROPIC_API_KEY` is only needed for the later live agent run.
+- Strands also supports direct method-style tool invocation; because the toolkit contains only secured wrappers, that path still enters `RuntimeSecurity`.
 
 ---
 
 ## Session Handoff
 
-**Current objective:** Verify Phase 02 real news/GitHub/digest handlers behind RuntimeSecurity.
+**Current objective:** Verify Phase 03 Strands/Claude integration and prove only secured wrappers are agent-callable.
 
-**Files changed:** `src/tools/__init__.py`, `src/tools/news.py`, `src/tools/github_trending.py`, `src/tools/digest.py`, `tests/test_news_tools.py`, `.gitignore`, `Harness-Best-Practice/feature_list.json`, and this progress file.
+**Files changed:** `src/agent.py`, `tests/test_agent_integration.py`, `requirements.txt`, `Harness-Best-Practice/feature_list.json`, and this progress file.
 
 **Resume steps:**
-1. Read this section.
-2. Run the Phase 02 verification command.
-3. Fix failures if any.
-4. Request human sign-off before phase transition.
+1. Pull the latest branch.
+2. Install requirements if necessary.
+3. Run the Phase 03 verification command.
+4. Fix failures if any.
+5. Request human sign-off before phase transition.
