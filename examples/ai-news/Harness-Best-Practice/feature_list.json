@@ -9,7 +9,7 @@
       "behavior": "Project context, governance policy, framework integration design, and testable runtime-security adapter contract are in place before application tools execute.",
       "dependencies": [],
       "status": "active",
-      "verification": "python3 -m pytest -q tests/test_permission.py tests/test_content_trust.py tests/test_secret_scan.py",
+      "verification": "python3 -m pytest -q tests/test_permission.py tests/test_content_trust.py tests/test_secret_scan.py tests/test_runtime_security.py",
       "evidence": ""
     },
     {
