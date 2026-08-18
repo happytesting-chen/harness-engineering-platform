@@ -2,7 +2,8 @@
 """Application adapter for the reusable runtime security harness.
 
 This module contains only project/framework wiring. Security authority stays in the
-copied harness primitives under governance/ and Security-kit/.
+copied harness primitives under governance/ and Security-kit/, with runtime secret
+screening kept in the dedicated application runtime scanner.
 """
 
 import json
@@ -19,8 +20,8 @@ for path in (PROJECT_ROOT, SECURITY_DIR, OBSERVABILITY_DIR):
 
 from governance.runtime_dispatcher import RuntimeDispatcher
 from content_trust import scan_text
-from secret_scan import scan_tool_input
 from audit import record
+from src.runtime_secret_scan import scan_tool_input
 
 
 class RuntimeSecurity:
@@ -54,7 +55,7 @@ class RuntimeSecurity:
         return result
 
     def execute(self, tool_name, tool_input=None):
-        """Secret check -> runtime dispatcher -> permission/egress -> tool -> content trust."""
+        """Runtime secret check -> permission/egress -> tool -> content trust."""
         args = dict(tool_input or {})
 
         reason = scan_tool_input(args)
