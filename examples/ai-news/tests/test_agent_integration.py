@@ -50,6 +50,42 @@ def test_wrapper_routes_github_through_runtime(monkeypatch):
     assert seen["args"]["days"] == 7
 
 
+def test_wrapper_returns_exact_content_trust_reason(monkeypatch):
+    import src.agent as agent_module
+
+    reason = "content-trust: suspicious external content blocked from model context"
+
+    class FakeRuntime:
+        def execute(self, name, args):
+            raise PermissionError(reason)
+
+    monkeypatch.setattr(agent_module, "_RUNTIME", FakeRuntime())
+    result = agent_module.fetch_news("http://127.0.0.1/article")
+
+    assert result == {
+        "status": "BLOCKED",
+        "security_control": "content_trust",
+        "reason": reason,
+    }
+
+
+def test_wrapper_classifies_egress_reason(monkeypatch):
+    import src.agent as agent_module
+
+    reason = "default-deny egress: target host 'example.com' not on allowlist"
+
+    class FakeRuntime:
+        def execute(self, name, args):
+            raise PermissionError(reason)
+
+    monkeypatch.setattr(agent_module, "_RUNTIME", FakeRuntime())
+    result = agent_module.fetch_news("https://example.com/article")
+
+    assert result["status"] == "BLOCKED"
+    assert result["security_control"] == "egress_permission"
+    assert result["reason"] == reason
+
+
 def test_build_agent_disables_directory_tool_loading(monkeypatch):
     import src.agent as agent_module
 
