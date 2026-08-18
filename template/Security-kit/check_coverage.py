@@ -5,6 +5,12 @@ Fails CLOSED: a missing, malformed, or stale coverage.json is an ERROR, and ever
 `applies` control must map to a control-matrix row with a non-empty verification.
 Enforces COMPLETENESS of coverage, NOT adequacy of each verification (that stays human).
 
+Also joins coverage.json to the three documents it speaks for, because a claim that
+cites nothing checkable is indistinguishable from a guess: the `Context/` lines its
+reasons cite must resolve (rule 5), the crosswalk must agree that an `applies` id has
+a mechanism (rule 6), and a control mapped to the phase gate must have something to
+gate (rule 7).
+
 Idioms mirror governance/permission.py (path constants + json.loads(read_text())).
 """
 import hashlib
@@ -26,6 +32,13 @@ STATUS_RE = re.compile(r"\*\*(MECHANICAL|OBSERVE|LIBRARY|GAP)\b")
 
 MECHANISMS_PATH = Path(__file__).parent / "mechanisms.json"
 INIT_SH_PATH = PROJECT_ROOT / "init.sh"
+CROSSWALK_PATH = Path(__file__).parent / "owasp-crosswalk.md"
+ALLOWLIST_PATH = PROJECT_ROOT / "governance" / "mcp-allowlist.json"
+
+# `reason` carries its citation inline as `(Context/file.md:12)` — the schema has no
+# separate field. Extracting it is the only way to check a citation resolves.
+CONTEXT_REF_RE = re.compile(r"Context/([A-Za-z0-9._/\-]+\.md):(\d+)")
+OWASP_ID_RE = re.compile(r"^(?:LLM|ASI)\d{2}$")
 
 # `[MECH]`/`[OBS]`/`[LIB]` are the register's vocabulary; the matrix's is the long
 # form. Written years apart, so the join needs a map rather than an assumption.
@@ -575,6 +588,125 @@ def check_kiro_mirror(project_root: Path) -> tuple:
     return 0, []
 
 
+def parse_crosswalk_rows(md_text: str) -> dict:
+    """Map OWASP id -> its mechanism cell (col 3) in owasp-crosswalk.md.
+
+    Same table idiom as parse_matrix_rows, different table. Only rows whose first
+    cell is a bare LLMnn/ASInn count, which skips the summary tables further down
+    the file that repeat ids inside prose cells.
+    """
+    rows = {}
+    for line in md_text.splitlines():
+        if not line.strip().startswith("|"):
+            continue
+        cells = [c.strip() for c in line.strip().strip("|").split("|")]
+        if len(cells) < 3:
+            continue
+        cid = cells[0].strip("`").strip()
+        if not OWASP_ID_RE.match(cid):
+            continue
+        rows[cid] = cells[2]
+    return rows
+
+
+def check_citations(controls: list, context_dir: Path) -> tuple:
+    """Every citation must resolve to a real, non-blank `Context/` line.
+
+    An unresolvable citation is worse than none: it reads as evidence and costs
+    nothing to write. `gap` is exempt from NEEDING one — "cannot determine from
+    Context/" is a legitimate verdict with nothing to cite — but any citation it
+    does carry still has to resolve.
+    """
+    errors, msgs = 0, []
+    for c in controls:
+        cid, verdict = c.get("id"), c.get("verdict")
+        refs = CONTEXT_REF_RE.findall(c.get("reason", "") or "")
+        if verdict in ("applies", "n_a") and not refs:
+            _fail(msgs, f"{cid}: verdict '{verdict}' cites no Context/ line — "
+                        f"the procedure requires one, or record it as a gap")
+            errors += 1
+        for name, lineno in refs:
+            path = context_dir / name
+            if not path.is_file():
+                _fail(msgs, f"{cid}: citation Context/{name}:{lineno} names no such file")
+                errors += 1
+                continue
+            lines = path.read_text().splitlines()
+            n = int(lineno)
+            if n < 1 or n > len(lines):
+                _fail(msgs, f"{cid}: citation Context/{name}:{lineno} is past "
+                            f"end of file ({len(lines)} lines)")
+                errors += 1
+            elif not lines[n - 1].strip():
+                _fail(msgs, f"{cid}: citation Context/{name}:{lineno} points at a "
+                            f"blank line — off by one?")
+                errors += 1
+    return errors, msgs
+
+
+def check_crosswalk_join(controls: list, crosswalk_path: Path) -> tuple:
+    """Join coverage.json to the crosswalk that defines its vocabulary.
+
+    Without this the two files are unrelated documents that happen to share ids:
+    the crosswalk can record `[GAP]` for an id while coverage.json calls it
+    `applies`, and nothing notices. An `applies` asserts a mechanism exists, so
+    the crosswalk row must carry a `[MECH]`; `[APP]`/`[GUIDE]`/`[GAP]` are advice
+    to a human, not enforcement, and an id backed only by those is a `gap`.
+    """
+    errors, msgs = 0, []
+    if not crosswalk_path.is_file():
+        return 0, [f"crosswalk join: skipped — {crosswalk_path.name} not present"]
+    rows = parse_crosswalk_rows(crosswalk_path.read_text())
+    if not rows:
+        _fail(msgs, f"crosswalk join: parsed 0 ids out of {crosswalk_path.name} "
+                    f"— fail closed rather than pass vacuously")
+        return 1, msgs
+    seen = set()
+    for c in controls:
+        cid = c.get("id")
+        seen.add(cid)
+        if cid not in rows:
+            _fail(msgs, f"{cid}: not an id in {crosswalk_path.name}")
+            errors += 1
+            continue
+        if c.get("verdict") == "applies" and "[MECH]" not in rows[cid]:
+            _fail(msgs, f"{cid}: applies, but its crosswalk row records no [MECH] "
+                        f"— no mechanism to map it to, so this is a gap")
+            errors += 1
+    for cid in sorted(set(rows) - seen):
+        _fail(msgs, f"{cid}: in {crosswalk_path.name} but absent from coverage.json "
+                    f"— all 20 ids must be classified")
+        errors += 1
+    return errors, msgs
+
+
+def check_phase_gate_liveness(controls: list, allowlist_path: Path) -> tuple:
+    """`SEC-PHASE-001` is only live where a tool is actually gated.
+
+    The phase gate evaluates on every call, so it always *passes* — which reads
+    identically to enforcing. With no `gated_until` tool in the allowlist there is
+    nothing for it to hold back, and an id mapped to it is claiming a control that
+    cannot fire for this project. Present and correct, but inert.
+    """
+    ids = [c.get("id") for c in controls
+           if c.get("verdict") == "applies" and c.get("matrix_row") == "SEC-PHASE-001"]
+    if not ids:
+        return 0, ["phase-gate liveness: skipped — no applies control maps to SEC-PHASE-001"]
+    if not allowlist_path.is_file():
+        return 1, [f"phase-gate liveness: {allowlist_path.name} missing, so "
+                   f"{', '.join(ids)} map to a control with no policy (fail closed)"]
+    try:
+        tools = json.loads(allowlist_path.read_text()).get("tools", [])
+    except Exception as e:
+        return 1, [f"phase-gate liveness: {allowlist_path.name} unparseable ({e}) "
+                   f"— fail closed"]
+    if not any("gated_until" in t for t in tools if isinstance(t, dict)):
+        return 1, [f"{', '.join(ids)}: mapped to SEC-PHASE-001, but no tool in "
+                   f"{allowlist_path.name} has `gated_until` — the gate is inert "
+                   f"here; gate a real tool or record these as gaps"]
+    return 0, []
+
+
 def check(project_root: Path) -> tuple:
     """Return (error_count, messages). 0 errors == pass. Fails closed."""
     msgs = []
@@ -623,6 +755,18 @@ def check(project_root: Path) -> tuple:
             if mirror_text is not None and c["id"] not in mirror_text:
                 _fail(msgs, f"kiro/steering/active-controls.md does not mention applies control {c['id']}")
                 errors += 1
+    # Rules 5-7: the joins that were missing. Rules 1-4 check coverage.json against
+    # itself and the matrix; these check it against the documents it claims to speak
+    # for — the Context/ lines it cites, the crosswalk that defines its ids, and the
+    # policy that decides whether a mapped control can fire at all.
+    # Paths are passed, not defaulted: a `= CROSSWALK_PATH` default would freeze the
+    # module global at import and quietly ignore any redirection (tests, or a project
+    # rooted elsewhere).
+    for e, m in (check_citations(controls, CONTEXT_DIR),
+                 check_crosswalk_join(controls, CROSSWALK_PATH),
+                 check_phase_gate_liveness(controls, ALLOWLIST_PATH)):
+        errors += e
+        msgs.extend(m)
     return errors, msgs
 
 
@@ -642,10 +786,10 @@ if __name__ == "__main__":
         sys.exit(0)
     n, messages = check(PROJECT_ROOT)
     kn, kmessages = check_kiro_mirror(PROJECT_ROOT)
-    for m in messages + [m for m in kmessages if "skipped" not in m]:
-        print(f"  ✗ {m}")
-    for m in [m for m in kmessages if "skipped" in m]:
-        print(f"  – {m}")
+    # A "skipped" line is a deliberate not-applicable, not a failure — rules 6 and 7
+    # both emit one, and printing it with ✗ would read as an error the exit code denies.
+    for m in messages + kmessages:
+        print(f"  – {m}" if "skipped" in m else f"  ✗ {m}")
     if n == 0:
         print("  ✓ coverage complete (all applicable controls mapped)")
     # The claims invariants run REGARDLESS of the coverage verdict: rule 1 returns
