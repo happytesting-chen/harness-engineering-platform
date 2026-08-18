@@ -9,7 +9,9 @@ Also joins coverage.json to the three documents it speaks for, because a claim t
 cites nothing checkable is indistinguishable from a guess: the `Context/` lines its
 reasons cite must resolve (rule 5), the crosswalk must agree that an `applies` id has
 a mechanism (rule 6), and a control mapped to the phase gate must have something to
-gate (rule 7).
+gate (rule 7). Rule 8 requires each verdict to name its subject (`plane`) and each
+gap to name its kind (`gap_kind`), so that "n_a" and "gap" stop being one word doing
+two jobs each.
 
 Idioms mirror governance/permission.py (path constants + json.loads(read_text())).
 """
@@ -28,6 +30,12 @@ KIRO_MIRROR_PATH = PROJECT_ROOT / "kiro" / "steering" / "active-controls.md"
 CONTEXT_DIR = PROJECT_ROOT / "Context"
 
 PLACEHOLDER_RE = re.compile(r"\{\{.*?\}\}|TODO|TBD|NEEDS-CONFIRMATION")
+
+# Every deliberate not-applicable uses this exact idiom: "<rule>: skipped — <why>".
+# Routing on the idiom rather than on the bare word "skipped" matters: an ERROR message
+# may legitimately contain that word (rule 8's schema-version error did, and printed
+# itself as a benign skip until this existed). Pinned by case_error_saying_skipped_is_not_a_skip.
+SKIP_RE = re.compile(r":\s+skipped\s+—\s")
 STATUS_RE = re.compile(r"\*\*(MECHANICAL|OBSERVE|LIBRARY|GAP)\b")
 
 MECHANISMS_PATH = Path(__file__).parent / "mechanisms.json"
@@ -564,6 +572,16 @@ def parse_matrix(md_text: str) -> dict:
     return {k: r.verification for k, r in parse_matrix_rows(md_text).items()}
 
 
+def is_skip(msg: str) -> bool:
+    """True for a deliberate not-applicable line, false for a failure.
+
+    Extracted from __main__ so it can be tested. The distinction is only carried in
+    the message text, which is the weak point: getting it backwards prints an error
+    as a benign `–`, and nothing else in the output contradicts it.
+    """
+    return bool(SKIP_RE.search(msg))
+
+
 def _fail(msgs, text):
     msgs.append(text)
 
@@ -613,17 +631,21 @@ def check_citations(controls: list, context_dir: Path) -> tuple:
     """Every citation must resolve to a real, non-blank `Context/` line.
 
     An unresolvable citation is worse than none: it reads as evidence and costs
-    nothing to write. `gap` is exempt from NEEDING one — "cannot determine from
-    Context/" is a legitimate verdict with nothing to cite — but any citation it
-    does carry still has to resolve.
+    nothing to write. Only `gap_kind: undetermined` is exempt from NEEDING one —
+    "cannot determine from Context/" is a legitimate verdict with nothing to cite.
+    A `no_mechanism` gap is NOT exempt: it asserts the product has the surface, and
+    that assertion has the same evidentiary burden as an `applies`. Any citation a
+    control does carry still has to resolve, exempt or not.
     """
     errors, msgs = 0, []
     for c in controls:
         cid, verdict = c.get("id"), c.get("verdict")
         refs = CONTEXT_REF_RE.findall(c.get("reason", "") or "")
-        if verdict in ("applies", "n_a") and not refs:
+        exempt = verdict == "gap" and c.get("gap_kind") != "no_mechanism"
+        if not exempt and not refs:
             _fail(msgs, f"{cid}: verdict '{verdict}' cites no Context/ line — "
-                        f"the procedure requires one, or record it as a gap")
+                        f"the procedure requires one, or record it as a gap "
+                        f"with gap_kind 'undetermined'")
             errors += 1
         for name, lineno in refs:
             path = context_dir / name
@@ -707,6 +729,64 @@ def check_phase_gate_liveness(controls: list, allowlist_path: Path) -> tuple:
     return 0, []
 
 
+SCHEMA_VERSION = 2
+LEGAL_PLANES = ("runtime", "build")
+LEGAL_GAP_KINDS = ("no_mechanism", "undetermined")
+
+
+def check_shape(cov: dict) -> tuple:
+    """Rule 8 — every verdict names its subject, and every gap names its kind.
+
+    `plane` exists because these documents describe two subjects: the product at
+    runtime, and the agent that builds it. A verdict that does not say which one it
+    judged is not falsifiable — "LLM08 n_a, no retrieval" is true of the product and
+    false of the build agent, which reads every file in `Context/`.
+
+    `gap_kind` exists because one word was carrying two jobs. "Applies, and the
+    template has no mechanism" needs a control owner; "cannot determine from
+    Context/" needs an answer from a human. A reader could not tell them apart, so
+    neither got assigned.
+
+    A version older than SCHEMA_VERSION returns immediately: a v1 file is missing
+    both fields on all 20 entries, and 40 field errors bury the one fact that
+    matters, which is that the file predates the contract.
+    """
+    errors, msgs = 0, []
+    if cov.get("schema_version") != SCHEMA_VERSION:
+        _fail(msgs, f"coverage.json is schema_version {cov.get('schema_version')!r}, "
+                    f"expected {SCHEMA_VERSION} — re-run /security-tailor (it adds "
+                    f"`plane` and `gap_kind`); field checks not run until it does")
+        return 1, msgs
+    for c in cov.get("controls", []):
+        cid, verdict = c.get("id"), c.get("verdict")
+        planes = c.get("plane")
+        if not isinstance(planes, list) or not planes:
+            _fail(msgs, f"{cid}: `plane` must be a non-empty list of "
+                        f"{list(LEGAL_PLANES)} — say whose risk this is")
+            errors += 1
+        else:
+            for p in planes:
+                if p not in LEGAL_PLANES:
+                    _fail(msgs, f"{cid}: `plane` has illegal value {p!r} "
+                                f"(legal: {list(LEGAL_PLANES)})")
+                    errors += 1
+            if len(set(planes)) != len(planes):
+                _fail(msgs, f"{cid}: `plane` repeats a value ({planes})")
+                errors += 1
+        kind = c.get("gap_kind")
+        if verdict == "gap":
+            if kind not in LEGAL_GAP_KINDS:
+                _fail(msgs, f"{cid}: gap needs `gap_kind` in {list(LEGAL_GAP_KINDS)}, "
+                            f"got {kind!r} — 'needs a control owner' and 'needs an "
+                            f"answer' are different jobs")
+                errors += 1
+        elif kind is not None:
+            _fail(msgs, f"{cid}: verdict {verdict!r} carries `gap_kind` {kind!r} — "
+                        f"only a gap has a kind")
+            errors += 1
+    return errors, msgs
+
+
 def check(project_root: Path) -> tuple:
     """Return (error_count, messages). 0 errors == pass. Fails closed."""
     msgs = []
@@ -723,6 +803,11 @@ def check(project_root: Path) -> tuple:
         _fail(msgs, f"coverage.json malformed: {e}")
         return 1, msgs
     errors = 0
+    # Rule 8: shape. Runs FIRST of the content rules because rule 5's exemption reads
+    # `gap_kind` — an unvalidated field would silently widen that exemption.
+    e, m = check_shape(cov)
+    errors += e
+    msgs.extend(m)
     # Rule 2: freshness
     expected = f"Context/ @ {context_hash(CONTEXT_DIR)}"
     if cov.get("generated_from") != expected:
@@ -786,10 +871,11 @@ if __name__ == "__main__":
         sys.exit(0)
     n, messages = check(PROJECT_ROOT)
     kn, kmessages = check_kiro_mirror(PROJECT_ROOT)
-    # A "skipped" line is a deliberate not-applicable, not a failure — rules 6 and 7
-    # both emit one, and printing it with ✗ would read as an error the exit code denies.
+    # A skip line is a deliberate not-applicable, not a failure — rules 6, 7 and the
+    # Kiro mirror each emit one, and printing it with ✗ would read as an error the exit
+    # code denies. The inverse is worse, so is_skip() matches the idiom, not the word.
     for m in messages + kmessages:
-        print(f"  – {m}" if "skipped" in m else f"  ✗ {m}")
+        print(f"  – {m}" if is_skip(m) else f"  ✗ {m}")
     if n == 0:
         print("  ✓ coverage complete (all applicable controls mapped)")
     # The claims invariants run REGARDLESS of the coverage verdict: rule 1 returns

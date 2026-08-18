@@ -19,15 +19,20 @@ For EACH id in `Security-kit/owasp-crosswalk.md` (LLM01–10, ASI01–10) decide
 - **applies** — the product has this surface AND the id's crosswalk row carries a `[MECH]`.
   Give a one-line reason **citing a `Context/` line**.
 - **n_a** — genuinely absent (e.g. LLM08 with no retrieval). Cite what rules it out.
-- **gap** — applies but the template offers no mechanism, OR cannot be determined from Context.
-Never guess: no citation ⇒ record as a `gap` ("cannot determine from Context/").
+- **gap** — set `gap_kind` to say which of the two kinds it is:
+  - `no_mechanism` — the product has the surface, the template offers nothing. Needs a
+    control owner, so it still needs a `Context/` citation for the surface it claims.
+  - `undetermined` — `Context/` does not answer it. Needs an answer from a human. This is
+    the ONLY verdict that may cite nothing.
+Never guess: no citation ⇒ record as a `gap` with `gap_kind: undetermined`.
 An id whose crosswalk row is `[APP]`/`[GUIDE]`/`[GAP]` only is a `gap`, never an `applies` —
 there is no mechanism to map it to, and the checker rejects the mapping.
 
 **Whose risk?** These documents describe two subjects: the product at runtime, and the agent
-that builds it. Judge each id against the one the `Context/` line you cite is talking about,
-and say which in the `reason`. A product that never invokes a model still exposes the build
-agent to instruction-shaped text in its own input files.
+that builds it. Record which one you judged in `plane` — `["runtime"]`, `["build"]`, or both
+— and make the `reason` match the plane you named. A product that never invokes a model still
+exposes the build agent to instruction-shaped text in its own input files, so `runtime: n_a`
+and `build: applies` is a common and correct pair; when that happens, list `build` and say so.
 
 ## Step 3 — Write artifacts
 1. Write `Security-kit/coverage.json` per `Security-kit/coverage.schema.md` (all 20 ids).
@@ -49,9 +54,9 @@ agent to instruction-shaped text in its own input files.
    hash into `generated_from` so the freshness gate passes. Never hand-edit that field.
 
 ## Step 4 — Report & hand off
-Print the `n_a` + `gap` lists (with reasons) so the engineer records residual-risk decisions.
-Separate the two kinds of `gap` — *applies, no mechanism* (needs a control owner) from
-*cannot determine* (needs an answer) — because they are different jobs.
+Print the `n_a` + `gap` lists (with reasons and planes) so the engineer records residual-risk
+decisions. Group the gaps by `gap_kind`: `no_mechanism` needs a control owner, `undetermined`
+needs an answer. Hand them over as two lists, not one — they go to different people.
 If any id maps to `SEC-PHASE-001`, say so explicitly: that control is only live when
 `governance/mcp-allowlist.json` holds at least one `gated_until` tool, and the checker
 enforces it. Then run `./init.sh`.

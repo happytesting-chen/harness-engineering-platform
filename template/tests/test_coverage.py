@@ -58,9 +58,19 @@ _MATRIX_OK = (
 
 
 def _coverage(context_dir, controls):
-    return {"schema_version": 1,
+    return {"schema_version": cc.SCHEMA_VERSION,
             "generated_from": f"Context/ @ {cc.context_hash(context_dir)}",
             "controls": controls}
+
+
+def _applies_llm01():
+    """The canonical well-formed entry, as a factory so no two cases share a dict.
+
+    Named rather than inlined so that the one case which deliberately omits `plane`
+    (case_shape_is_wired_into_check) reads as a choice instead of an oversight.
+    """
+    return {"id": "LLM01", "verdict": "applies", "plane": ["runtime"],
+            "reason": "r (Context/a.md:1)", "matrix_row": "SEC-INPUT-001"}
 
 
 def _run_check(matrix, context_files, coverage=None, active=None, mirror=None,
@@ -124,8 +134,7 @@ def case_fail_when_applies_has_no_matrix_row():
     # hash must match the same context the checker will read, so compute over a temp ctx first:
     with tempfile.TemporaryDirectory() as d:
         ctx = _write_context(Path(d), {"a.md": "reads untrusted input"})
-        cov = _coverage(ctx, [{"id": "LLM01", "verdict": "applies",
-                               "reason": "x (Context/a.md:1)", "matrix_row": "SEC-INPUT-001"}])
+        cov = _coverage(ctx, [_applies_llm01()])
     # NOTE: freshness is checked against the REAL temp ctx built in _run_check; this case
     # targets the missing-row rule, so accept either a stale OR a missing-row error.
     errs, msgs = _run_check(empty_matrix, {"a.md": "reads untrusted input"}, coverage=cov)
@@ -142,9 +151,7 @@ def _fresh_cov(context_files, controls):
 def case_fail_when_verification_blank_or_todo():
     matrix = ("| Control ID | O | I | Verification | R |\n|---|---|---|---|---|\n"
               "| `SEC-INPUT-001` | x | y | TODO | z |\n")
-    cov = _fresh_cov({"a.md": "x"}, [{"id": "LLM01", "verdict": "applies",
-                                      "reason": "r (Context/a.md:1)",
-                                      "matrix_row": "SEC-INPUT-001"}])
+    cov = _fresh_cov({"a.md": "x"}, [_applies_llm01()])
     errs, msgs = _run_check(matrix, {"a.md": "x"}, coverage=cov,
                             active="# Active\n- LLM01\n")
     assert errs >= 1 and any("SEC-INPUT-001" in m for m in msgs), msgs
@@ -163,9 +170,7 @@ def case_fail_when_malformed():
 
 
 def case_pass_when_applies_mapped_and_active_matches():
-    cov = _fresh_cov({"a.md": "x"}, [{"id": "LLM01", "verdict": "applies",
-                                      "reason": "r (Context/a.md:1)",
-                                      "matrix_row": "SEC-INPUT-001"}])
+    cov = _fresh_cov({"a.md": "x"}, [_applies_llm01()])
     errs, msgs = _run_check(_MATRIX_OK, {"a.md": "x"}, coverage=cov,
                             active="# Active\n- **[LLM01]** untrusted input\n")
     assert errs == 0, msgs
@@ -173,6 +178,7 @@ def case_pass_when_applies_mapped_and_active_matches():
 
 def case_pass_when_zero_applies():
     cov = _fresh_cov({"a.md": "x"}, [{"id": "LLM08", "verdict": "n_a",
+                                      "plane": ["runtime"],
                                       "reason": "no rag (Context/a.md:1)"}])
     errs, msgs = _run_check(_MATRIX_OK, {"a.md": "x"}, coverage=cov, active="# Active\n(none)\n")
     assert errs == 0, msgs
@@ -185,9 +191,7 @@ def case_fail_when_mirror_content_mismatches_applies():
     Asserts on the message text, not just the count — a bare count can't distinguish this
     failure from any other error the same call might raise.
     """
-    cov = _fresh_cov({"a.md": "x"}, [{"id": "LLM01", "verdict": "applies",
-                                      "reason": "r (Context/a.md:1)",
-                                      "matrix_row": "SEC-INPUT-001"}])
+    cov = _fresh_cov({"a.md": "x"}, [_applies_llm01()])
     errs, msgs = _run_check(_MATRIX_OK, {"a.md": "x"}, coverage=cov,
                             active="# Active\n- **[LLM01]** untrusted input\n",
                             mirror="# Active\n- **[SOMETHING-ELSE]** unrelated\n")
@@ -202,9 +206,7 @@ def case_pass_when_mirror_content_matches_applies():
     Asserts the specific mirror-mismatch message is absent (not just that the total is
     zero), so this case stays meaningful even if the fixture later grows unrelated errors.
     """
-    cov = _fresh_cov({"a.md": "x"}, [{"id": "LLM01", "verdict": "applies",
-                                      "reason": "r (Context/a.md:1)",
-                                      "matrix_row": "SEC-INPUT-001"}])
+    cov = _fresh_cov({"a.md": "x"}, [_applies_llm01()])
     errs, msgs = _run_check(_MATRIX_OK, {"a.md": "x"}, coverage=cov,
                             active="# Active\n- **[LLM01]** untrusted input\n",
                             mirror="# Active\n- **[LLM01]** untrusted input\n")
@@ -279,9 +281,8 @@ def case_fail_when_citation_points_at_blank_line():
     A citation to a blank line resolves as a file and a line number and reads as
     evidence, but points at nothing — the exact shape observed in the field.
     """
-    cov = _fresh_cov({"a.md": "one\n\nthree\n"},
-                     [{"id": "LLM01", "verdict": "applies",
-                       "reason": "x (Context/a.md:2)", "matrix_row": "SEC-INPUT-001"}])
+    blank_cite = dict(_applies_llm01(), reason="x (Context/a.md:2)")
+    cov = _fresh_cov({"a.md": "one\n\nthree\n"}, [blank_cite])
     errs, msgs = _run_check(_MATRIX_OK, {"a.md": "one\n\nthree\n"}, coverage=cov,
                             active="# Active\n- **[LLM01]** untrusted input\n")
     assert errs >= 1, msgs
@@ -297,6 +298,125 @@ def case_gap_needs_no_citation_but_a_bad_one_still_fails():
             [{"id": "LLM03", "verdict": "gap", "reason": "x (Context/a.md:44)"}], ctx)
     assert ok == 0, "a gap with nothing to cite must pass"
     assert bad == 1 and any("past end of file" in m for m in msgs), msgs
+
+
+def case_no_mechanism_gap_must_still_cite():
+    """The tightened half of rule 5.
+
+    `undetermined` is exempt because there is nothing to cite. `no_mechanism` asserts
+    the product HAS the surface — same claim an `applies` makes — so it carries the
+    same burden. Exempting all gaps would have made "gap" a way to skip sourcing.
+    """
+    with tempfile.TemporaryDirectory() as d:
+        ctx = _write_context(Path(d), {"a.md": "line one"})
+        bad, msgs = cc.check_citations(
+            [{"id": "ASI03", "verdict": "gap", "gap_kind": "no_mechanism",
+              "reason": "cloud deploy, no identity broker"}], ctx)
+        ok, _ = cc.check_citations(
+            [{"id": "LLM09", "verdict": "gap", "gap_kind": "undetermined",
+              "reason": "Context/ does not say"}], ctx)
+    assert bad == 1 and any("cites no Context/ line" in m for m in msgs), msgs
+    assert ok == 0, "an undetermined gap has nothing to cite"
+
+
+def case_error_saying_skipped_is_not_a_skip():
+    """The output marker must key on the skip IDIOM, not on the word "skipped".
+
+    Rule 8's schema-version error originally said "field checks skipped until it
+    does" and printed itself as a benign `–`. An error that renders as a skip is the
+    worst failure mode this file has: the exit code says 1 and the screen says fine.
+    """
+    for skip in ("layer-D Kiro mirror: skipped — no kiro/steering directory",
+                 "crosswalk join: skipped — owasp-crosswalk.md not present",
+                 "phase-gate liveness: skipped — no applies control maps to SEC-PHASE-001"):
+        assert cc.is_skip(skip), f"real skip misread as an error: {skip}"
+    for err in ("coverage.json is schema_version 1, expected 2 — field checks not run",
+                "LLM01: some check was skipped by the author and that is a bug",
+                "ASI03: gap needs `gap_kind`"):
+        assert not cc.is_skip(err), f"error misread as a skip: {err}"
+
+
+# --- rule 8: plane and gap_kind ---
+
+def _shape(controls, version=cc.SCHEMA_VERSION):
+    return cc.check_shape({"schema_version": version, "controls": controls})
+
+
+def case_old_schema_version_reports_once_not_forty_times():
+    """A v1 file is missing both fields on all 20 entries.
+
+    Reporting each one buries the only fact that matters — the file predates the
+    contract — under 40 lines. One error, then stop.
+    """
+    errs, msgs = _shape([{"id": f"LLM{i:02d}", "verdict": "gap"} for i in range(1, 11)],
+                        version=1)
+    assert errs == 1, msgs
+    assert len(msgs) == 1 and "schema_version" in msgs[0], msgs
+
+
+def case_fail_when_plane_missing_or_empty():
+    for planes in (None, [], "runtime"):
+        c = {"id": "LLM01", "verdict": "applies"}
+        if planes is not None:
+            c["plane"] = planes
+        errs, msgs = _shape([c])
+        assert errs == 1, (planes, msgs)
+        assert any("`plane` must be a non-empty list" in m for m in msgs), (planes, msgs)
+
+
+def case_fail_when_plane_value_illegal_or_repeated():
+    errs, msgs = _shape([{"id": "LLM01", "verdict": "applies", "plane": ["prod"]}])
+    assert errs == 1 and any("illegal value 'prod'" in m for m in msgs), msgs
+    errs, msgs = _shape([{"id": "LLM01", "verdict": "applies",
+                          "plane": ["runtime", "runtime"]}])
+    assert errs == 1 and any("repeats a value" in m for m in msgs), msgs
+
+
+def case_fail_when_gap_has_no_kind():
+    errs, msgs = _shape([{"id": "LLM09", "verdict": "gap", "plane": ["runtime"]}])
+    assert errs == 1, msgs
+    assert any("gap needs `gap_kind`" in m for m in msgs), msgs
+
+
+def case_fail_when_gap_kind_illegal():
+    errs, msgs = _shape([{"id": "LLM09", "verdict": "gap", "plane": ["runtime"],
+                          "gap_kind": "maybe"}])
+    assert errs == 1 and any("got 'maybe'" in m for m in msgs), msgs
+
+
+def case_fail_when_non_gap_carries_a_gap_kind():
+    """A `gap_kind` on an `applies` is a category error, not extra detail.
+
+    Left unchecked it reads as a hedge — "this applies, but also sort of doesn't" —
+    which is exactly the ambiguity gap_kind was added to remove.
+    """
+    errs, msgs = _shape([{"id": "LLM01", "verdict": "applies", "plane": ["build"],
+                          "gap_kind": "no_mechanism"}])
+    assert errs == 1, msgs
+    assert any("only a gap has a kind" in m for m in msgs), msgs
+
+
+def case_shape_passes_on_a_well_formed_set():
+    errs, msgs = _shape([
+        {"id": "LLM01", "verdict": "applies", "plane": ["runtime", "build"]},
+        {"id": "LLM08", "verdict": "n_a", "plane": ["runtime"]},
+        {"id": "ASI03", "verdict": "gap", "plane": ["runtime"], "gap_kind": "no_mechanism"},
+        {"id": "LLM09", "verdict": "gap", "plane": ["build"], "gap_kind": "undetermined"},
+    ])
+    assert errs == 0, msgs
+    assert msgs == [], msgs
+
+
+def case_shape_is_wired_into_check():
+    """Rule 8 must fire through check(), not just when called directly."""
+    no_plane = {"id": "LLM01", "verdict": "applies",  # `plane` omitted ON PURPOSE
+                "reason": "r (Context/a.md:1)", "matrix_row": "SEC-INPUT-001"}
+    cov = _fresh_cov({"a.md": "x"}, [no_plane])
+    errs, msgs = _run_check(_MATRIX_OK, {"a.md": "x"}, coverage=cov,
+                            active="# Active\n- **[LLM01]** untrusted input\n")
+    assert errs >= 1, msgs
+    assert any("`plane` must be a non-empty list" in m for m in msgs), \
+        "rule 8 is not wired into check(): " + str(msgs)
 
 
 # --- rule 6: the crosswalk join ---
@@ -452,6 +572,16 @@ CASES = [
     case_pass_when_a_tool_is_actually_gated,
     case_phase_gate_missing_allowlist_fails_closed,
     case_phase_gate_skips_when_nothing_maps_to_it,
+    case_no_mechanism_gap_must_still_cite,
+    case_error_saying_skipped_is_not_a_skip,
+    case_old_schema_version_reports_once_not_forty_times,
+    case_fail_when_plane_missing_or_empty,
+    case_fail_when_plane_value_illegal_or_repeated,
+    case_fail_when_gap_has_no_kind,
+    case_fail_when_gap_kind_illegal,
+    case_fail_when_non_gap_carries_a_gap_kind,
+    case_shape_passes_on_a_well_formed_set,
+    case_shape_is_wired_into_check,
 ]
 
 
