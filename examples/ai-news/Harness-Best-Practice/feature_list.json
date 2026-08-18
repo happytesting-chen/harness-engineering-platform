@@ -24,19 +24,19 @@
     {
       "id": "phase-03",
       "name": "Strands Claude agent integration",
-      "behavior": "The Strands agent uses only registered secured wrapper tools; raw handlers are not registered and directory auto-loading is disabled. A live Claude smoke test must also show an allowed real tool call and a runtime-denied unapproved destination in the audit trail.",
+      "behavior": "The Strands agent uses only registered secured wrapper tools; raw handlers are not registered and directory auto-loading is disabled. Live tests also prove an allowed real egress call and a runtime-denied legitimate non-allowlisted destination.",
       "dependencies": ["phase-02"],
-      "status": "active",
-      "verification": "python3 -m pytest -q tests/test_runtime_security.py tests/test_news_tools.py tests/test_agent_integration.py && python3 scripts/live_smoke.py",
-      "evidence": "Phase 03A human-approved local integration verification on 2026-08-18: 16 passed in 27.87s. Phase 03B live Claude smoke test pending."
+      "status": "passing",
+      "verification": "python3 -m pytest -q tests/test_runtime_security.py tests/test_news_tools.py tests/test_agent_integration.py && python3 tests/live/test_allowed_egress.py && python3 tests/live/test_blocked_egress.py",
+      "evidence": "Human-approved local integration verification on 2026-08-18: 16 passed in 27.87s. Live Claude/Strands egress verification also passed: api.github.com ALLOWED; legitimate arstechnica.com request DENIED by default-deny egress with audit evidence. Regression rerun passed after test reorganization."
     },
     {
       "id": "phase-04",
-      "name": "Streamlit application",
-      "behavior": "A local Streamlit page shows the daily digest/chat plus visible runtime protection status and audit events.",
+      "name": "Application runners and Streamlit portal",
+      "behavior": "Normal application use is separated from security tests. A terminal runner generates the daily digest through the secured Strands runtime, followed by a local Streamlit page showing digest/chat plus visible runtime protection and audit events.",
       "dependencies": ["phase-03"],
-      "status": "not-started",
-      "verification": "python3 -m pytest -q",
+      "status": "active",
+      "verification": "python3 -m pytest -q && python3 src/run_news.py",
       "evidence": ""
     },
     {
