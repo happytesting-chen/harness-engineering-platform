@@ -1,17 +1,10 @@
 # ** newly added **
 """Phase 03 tests for Strands integration and no-bypass tool registration."""
 
-import importlib.util
-
 import pytest
 
-pytestmark = pytest.mark.skipif(
-    importlib.util.find_spec("strands") is None,
-    reason="strands-agents is not installed",
-)
 
-
-def test_agent_registers_only_secured_wrappers(monkeypatch):
+def test_agent_registers_only_secured_wrappers():
     import src.agent as agent_module
 
     names = {tool.tool_name for tool in agent_module.SECURED_AGENT_TOOLS}
