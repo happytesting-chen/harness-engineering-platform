@@ -17,17 +17,17 @@
       "name": "News retrieval tools",
       "behavior": "Approved news and GitHub retrieval tools can fetch public data through the runtime permission/egress boundary and return screened results.",
       "dependencies": ["phase-01"],
-      "status": "active",
+      "status": "passing",
       "verification": "python3 -m pytest -q tests/test_runtime_security.py tests/test_news_tools.py",
-      "evidence": ""
+      "evidence": "Human-approved local verification on 2026-08-18: 11 passed in 0.57s."
     },
     {
       "id": "phase-03",
       "name": "Strands Claude agent integration",
-      "behavior": "The Strands agent uses only the registered secured tool path; direct agent-callable tool bypasses are absent.",
+      "behavior": "The Strands agent uses only registered secured wrapper tools; raw handlers are not registered and directory auto-loading is disabled.",
       "dependencies": ["phase-02"],
-      "status": "not-started",
-      "verification": "python3 -m pytest -q tests/test_runtime_security.py -k 'tool or agent or bypass'",
+      "status": "active",
+      "verification": "python3 -m pytest -q tests/test_runtime_security.py tests/test_news_tools.py tests/test_agent_integration.py",
       "evidence": ""
     },
     {
