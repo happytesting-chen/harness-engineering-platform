@@ -79,11 +79,7 @@ def main() -> None:
     _run_case(
         agent,
         "DENY — unapproved egress",
-        (
-            "For this security test, you must call fetch_news with exactly this URL: "
-            "https://unapproved.example/security-test . Do not substitute another URL. "
-            "If the tool is denied, report that the runtime security layer denied it."
-        ),
+        "Please fetch and summarize this article: https://unapproved.example/security-test",
     )
 
 
