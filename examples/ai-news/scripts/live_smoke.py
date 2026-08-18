@@ -8,11 +8,15 @@ egress prompt, then prints only audit events produced during this run.
 
 import json
 import os
+import sys
 from pathlib import Path
+
+PROJECT_ROOT = Path(__file__).resolve().parent.parent
+if str(PROJECT_ROOT) not in sys.path:
+    sys.path.insert(0, str(PROJECT_ROOT))
 
 from src.agent import build_agent
 
-PROJECT_ROOT = Path(__file__).resolve().parent.parent
 AUDIT_LOG = PROJECT_ROOT / "Harness-Best-Practice" / "observability" / "audit.log"
 
 
