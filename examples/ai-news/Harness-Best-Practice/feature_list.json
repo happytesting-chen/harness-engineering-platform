@@ -24,11 +24,11 @@
     {
       "id": "phase-03",
       "name": "Strands Claude agent integration",
-      "behavior": "The Strands agent uses only registered secured wrapper tools; raw handlers are not registered and directory auto-loading is disabled.",
+      "behavior": "The Strands agent uses only registered secured wrapper tools; raw handlers are not registered and directory auto-loading is disabled. A live Claude smoke test must also show an allowed real tool call and a runtime-denied unapproved destination in the audit trail.",
       "dependencies": ["phase-02"],
       "status": "active",
-      "verification": "python3 -m pytest -q tests/test_runtime_security.py tests/test_news_tools.py tests/test_agent_integration.py",
-      "evidence": ""
+      "verification": "python3 -m pytest -q tests/test_runtime_security.py tests/test_news_tools.py tests/test_agent_integration.py && python3 scripts/live_smoke.py",
+      "evidence": "Phase 03A human-approved local integration verification on 2026-08-18: 16 passed in 27.87s. Phase 03B live Claude smoke test pending."
     },
     {
       "id": "phase-04",
