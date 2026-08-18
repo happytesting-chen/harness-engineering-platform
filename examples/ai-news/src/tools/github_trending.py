@@ -13,12 +13,17 @@ from urllib.request import Request, urlopen
 _MAX_ITEMS = 10
 
 
-def get_trending_repos(days: int = 7) -> list[dict]:
-    """Return recently created, highly starred AI/security repositories."""
+def get_trending_repos(endpoint: str, days: int = 7) -> list[dict]:
+    """Return recently created, highly starred AI/security repositories.
+
+    `endpoint` is explicit so permission.py can validate the network destination
+    before this handler executes. Expected v1 endpoint:
+    https://api.github.com/search/repositories
+    """
     days = max(1, min(int(days), 30))
     since = date.today() - timedelta(days=days)
     query = f"(ai OR llm OR security) created:>={since.isoformat()}"
-    url = "https://api.github.com/search/repositories?" + urlencode(
+    url = endpoint.rstrip("?") + "?" + urlencode(
         {
             "q": query,
             "sort": "stars",
