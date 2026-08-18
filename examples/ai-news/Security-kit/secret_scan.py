@@ -68,6 +68,22 @@ def _collect_text(tool_input) -> str:
     return "\n".join(parts)
 
 
+# ** newly add **
+def scan_tool_input(tool_input) -> str | None:
+    """Runtime-friendly secret scan over a decoded tool input.
+
+    Returns a denial reason when a credential pattern is detected, otherwise None.
+    This exposes the existing detector to deployed applications without changing the
+    Claude Code hook behavior below.
+    """
+    text = _collect_text(tool_input)
+    for pat in _PATTERNS:
+        if pat.search(text):
+            return "secret-block: possible hardcoded credential in tool input"
+    return None
+# ** newly add **
+
+
 def _block(reason: str):
     # Claude Code feeds STDERR back to the model on exit 2; stdout is discarded
     # for a blocked call, so the reason must go to stderr to reach the agent.
@@ -86,10 +102,11 @@ def main():
     if not isinstance(data, dict):
         _block("secret-block: unexpected hook payload shape (fail closed)")
 
-    text = _collect_text(data.get("tool_input", {}))
-    for pat in _PATTERNS:
-        if pat.search(text):
-            _block("secret-block: possible hardcoded credential in tool input")
+    # ** newly add **
+    reason = scan_tool_input(data.get("tool_input", {}))
+    if reason:
+        _block(reason)
+    # ** newly add **
     sys.exit(0)
 
 
