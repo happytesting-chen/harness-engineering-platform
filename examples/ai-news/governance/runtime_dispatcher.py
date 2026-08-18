@@ -67,7 +67,8 @@ class RuntimeDispatcher:
             raise PermissionError(reason)
 
         # *** newly changed ***
-        record("tool_call", tool_name, args, "ALLOWED")
+        allow_reason = reason or "runtime policy allowed tool call"
+        record("tool_call", tool_name, args, "ALLOWED", allow_reason)
         # *** newly changed ***
         result = self._tools[tool_name](**args)
 
