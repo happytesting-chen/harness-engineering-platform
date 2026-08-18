@@ -10,6 +10,12 @@ from src.tools import build_tool_handlers
 from src.tools import digest as digest_module
 from src.tools import github_trending as github_module
 from src.tools import news as news_module
+import audit
+
+
+@pytest.fixture(autouse=True)
+def isolated_audit(tmp_path, monkeypatch):
+    monkeypatch.setattr(audit, "LOG", tmp_path / "audit.log")
 
 
 class _Headers(dict):
@@ -137,6 +143,7 @@ def test_github_trending_returns_compact_repository_records(monkeypatch):
 
 def test_save_digest_writes_runtime_file(monkeypatch, tmp_path):
     target = tmp_path / "latest_digest.md"
+    monkeypatch.setattr(digest_module, "PROJECT_ROOT", tmp_path)
     monkeypatch.setattr(digest_module, "RUNTIME_DIR", tmp_path)
     monkeypatch.setattr(digest_module, "DIGEST_PATH", target)
 
@@ -145,3 +152,4 @@ def test_save_digest_writes_runtime_file(monkeypatch, tmp_path):
 
     assert target.read_text(encoding="utf-8") == "# Daily Digest\nHello"
     assert result["saved"] is True
+    assert result["path"] == "latest_digest.md"
