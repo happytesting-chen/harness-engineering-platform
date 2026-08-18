@@ -1,33 +1,60 @@
 {
-  "project": "{{PROJECT_NAME}}",
-  "description": "Feature list — the harness primitive. Each item has the triple: behavior + verification + state. Only one feature may be ACTIVE at a time. Transition to PASSING requires verification exit 0 + human sign-off.",
-  "_recommended_final_phase": "Make the LAST phase an evaluation-and-snapshot phase: a fresh-session run of evaluation/eval.py that records accuracy/reproducibility/latency/cost and proposes a human-reviewable SNAPSHOT.md WITHOUT starting new work. Verification: '<primary> && python3 evaluation/eval.py'.",
+  "project": "AI News Runtime Security Demo",
+  "description": "Feature list for the AI News reference application. Only one phase may be active at a time. Transition to passing requires verification exit 0 plus human sign-off.",
+  "_recommended_final_phase": "The final phase evaluates the real runtime security path and records measurable evidence without starting new work.",
   "features": [
     {
       "id": "phase-01",
-      "name": "{{PHASE_1_NAME}}",
-      "behavior": "{{PHASE_1_BEHAVIOR — observable outcome that defines 'done'}}",
+      "name": "Project setup and runtime-security wiring",
+      "behavior": "Project context, governance policy, framework integration design, and testable runtime-security adapter contract are in place before application tools execute.",
       "dependencies": [],
       "status": "active",
-      "verification": "{{PHASE_1_VERIFY_COMMAND — exact shell command, exit 0 = pass}}",
+      "verification": "python3 -m pytest -q tests/test_permission.py tests/test_content_trust.py tests/test_secret_scan.py",
       "evidence": ""
     },
     {
       "id": "phase-02",
-      "name": "{{PHASE_2_NAME}}",
-      "behavior": "{{PHASE_2_BEHAVIOR}}",
+      "name": "News retrieval tools",
+      "behavior": "Approved news and GitHub retrieval tools can fetch public data through the runtime permission/egress boundary and return screened results.",
       "dependencies": ["phase-01"],
       "status": "not-started",
-      "verification": "{{PHASE_2_VERIFY_COMMAND}}",
+      "verification": "python3 -m pytest -q tests/test_runtime_security.py -k 'egress or fetch or content'",
       "evidence": ""
     },
     {
       "id": "phase-03",
-      "name": "{{PHASE_3_NAME}}",
-      "behavior": "{{PHASE_3_BEHAVIOR}}",
+      "name": "Strands Claude agent integration",
+      "behavior": "The Strands agent uses only the registered secured tool path; direct agent-callable tool bypasses are absent.",
       "dependencies": ["phase-02"],
       "status": "not-started",
-      "verification": "{{PHASE_3_VERIFY_COMMAND}}",
+      "verification": "python3 -m pytest -q tests/test_runtime_security.py -k 'tool or agent or bypass'",
+      "evidence": ""
+    },
+    {
+      "id": "phase-04",
+      "name": "Streamlit application",
+      "behavior": "A local Streamlit page shows the daily digest/chat plus visible runtime protection status and audit events.",
+      "dependencies": ["phase-03"],
+      "status": "not-started",
+      "verification": "python3 -m pytest -q",
+      "evidence": ""
+    },
+    {
+      "id": "phase-05",
+      "name": "Runtime enforcement tests",
+      "behavior": "E01-E06 integration/E2E cases prove allow/deny/block/suspicious outcomes and verify denied handlers do not execute.",
+      "dependencies": ["phase-04"],
+      "status": "not-started",
+      "verification": "python3 -m pytest -q tests/test_runtime_security.py",
+      "evidence": ""
+    },
+    {
+      "id": "phase-06",
+      "name": "Evaluation and snapshot",
+      "behavior": "The existing evaluation framework measures runtime-security decision accuracy, reproducibility, latency, and provider cost when available, and produces human-reviewable evidence.",
+      "dependencies": ["phase-05"],
+      "status": "not-started",
+      "verification": "python3 -m pytest -q && python3 evaluation/eval.py",
       "evidence": ""
     }
   ]
