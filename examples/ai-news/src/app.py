@@ -1,9 +1,11 @@
 # ** newly added **
 """Streamlit portal for the AI News runtime-security demo.
 
-This file is presentation/application code only. It deliberately reuses the same
-`build_agent()` path as `run_news.py`; it does not register raw production tools or
-implement security decisions itself.
+The UI is split into two pages:
+- News: normal application usage (digest + news-agent questions)
+- Runtime Protection: security controls, controlled test prompts, and runtime audit evidence
+
+Both pages reuse the same secured `build_agent()` / RuntimeSecurity backend.
 
 Run from the project root:
     streamlit run src/app.py
@@ -103,7 +105,6 @@ def _audit_event_count() -> int:
 
 
 def _capture_request_activity(start_count: int, activity_summary: str) -> None:
-    """Capture this request's runtime events and preserve its user request for UI history."""
     all_events = _read_audit_events(limit=None)
     request_events = all_events[start_count:]
     st.session_state.request_runtime_events = request_events
@@ -135,7 +136,7 @@ def _run_agent(prompt: str):
 
 
 def _prepare_test(label: str, prompt: str) -> None:
-    """Prepare a controlled test prompt and move the user to Ask the News Agent."""
+    """Prepare a controlled test prompt and move the user to Ask the Agent."""
     st.session_state.pending_agent_input = prompt
     st.session_state.prepared_scenario = label
     st.session_state.current_prompt = prompt
@@ -145,8 +146,7 @@ def _prepare_test(label: str, prompt: str) -> None:
 
 
 def _scenario_line(text: str, button_key: str, label: str, prompt: str) -> None:
-    """Render one compact scenario description with a small Test button beside it."""
-    text_col, button_col = st.columns([6, 1], vertical_alignment="center")
+    text_col, button_col = st.columns([8, 1], vertical_alignment="center")
     with text_col:
         st.caption(text)
     with button_col:
@@ -154,7 +154,7 @@ def _scenario_line(text: str, button_key: str, label: str, prompt: str) -> None:
             _prepare_test(label, prompt)
 
 
-def _render_runtime_protection() -> None:
+def _render_runtime_protection_controls() -> None:
     st.subheader("Runtime Protection")
     st.toggle(
         "Runtime Protection",
@@ -169,7 +169,7 @@ def _render_runtime_protection() -> None:
         "Even if the agent knows about a capability, it cannot execute it until runtime policy explicitly authorizes it."
     )
     _scenario_line(
-        "**Test scenario:** the test-only `delete_digest` tool is deliberately made visible to the agent, but the application developer has not approved it in the runtime tool allowlist. The runtime should deny execution.",
+        "**Test scenario:** the test-only `delete_digest` tool is visible to the agent, but the application developer has not approved it in the runtime tool allowlist. Runtime permission should deny it.",
         "test_tool_permission",
         "Tool Permission",
         TOOL_PERMISSION_PROMPT,
@@ -211,23 +211,23 @@ def _render_runtime_protection() -> None:
     )
 
 
-def _render_agent_interaction() -> None:
-    st.markdown('<div id="ask-news-agent-anchor"></div>', unsafe_allow_html=True)
-    st.markdown("#### Ask the News Agent")
+def _render_runtime_test_agent() -> None:
+    st.markdown('<div id="runtime-agent-anchor"></div>', unsafe_allow_html=True)
+    st.subheader("Ask the Agent")
     st.caption("A Test button above prepares the prompt. Review it here, then press Send to execute.")
 
-    if "agent_input" not in st.session_state:
-        st.session_state.agent_input = ""
+    if "runtime_agent_input" not in st.session_state:
+        st.session_state.runtime_agent_input = ""
 
     pending = st.session_state.pop("pending_agent_input", None)
     if pending is not None:
-        st.session_state.agent_input = pending
+        st.session_state.runtime_agent_input = pending
 
     if st.session_state.pop("scroll_to_agent", False):
         components.html(
             """
             <script>
-            const target = window.parent.document.getElementById('ask-news-agent-anchor');
+            const target = window.parent.document.getElementById('runtime-agent-anchor');
             if (target) { target.scrollIntoView({behavior: 'smooth', block: 'start'}); }
             </script>
             """,
@@ -235,14 +235,14 @@ def _render_agent_interaction() -> None:
         )
 
     question = st.text_area(
-        "Agent request",
-        key="agent_input",
-        height=110,
-        placeholder="Ask about AI or cybersecurity news...",
+        "Runtime test request",
+        key="runtime_agent_input",
+        height=120,
+        placeholder="Select a Test scenario above or enter a runtime-security request...",
         label_visibility="collapsed",
     )
 
-    if st.button("Send", type="primary", use_container_width=True):
+    if st.button("Send", key="runtime_send", type="primary"):
         prompt = question.strip()
         if not prompt:
             st.warning("Enter a request or select a test scenario first.")
@@ -250,7 +250,7 @@ def _render_agent_interaction() -> None:
 
         start_count = _audit_event_count()
         selected = st.session_state.get("prepared_scenario")
-        st.session_state.current_scenario = selected or "Manual question"
+        st.session_state.current_scenario = selected or "Manual runtime question"
         st.session_state.current_prompt = prompt
 
         with st.spinner("Checking sources and runtime policy..."):
@@ -285,7 +285,7 @@ def _render_agent_interaction() -> None:
 
 
 def _render_runtime_activity() -> None:
-    st.markdown("#### Runtime Security Activity")
+    st.subheader("Runtime Security Activity")
 
     request_events = st.session_state.get("request_runtime_events", [])
     activity_summary = st.session_state.get("request_activity_summary", "")
@@ -320,17 +320,81 @@ def _render_runtime_activity() -> None:
             st.json(event)
 
 
+def _render_news_page() -> None:
+    st.title("AI News — Runtime-Secured Agent")
+    st.caption("Normal AI News application usage. All tool calls still pass through RuntimeSecurity.")
+    st.success("🛡 Runtime Protection: ON")
+
+    st.subheader("Today's AI + Cybersecurity Digest")
+    if st.button("Generate Latest Digest", type="primary", key="generate_digest"):
+        start_count = _audit_event_count()
+        with st.spinner("Gathering approved sources through the secured runtime path..."):
+            try:
+                result = _run_agent(DEFAULT_PROMPT)
+                st.session_state.last_agent_result = str(result)
+                st.session_state.last_digest = _read_digest()
+            except Exception as exc:
+                st.error(f"Digest generation failed: {exc}")
+            finally:
+                _capture_request_activity(start_count, DEFAULT_PROMPT)
+
+    digest = st.session_state.get("last_digest") or _read_digest()
+    if digest:
+        st.markdown(digest)
+    else:
+        st.info("No saved digest yet. Click **Generate Latest Digest** to create one.")
+
+    st.divider()
+    st.subheader("Ask the News Agent")
+    st.caption("Ask normal AI or cybersecurity news questions using the same secured agent backend.")
+
+    if "news_agent_input" not in st.session_state:
+        st.session_state.news_agent_input = ""
+
+    question = st.text_area(
+        "News agent request",
+        key="news_agent_input",
+        height=100,
+        placeholder="Ask about AI or cybersecurity news...",
+        label_visibility="collapsed",
+    )
+
+    if st.button("Send", key="news_send", type="primary"):
+        prompt = question.strip()
+        if not prompt:
+            st.warning("Enter a news question first.")
+            return
+
+        start_count = _audit_event_count()
+        with st.spinner("Checking sources and runtime policy..."):
+            try:
+                answer = _run_agent(prompt)
+                st.session_state.news_answer = str(answer)
+            except Exception as exc:
+                st.session_state.news_answer = f"Agent request failed: {exc}"
+            finally:
+                _capture_request_activity(start_count, prompt)
+
+    if st.session_state.get("news_answer"):
+        st.markdown("**Agent response**")
+        st.write(st.session_state.news_answer)
+
+
+def _render_runtime_page() -> None:
+    st.title("Runtime Protection")
+    st.caption("Understand, test, and inspect the runtime controls protecting the AI News agent.")
+    _render_runtime_protection_controls()
+    st.divider()
+    _render_runtime_test_agent()
+    st.divider()
+    _render_runtime_activity()
+
+
 def main() -> None:
     st.set_page_config(
         page_title="AI News — Runtime Secured",
         page_icon="🛡️",
         layout="wide",
-    )
-
-    st.title("AI News — Runtime-Secured Agent")
-    st.caption(
-        "Claude + Strands news application with runtime tool permission, egress, "
-        "secret protection, content trust, and audit logging."
     )
 
     if not os.environ.get("ANTHROPIC_API_KEY"):
@@ -339,39 +403,19 @@ def main() -> None:
         )
         st.stop()
 
-    left, right = st.columns([2, 1], gap="large")
+    st.sidebar.title("AI News")
+    page = st.sidebar.radio(
+        "Navigation",
+        ["📰 News", "🛡 Runtime Protection"],
+        label_visibility="collapsed",
+    )
 
-    with left:
-        st.subheader("Today's AI + Cybersecurity Digest")
+    st.sidebar.caption("Claude + Strands with runtime-enforced tool permission, egress, secrets, and content trust.")
 
-        if st.button("Generate Latest Digest", type="primary"):
-            start_count = _audit_event_count()
-            st.session_state.current_scenario = "Generate Latest Digest"
-            with st.spinner("Gathering approved sources through the secured runtime path..."):
-                try:
-                    result = _run_agent(DEFAULT_PROMPT)
-                    st.session_state.last_agent_result = str(result)
-                    st.session_state.last_digest = _read_digest()
-                    st.session_state.current_prompt = DEFAULT_PROMPT
-                    st.session_state.current_answer = str(result)
-                    st.session_state.current_metadata = {}
-                except Exception as exc:
-                    st.error(f"Digest generation failed: {exc}")
-                finally:
-                    _capture_request_activity(start_count, DEFAULT_PROMPT)
-
-        digest = st.session_state.get("last_digest") or _read_digest()
-        if digest:
-            st.markdown(digest)
-        else:
-            st.info("No saved digest yet. Click **Generate Latest Digest** to create one.")
-
-    with right:
-        _render_runtime_protection()
-        st.divider()
-        _render_agent_interaction()
-        st.divider()
-        _render_runtime_activity()
+    if page == "📰 News":
+        _render_news_page()
+    else:
+        _render_runtime_page()
 
 
 if __name__ == "__main__":
