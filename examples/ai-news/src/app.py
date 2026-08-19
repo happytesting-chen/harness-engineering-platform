@@ -29,7 +29,7 @@ DIGEST_PATH = PROJECT_ROOT / "runtime" / "latest_digest.md"
 RUNTIME_EVENTS = {"tool_call", "secret_check", "content_trust"}
 
 
-def _read_audit_events(limit: int = 20) -> list[dict]:
+def _read_audit_events(limit: int | None = 20) -> list[dict]:
     """Read only AI News runtime-security events; hide build-time hook activity."""
     if not AUDIT_LOG.exists():
         return []
@@ -45,7 +45,7 @@ def _read_audit_events(limit: int = 20) -> list[dict]:
             continue
         if isinstance(event, dict) and event.get("event") in RUNTIME_EVENTS:
             events.append(event)
-    return events[-limit:]
+    return events[-limit:] if limit is not None else events
 
 
 def _event_row(event: dict) -> dict:
@@ -68,6 +68,16 @@ def _event_row(event: dict) -> dict:
         "Reason": event.get("reason", ""),
         "Detected content": detected_text,
     }
+
+
+def _audit_event_count() -> int:
+    return len(_read_audit_events(limit=None))
+
+
+def _capture_request_activity(start_count: int) -> None:
+    """Save only runtime-security events produced by the just-completed UI request."""
+    all_events = _read_audit_events(limit=None)
+    st.session_state.request_runtime_events = all_events[start_count:]
 
 
 def _read_digest() -> str:
@@ -101,18 +111,27 @@ def _render_runtime_panel() -> None:
 """
     )
 
-    events = _read_audit_events(20)
-    st.markdown("#### Runtime Security Activity")
-    if events:
-        rows = [_event_row(event) for event in reversed(events)]
+    request_events = st.session_state.get("request_runtime_events", [])
+    st.markdown("#### This Request — Runtime Security Activity")
+    st.caption("One row per runtime security decision triggered by the latest UI request.")
+    if request_events:
+        rows = [_event_row(event) for event in request_events]
         st.dataframe(rows, use_container_width=True, hide_index=True)
     else:
-        st.info("No runtime security events yet. Generate a digest or ask the agent a question.")
+        st.info("No runtime security activity captured for this UI session yet.")
+
+    recent_events = _read_audit_events(20)
+    with st.expander("Recent runtime security history"):
+        if recent_events:
+            rows = [_event_row(event) for event in reversed(recent_events)]
+            st.dataframe(rows, use_container_width=True, hide_index=True)
+        else:
+            st.caption("No runtime audit records available.")
 
     with st.expander("Raw runtime audit trail"):
-        if not events:
-            st.caption("No runtime audit records available.")
-        for event in reversed(events):
+        if not request_events:
+            st.caption("No current-request runtime audit records available.")
+        for event in request_events:
             st.json(event)
 
 
@@ -141,6 +160,7 @@ def main() -> None:
         st.subheader("Today's AI + Cybersecurity Digest")
 
         if st.button("Generate Latest Digest", type="primary"):
+            start_count = _audit_event_count()
             with st.spinner("Gathering approved sources through the secured runtime path..."):
                 try:
                     result = _run_agent(DEFAULT_PROMPT)
@@ -148,6 +168,8 @@ def main() -> None:
                     st.session_state.last_digest = _read_digest()
                 except Exception as exc:
                     st.error(f"Digest generation failed: {exc}")
+                finally:
+                    _capture_request_activity(start_count)
 
         digest = st.session_state.get("last_digest") or _read_digest()
         if digest:
@@ -162,6 +184,7 @@ def main() -> None:
         question = st.chat_input("Ask about AI or cybersecurity news...")
         if question:
             st.chat_message("user").write(question)
+            start_count = _audit_event_count()
             with st.chat_message("assistant"):
                 with st.spinner("Checking sources and runtime policy..."):
                     try:
@@ -169,6 +192,8 @@ def main() -> None:
                         st.write(str(answer))
                     except Exception as exc:
                         st.error(f"Agent request failed: {exc}")
+                    finally:
+                        _capture_request_activity(start_count)
 
     with right:
         _render_runtime_panel()
