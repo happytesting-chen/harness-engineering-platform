@@ -116,7 +116,6 @@ def _prepare_test(label: str, prompt: str | None = None) -> None:
     if label == "Content Trust":
         prompt, metadata = start_untrusted_content_fixture()
     else:
-        # If a Content Trust fixture was prepared but abandoned, do not leave it running.
         stop_untrusted_content_fixture()
         metadata = {}
 
@@ -217,7 +216,6 @@ def _render_runtime_test_agent() -> None:
         with st.spinner("Running test through the secured runtime..."):
             try:
                 if selected == "Content Trust":
-                    # Crucially, send the exact URL-bearing prompt the user can see in the box.
                     actual_prompt, result, metadata = run_untrusted_content_demo(prompt)
                     st.session_state.current_prompt = actual_prompt
                     st.session_state.current_answer = str(result)
@@ -290,7 +288,10 @@ def _render_news_page() -> None:
             finally:
                 _capture_request_activity(start_count, DEFAULT_PROMPT)
     digest = st.session_state.get("last_digest") or _read_digest()
-    st.markdown(digest) if digest else st.info("No saved digest yet. Click **Generate Latest Digest** to create one.")
+    if digest:
+        st.markdown(digest)
+    else:
+        st.info("No saved digest yet. Click **Generate Latest Digest** to create one.")
     st.divider()
     st.subheader("Ask the News Agent")
     st.caption("Ask normal AI or cybersecurity news questions using the same secured agent backend.")
@@ -332,7 +333,6 @@ def main() -> None:
     page = st.sidebar.radio("Navigation", ["📰 News", "🛡 Runtime Protection"], key="navigation_page", label_visibility="collapsed")
     st.sidebar.caption("Claude + Strands with runtime-enforced tool permission, egress, secrets, and content trust.")
     if page == "📰 News":
-        # Leaving Runtime Protection also cleans up any prepared-but-unused local fixture.
         stop_untrusted_content_fixture()
         _render_news_page()
     else:
