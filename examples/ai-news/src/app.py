@@ -122,59 +122,93 @@ def _run_agent(prompt: str):
 
 
 def _prepare_test(label: str, prompt: str) -> None:
-    """Copy a controlled test prompt into Ask the News Agent without executing it."""
-    st.session_state.agent_input = prompt
+    """Prepare a controlled test prompt for the editable agent box without executing it."""
+    st.session_state.pending_agent_input = prompt
     st.session_state.prepared_scenario = label
     st.session_state.current_prompt = prompt
     st.session_state.current_answer = ""
     st.session_state.current_metadata = {}
 
 
+def _scenario_line(text: str, button_key: str, label: str, prompt: str) -> None:
+    """Render one compact scenario description with a small Test button beside it."""
+    text_col, button_col = st.columns([6, 1], vertical_alignment="center")
+    with text_col:
+        st.caption(text)
+    with button_col:
+        if st.button("Test", key=button_key, use_container_width=True):
+            _prepare_test(label, prompt)
+
+
 def _render_runtime_protection() -> None:
     st.subheader("Runtime Protection")
-    st.toggle("Runtime Protection", value=True, disabled=True, help="Mandatory for this secured application")
+    st.toggle(
+        "Runtime Protection",
+        value=True,
+        disabled=True,
+        help="Mandatory for this secured application",
+    )
     st.caption("Protection is mandatory for this application and cannot be disabled from the UI.")
 
     st.markdown("##### ✅ Tool Permission")
     st.caption(
         "Even if the agent knows about a capability, it cannot execute it until runtime policy explicitly authorizes it."
     )
-    st.write("**Test scenario:** attempt to use the test-only `delete_digest` capability.")
-    if st.button("Test Tool Permission", use_container_width=True):
-        _prepare_test("Tool Permission", TOOL_PERMISSION_PROMPT)
+    _scenario_line(
+        "**Test scenario:** the test-only `delete_digest` tool is deliberately made visible to the agent, but the application developer has not approved it in the runtime tool allowlist. The runtime should deny execution.",
+        "test_tool_permission",
+        "Tool Permission",
+        TOOL_PERMISSION_PROMPT,
+    )
 
     st.markdown("##### ✅ Egress Control")
     st.caption("Authorized tools can connect only to destinations explicitly permitted by runtime policy.")
-    st.write("**Test scenarios:** compare an allowlisted GitHub destination with legitimate but non-allowlisted Ars Technica.")
-    e1, e2 = st.columns(2)
-    with e1:
-        if st.button("Test Allowed Egress", use_container_width=True):
-            _prepare_test("Allowed Egress", ALLOWED_EGRESS_PROMPT)
-    with e2:
-        if st.button("Test Blocked Egress", use_container_width=True):
-            _prepare_test("Blocked Egress", BLOCKED_EGRESS_PROMPT)
+    _scenario_line(
+        "**Allowed scenario:** request GitHub trend data from the explicitly allowlisted `api.github.com` destination.",
+        "test_allowed_egress",
+        "Allowed Egress",
+        ALLOWED_EGRESS_PROMPT,
+    )
+    _scenario_line(
+        "**Blocked scenario:** request a legitimate Ars Technica page whose host is not on the application's egress allowlist.",
+        "test_blocked_egress",
+        "Blocked Egress",
+        BLOCKED_EGRESS_PROMPT,
+    )
 
     st.markdown("##### ✅ Secret Protection")
     st.caption("Credential-like values in agent-generated tool arguments are blocked before tool execution.")
-    st.write("**Test scenario:** attempt to save a digest containing a synthetic API key.")
-    if st.button("Test Secret Protection", use_container_width=True):
-        _prepare_test("Secret Protection", SECRET_PROMPT)
+    _scenario_line(
+        "**Test scenario:** attempt to save a digest containing a synthetic API key; the secret scanner should block the write before `save_digest` executes.",
+        "test_secret_protection",
+        "Secret Protection",
+        SECRET_PROMPT,
+    )
 
     st.markdown("##### ✅ Content Trust")
     st.caption(
         "External content remains untrusted; instruction-shaped content is detected before normal model use."
     )
-    st.write("**Test scenario:** fetch a controlled article containing prompt-injection-style instructions.")
-    if st.button("Test Content Trust", use_container_width=True):
-        _prepare_test("Content Trust", CONTENT_TRUST_PROMPT)
+    _scenario_line(
+        "**Test scenario:** fetch a controlled article containing prompt-injection-style instructions; the fetch is allowed, then content trust should detect and block the suspicious returned content.",
+        "test_content_trust",
+        "Content Trust",
+        CONTENT_TRUST_PROMPT,
+    )
 
 
 def _render_agent_interaction() -> None:
     st.markdown("#### Ask the News Agent")
-    st.caption("A test button above only prepares the prompt. Review it here, then press Send to execute.")
+    st.caption("A Test button above only prepares the prompt. Review it here, then press Send to execute.")
 
     if "agent_input" not in st.session_state:
         st.session_state.agent_input = ""
+
+    # Apply a test-button selection immediately before the widget is instantiated.
+    # Keeping pending state separate avoids Streamlit widget-state collisions.
+    pending = st.session_state.pop("pending_agent_input", None)
+    if pending is not None:
+        st.session_state.agent_input = pending
 
     question = st.text_area(
         "Agent request",
