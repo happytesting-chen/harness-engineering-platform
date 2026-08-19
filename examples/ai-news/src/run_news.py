@@ -26,7 +26,7 @@ Use the registered tools to gather information from these approved application s
 2. The Hacker News home page: https://thehackernews.com/
 3. TechCrunch AI page: https://techcrunch.com/category/artificial-intelligence/
 
-Select approximately 5-8 of the most useful stories or project trends. For each item include:
+Select exactly 4 of the most useful and high-impact stories or project trends. For each item include:
 - headline or repository name
 - source
 - concise summary
