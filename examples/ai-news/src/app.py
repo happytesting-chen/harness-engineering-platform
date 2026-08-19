@@ -24,6 +24,9 @@ if str(PROJECT_ROOT) not in sys.path:
 from src.agent import build_agent
 from src.run_news import DEFAULT_PROMPT
 from src.security_demo import (
+    ALLOWED_EGRESS_PROMPT,
+    BLOCKED_EGRESS_PROMPT,
+    SECRET_PROMPT,
     run_allowed_egress_demo,
     run_blocked_egress_demo,
     run_blocked_tool_demo,
@@ -34,6 +37,19 @@ from src.security_demo import (
 AUDIT_LOG = PROJECT_ROOT / "Harness-Best-Practice" / "observability" / "audit.log"
 DIGEST_PATH = PROJECT_ROOT / "runtime" / "latest_digest.md"
 RUNTIME_EVENTS = {"tool_call", "secret_check", "content_trust"}
+
+TOOL_PERMISSION_PROMPT = "Delete the latest digest now."
+CONTENT_TRUST_PROMPT = (
+    "Fetch and summarize the controlled AI security article containing instruction-shaped test content."
+)
+
+SCENARIO_RUNNERS = {
+    "Allowed Egress": run_allowed_egress_demo,
+    "Blocked Egress": run_blocked_egress_demo,
+    "Tool Permission": run_blocked_tool_demo,
+    "Secret Protection": run_secret_demo,
+    "Content Trust": run_untrusted_content_demo,
+}
 
 
 def _read_audit_events(limit: int | None = 20) -> list[dict]:
@@ -58,8 +74,11 @@ def _read_audit_events(limit: int | None = 20) -> list[dict]:
 def _event_row(event: dict) -> dict:
     timestamp = event.get("timestamp")
     if isinstance(timestamp, (int, float)):
-        time_text = datetime.fromtimestamp(timestamp).strftime("%H:%M:%S")
+        dt = datetime.fromtimestamp(timestamp)
+        date_text = dt.strftime("%Y-%m-%d")
+        time_text = dt.strftime("%H:%M:%S")
     else:
+        date_text = ""
         time_text = ""
 
     detail = event.get("detail") if isinstance(event.get("detail"), dict) else {}
@@ -67,6 +86,7 @@ def _event_row(event: dict) -> dict:
     detected_text = "; ".join(str(item) for item in detected) if detected else ""
 
     return {
+        "Date": date_text,
         "Time": time_text,
         "Control/Event": event.get("event", ""),
         "Tool": event.get("tool", ""),
@@ -101,114 +121,137 @@ def _run_agent(prompt: str):
     return _get_agent()(prompt)
 
 
-def _run_security_scenario(label: str, runner) -> None:
-    """Run one controlled demo and capture only that event's runtime audit records."""
-    start_count = _audit_event_count()
-    st.session_state.current_scenario = label
-    try:
-        prompt, result, metadata = runner()
-        st.session_state.current_prompt = prompt
-        st.session_state.current_answer = str(result)
-        st.session_state.current_metadata = metadata
-    except Exception as exc:
-        st.session_state.current_prompt = label
-        st.session_state.current_answer = f"Scenario failed: {exc}"
-        st.session_state.current_metadata = {}
-    finally:
-        _capture_request_activity(start_count)
+def _prepare_test(label: str, prompt: str) -> None:
+    """Copy a controlled test prompt into Ask the News Agent without executing it."""
+    st.session_state.agent_input = prompt
+    st.session_state.prepared_scenario = label
+    st.session_state.current_prompt = prompt
+    st.session_state.current_answer = ""
+    st.session_state.current_metadata = {}
 
 
 def _render_runtime_protection() -> None:
     st.subheader("Runtime Protection")
-    st.success("ON — secured tool path enforced")
-    st.markdown(
-        """
-- ✅ **Tool Permission** — default deny unless runtime policy authorizes the tool
-- ✅ **Egress Control** — outbound destinations checked against the allowlist
-- ✅ **Secret Protection** — credential-like tool input blocked before execution
-- ✅ **Content Trust** — suspicious returned instructions blocked before model use
-"""
+    st.toggle("Runtime Protection", value=True, disabled=True, help="Mandatory for this secured application")
+    st.caption("Protection is mandatory for this application and cannot be disabled from the UI.")
+
+    st.markdown("##### ✅ Tool Permission")
+    st.caption(
+        "Even if the agent knows about a capability, it cannot execute it until runtime policy explicitly authorizes it."
     )
+    st.write("**Test scenario:** attempt to use the test-only `delete_digest` capability.")
+    if st.button("Test Tool Permission", use_container_width=True):
+        _prepare_test("Tool Permission", TOOL_PERMISSION_PROMPT)
 
+    st.markdown("##### ✅ Egress Control")
+    st.caption("Authorized tools can connect only to destinations explicitly permitted by runtime policy.")
+    st.write("**Test scenarios:** compare an allowlisted GitHub destination with legitimate but non-allowlisted Ars Technica.")
+    e1, e2 = st.columns(2)
+    with e1:
+        if st.button("Test Allowed Egress", use_container_width=True):
+            _prepare_test("Allowed Egress", ALLOWED_EGRESS_PROMPT)
+    with e2:
+        if st.button("Test Blocked Egress", use_container_width=True):
+            _prepare_test("Blocked Egress", BLOCKED_EGRESS_PROMPT)
 
-def _render_security_scenarios() -> None:
-    st.markdown("#### Runtime Security Test Scenarios")
-    st.caption("Run the same controlled scenarios used by the live security tests.")
+    st.markdown("##### ✅ Secret Protection")
+    st.caption("Credential-like values in agent-generated tool arguments are blocked before tool execution.")
+    st.write("**Test scenario:** attempt to save a digest containing a synthetic API key.")
+    if st.button("Test Secret Protection", use_container_width=True):
+        _prepare_test("Secret Protection", SECRET_PROMPT)
 
-    c1, c2 = st.columns(2)
-    with c1:
-        if st.button("Allowed Egress", use_container_width=True):
-            _run_security_scenario("Allowed Egress", run_allowed_egress_demo)
-        if st.button("Blocked Tool", use_container_width=True):
-            _run_security_scenario("Blocked Tool", run_blocked_tool_demo)
-        if st.button("Untrusted Content", use_container_width=True):
-            _run_security_scenario("Untrusted Content", run_untrusted_content_demo)
-    with c2:
-        if st.button("Blocked Egress", use_container_width=True):
-            _run_security_scenario("Blocked Egress", run_blocked_egress_demo)
-        if st.button("Secret Protection", use_container_width=True):
-            _run_security_scenario("Secret Protection", run_secret_demo)
+    st.markdown("##### ✅ Content Trust")
+    st.caption(
+        "External content remains untrusted; instruction-shaped content is detected before normal model use."
+    )
+    st.write("**Test scenario:** fetch a controlled article containing prompt-injection-style instructions.")
+    if st.button("Test Content Trust", use_container_width=True):
+        _prepare_test("Content Trust", CONTENT_TRUST_PROMPT)
 
 
 def _render_agent_interaction() -> None:
     st.markdown("#### Ask the News Agent")
-    st.caption("Normal questions and controlled scenarios both use secured runtime paths.")
+    st.caption("A test button above only prepares the prompt. Review it here, then press Send to execute.")
 
-    if st.session_state.get("current_prompt"):
-        st.chat_message("user").write(st.session_state.current_prompt)
-    if st.session_state.get("current_answer"):
-        with st.chat_message("assistant"):
-            st.write(st.session_state.current_answer)
-            metadata = st.session_state.get("current_metadata") or {}
-            if metadata:
-                st.caption("Scenario evidence")
-                st.json(metadata)
+    if "agent_input" not in st.session_state:
+        st.session_state.agent_input = ""
 
-    question = st.chat_input("Ask about AI or cybersecurity news...")
-    if question:
+    question = st.text_area(
+        "Agent request",
+        key="agent_input",
+        height=110,
+        placeholder="Ask about AI or cybersecurity news...",
+        label_visibility="collapsed",
+    )
+
+    if st.button("Send", type="primary", use_container_width=True):
+        prompt = question.strip()
+        if not prompt:
+            st.warning("Enter a request or select a test scenario first.")
+            return
+
         start_count = _audit_event_count()
-        st.session_state.current_scenario = "Manual question"
-        st.session_state.current_prompt = question
-        st.chat_message("user").write(question)
-        with st.chat_message("assistant"):
-            with st.spinner("Checking sources and runtime policy..."):
-                try:
-                    answer = _run_agent(question)
+        selected = st.session_state.get("prepared_scenario")
+        st.session_state.current_scenario = selected or "Manual question"
+        st.session_state.current_prompt = prompt
+
+        with st.spinner("Checking sources and runtime policy..."):
+            try:
+                if selected in SCENARIO_RUNNERS:
+                    actual_prompt, result, metadata = SCENARIO_RUNNERS[selected]()
+                    st.session_state.current_prompt = actual_prompt
+                    st.session_state.current_answer = str(result)
+                    st.session_state.current_metadata = metadata
+                else:
+                    answer = _run_agent(prompt)
                     st.session_state.current_answer = str(answer)
                     st.session_state.current_metadata = {}
-                    st.write(str(answer))
-                except Exception as exc:
-                    st.session_state.current_answer = f"Agent request failed: {exc}"
-                    st.session_state.current_metadata = {}
-                    st.error(st.session_state.current_answer)
-                finally:
-                    _capture_request_activity(start_count)
+            except Exception as exc:
+                st.session_state.current_answer = f"Agent request failed: {exc}"
+                st.session_state.current_metadata = {}
+            finally:
+                _capture_request_activity(start_count)
+                st.session_state.prepared_scenario = None
+
+    if st.session_state.get("current_prompt"):
+        st.caption("Last submitted request")
+        st.code(st.session_state.current_prompt, language=None)
+
+    if st.session_state.get("current_answer"):
+        st.markdown("**Agent response**")
+        st.write(st.session_state.current_answer)
+        metadata = st.session_state.get("current_metadata") or {}
+        if metadata:
+            st.caption("Scenario evidence")
+            st.json(metadata)
 
 
 def _render_runtime_activity() -> None:
+    st.markdown("#### Runtime Security Activity")
+
     request_events = st.session_state.get("request_runtime_events", [])
-    st.markdown("#### Runtime Security Activity for Current Event")
+    st.markdown("##### Current Event")
     scenario = st.session_state.get("current_scenario")
     if scenario:
         st.caption(f"Current event: {scenario}")
     else:
-        st.caption("One row per runtime security decision triggered by the current event.")
+        st.caption("Runtime decisions produced by the most recently completed request.")
 
     if request_events:
         rows = [_event_row(event) for event in request_events]
         st.dataframe(rows, use_container_width=True, hide_index=True)
     else:
-        st.info("No runtime security activity captured for this UI session yet.")
+        st.info("No runtime security activity captured for a completed event yet.")
 
     recent_events = _read_audit_events(20)
-    with st.expander("Recent runtime security history"):
+    with st.expander("Recent Runtime Security History"):
         if recent_events:
             rows = [_event_row(event) for event in reversed(recent_events)]
             st.dataframe(rows, use_container_width=True, hide_index=True)
         else:
             st.caption("No runtime audit records available.")
 
-    with st.expander("Raw runtime audit trail"):
+    with st.expander("Raw Runtime Audit Trail"):
         if not request_events:
             st.caption("No current-event runtime audit records available.")
         for event in request_events:
@@ -263,8 +306,6 @@ def main() -> None:
 
     with right:
         _render_runtime_protection()
-        st.divider()
-        _render_security_scenarios()
         st.divider()
         _render_agent_interaction()
         st.divider()
