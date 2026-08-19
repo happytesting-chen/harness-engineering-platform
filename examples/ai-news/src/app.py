@@ -56,7 +56,6 @@ SCENARIO_RUNNERS = {
 
 
 def _read_audit_events(limit: int | None = 20) -> list[dict]:
-    """Read only AI News runtime-security events; hide build-time hook activity."""
     if not AUDIT_LOG.exists():
         return []
 
@@ -135,8 +134,26 @@ def _run_agent(prompt: str):
     return _get_agent()(prompt)
 
 
+def _request_sidebar_collapse() -> None:
+    st.session_state.collapse_sidebar = True
+
+
+def _collapse_sidebar_if_requested() -> None:
+    if not st.session_state.pop("collapse_sidebar", False):
+        return
+    components.html(
+        """
+        <script>
+        const doc = window.parent.document;
+        const collapse = doc.querySelector('[data-testid="stSidebarCollapseButton"]');
+        if (collapse) { collapse.click(); }
+        </script>
+        """,
+        height=0,
+    )
+
+
 def _prepare_test(label: str, prompt: str) -> None:
-    """Prepare a controlled test prompt and move the user to Ask the Agent."""
     st.session_state.pending_agent_input = prompt
     st.session_state.prepared_scenario = label
     st.session_state.current_prompt = prompt
@@ -212,8 +229,11 @@ def _render_runtime_protection_controls() -> None:
 
 
 def _render_runtime_test_agent() -> None:
-    st.markdown('<div id="runtime-agent-anchor"></div>', unsafe_allow_html=True)
-    st.subheader("Ask the Agent")
+    st.markdown(
+        '<div id="runtime-agent-anchor" style="scroll-margin-top: 72px;"></div>',
+        unsafe_allow_html=True,
+    )
+    st.subheader("Ask the AI News Agent")
     st.caption("A Test button above prepares the prompt. Review it here, then press Send to execute.")
 
     if "runtime_agent_input" not in st.session_state:
@@ -395,6 +415,7 @@ def main() -> None:
         page_title="AI News — Runtime Secured",
         page_icon="🛡️",
         layout="wide",
+        initial_sidebar_state="expanded",
     )
 
     if not os.environ.get("ANTHROPIC_API_KEY"):
@@ -407,10 +428,15 @@ def main() -> None:
     page = st.sidebar.radio(
         "Navigation",
         ["📰 News", "🛡 Runtime Protection"],
+        key="navigation_page",
+        on_change=_request_sidebar_collapse,
         label_visibility="collapsed",
     )
+    st.sidebar.caption(
+        "Claude + Strands with runtime-enforced tool permission, egress, secrets, and content trust."
+    )
 
-    st.sidebar.caption("Claude + Strands with runtime-enforced tool permission, egress, secrets, and content trust.")
+    _collapse_sidebar_if_requested()
 
     if page == "📰 News":
         _render_news_page()
