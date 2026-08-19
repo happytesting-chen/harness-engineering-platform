@@ -98,10 +98,9 @@ def _run_agent(prompt: str):
     return _get_agent()(prompt)
 
 
-def _render_runtime_panel() -> None:
+def _render_runtime_protection() -> None:
     st.subheader("Runtime Protection")
     st.success("ON — secured tool path enforced")
-
     st.markdown(
         """
 - ✅ **Tool Permission** — default deny unless runtime policy authorizes the tool
@@ -111,9 +110,11 @@ def _render_runtime_panel() -> None:
 """
     )
 
+
+def _render_runtime_activity() -> None:
     request_events = st.session_state.get("request_runtime_events", [])
-    st.markdown("#### This Request — Runtime Security Activity")
-    st.caption("One row per runtime security decision triggered by the latest UI request.")
+    st.markdown("#### Runtime Security Activity for Current Event")
+    st.caption("One row per runtime security decision triggered by the latest UI event.")
     if request_events:
         rows = [_event_row(event) for event in request_events]
         st.dataframe(rows, use_container_width=True, hide_index=True)
@@ -130,9 +131,28 @@ def _render_runtime_panel() -> None:
 
     with st.expander("Raw runtime audit trail"):
         if not request_events:
-            st.caption("No current-request runtime audit records available.")
+            st.caption("No current-event runtime audit records available.")
         for event in request_events:
             st.json(event)
+
+
+def _render_news_chat() -> None:
+    st.subheader("Ask the News Agent")
+    st.caption("Questions use the same secured Strands agent and runtime controls.")
+
+    question = st.chat_input("Ask about AI or cybersecurity news...")
+    if question:
+        st.chat_message("user").write(question)
+        start_count = _audit_event_count()
+        with st.chat_message("assistant"):
+            with st.spinner("Checking sources and runtime policy..."):
+                try:
+                    answer = _run_agent(question)
+                    st.write(str(answer))
+                except Exception as exc:
+                    st.error(f"Agent request failed: {exc}")
+                finally:
+                    _capture_request_activity(start_count)
 
 
 def main() -> None:
@@ -177,26 +197,12 @@ def main() -> None:
         else:
             st.info("No saved digest yet. Click **Generate Latest Digest** to create one.")
 
-        st.divider()
-        st.subheader("Ask the News Agent")
-        st.caption("Questions use the same secured Strands agent and runtime controls.")
-
-        question = st.chat_input("Ask about AI or cybersecurity news...")
-        if question:
-            st.chat_message("user").write(question)
-            start_count = _audit_event_count()
-            with st.chat_message("assistant"):
-                with st.spinner("Checking sources and runtime policy..."):
-                    try:
-                        answer = _run_agent(question)
-                        st.write(str(answer))
-                    except Exception as exc:
-                        st.error(f"Agent request failed: {exc}")
-                    finally:
-                        _capture_request_activity(start_count)
-
     with right:
-        _render_runtime_panel()
+        _render_runtime_protection()
+        st.divider()
+        _render_news_chat()
+        st.divider()
+        _render_runtime_activity()
 
 
 if __name__ == "__main__":
