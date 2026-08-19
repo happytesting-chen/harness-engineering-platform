@@ -16,6 +16,7 @@ from datetime import datetime
 from pathlib import Path
 
 import streamlit as st
+import streamlit.components.v1 as components
 
 PROJECT_ROOT = Path(__file__).resolve().parent.parent
 if str(PROJECT_ROOT) not in sys.path:
@@ -71,7 +72,7 @@ def _read_audit_events(limit: int | None = 20) -> list[dict]:
     return events[-limit:] if limit is not None else events
 
 
-def _event_row(event: dict) -> dict:
+def _event_row(event: dict, activity_summary: str = "") -> dict:
     timestamp = event.get("timestamp")
     if isinstance(timestamp, (int, float)):
         dt = datetime.fromtimestamp(timestamp)
@@ -88,6 +89,7 @@ def _event_row(event: dict) -> dict:
     return {
         "Date": date_text,
         "Time": time_text,
+        "Activity Summary": activity_summary,
         "Control/Event": event.get("event", ""),
         "Tool": event.get("tool", ""),
         "Decision": event.get("decision", ""),
@@ -100,9 +102,20 @@ def _audit_event_count() -> int:
     return len(_read_audit_events(limit=None))
 
 
-def _capture_request_activity(start_count: int) -> None:
+def _capture_request_activity(start_count: int, activity_summary: str) -> None:
+    """Capture this request's runtime events and preserve its user request for UI history."""
     all_events = _read_audit_events(limit=None)
-    st.session_state.request_runtime_events = all_events[start_count:]
+    request_events = all_events[start_count:]
+    st.session_state.request_runtime_events = request_events
+    st.session_state.request_activity_summary = activity_summary
+
+    if "ui_runtime_history" not in st.session_state:
+        st.session_state.ui_runtime_history = []
+    for event in request_events:
+        st.session_state.ui_runtime_history.append(
+            {"event": event, "activity_summary": activity_summary}
+        )
+    st.session_state.ui_runtime_history = st.session_state.ui_runtime_history[-20:]
 
 
 def _read_digest() -> str:
@@ -122,12 +135,13 @@ def _run_agent(prompt: str):
 
 
 def _prepare_test(label: str, prompt: str) -> None:
-    """Prepare a controlled test prompt for the editable agent box without executing it."""
+    """Prepare a controlled test prompt and move the user to Ask the News Agent."""
     st.session_state.pending_agent_input = prompt
     st.session_state.prepared_scenario = label
     st.session_state.current_prompt = prompt
     st.session_state.current_answer = ""
     st.session_state.current_metadata = {}
+    st.session_state.scroll_to_agent = True
 
 
 def _scenario_line(text: str, button_key: str, label: str, prompt: str) -> None:
@@ -198,17 +212,27 @@ def _render_runtime_protection() -> None:
 
 
 def _render_agent_interaction() -> None:
+    st.markdown('<div id="ask-news-agent-anchor"></div>', unsafe_allow_html=True)
     st.markdown("#### Ask the News Agent")
-    st.caption("A Test button above only prepares the prompt. Review it here, then press Send to execute.")
+    st.caption("A Test button above prepares the prompt. Review it here, then press Send to execute.")
 
     if "agent_input" not in st.session_state:
         st.session_state.agent_input = ""
 
-    # Apply a test-button selection immediately before the widget is instantiated.
-    # Keeping pending state separate avoids Streamlit widget-state collisions.
     pending = st.session_state.pop("pending_agent_input", None)
     if pending is not None:
         st.session_state.agent_input = pending
+
+    if st.session_state.pop("scroll_to_agent", False):
+        components.html(
+            """
+            <script>
+            const target = window.parent.document.getElementById('ask-news-agent-anchor');
+            if (target) { target.scrollIntoView({behavior: 'smooth', block: 'start'}); }
+            </script>
+            """,
+            height=0,
+        )
 
     question = st.text_area(
         "Agent request",
@@ -244,7 +268,7 @@ def _render_agent_interaction() -> None:
                 st.session_state.current_answer = f"Agent request failed: {exc}"
                 st.session_state.current_metadata = {}
             finally:
-                _capture_request_activity(start_count)
+                _capture_request_activity(start_count, st.session_state.current_prompt)
                 st.session_state.prepared_scenario = None
 
     if st.session_state.get("current_prompt"):
@@ -264,6 +288,7 @@ def _render_runtime_activity() -> None:
     st.markdown("#### Runtime Security Activity")
 
     request_events = st.session_state.get("request_runtime_events", [])
+    activity_summary = st.session_state.get("request_activity_summary", "")
     st.markdown("##### Current Event")
     scenario = st.session_state.get("current_scenario")
     if scenario:
@@ -272,18 +297,21 @@ def _render_runtime_activity() -> None:
         st.caption("Runtime decisions produced by the most recently completed request.")
 
     if request_events:
-        rows = [_event_row(event) for event in request_events]
+        rows = [_event_row(event, activity_summary) for event in request_events]
         st.dataframe(rows, use_container_width=True, hide_index=True)
     else:
         st.info("No runtime security activity captured for a completed event yet.")
 
-    recent_events = _read_audit_events(20)
     with st.expander("Recent Runtime Security History"):
-        if recent_events:
-            rows = [_event_row(event) for event in reversed(recent_events)]
+        history = st.session_state.get("ui_runtime_history", [])
+        if history:
+            rows = [
+                _event_row(item["event"], item.get("activity_summary", ""))
+                for item in reversed(history)
+            ]
             st.dataframe(rows, use_container_width=True, hide_index=True)
         else:
-            st.caption("No runtime audit records available.")
+            st.caption("No runtime security history captured in this UI session yet.")
 
     with st.expander("Raw Runtime Audit Trail"):
         if not request_events:
@@ -330,7 +358,7 @@ def main() -> None:
                 except Exception as exc:
                     st.error(f"Digest generation failed: {exc}")
                 finally:
-                    _capture_request_activity(start_count)
+                    _capture_request_activity(start_count, DEFAULT_PROMPT)
 
         digest = st.session_state.get("last_digest") or _read_digest()
         if digest:
