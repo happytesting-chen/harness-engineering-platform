@@ -169,6 +169,7 @@ def _scenario_line(text: str, button_key: str, label: str, prompt: str) -> None:
     with button_col:
         if st.button("Test", key=button_key, use_container_width=True):
             _prepare_test(label, prompt)
+            st.rerun()
 
 
 def _render_runtime_protection_controls() -> None:
@@ -230,7 +231,7 @@ def _render_runtime_protection_controls() -> None:
 
 def _render_runtime_test_agent() -> None:
     st.markdown(
-        '<div id="runtime-agent-anchor" style="scroll-margin-top: 72px;"></div>',
+        '<div id="runtime-agent-anchor" style="scroll-margin-top: 88px;"></div>',
         unsafe_allow_html=True,
     )
     st.subheader("Ask the AI News Agent")
@@ -247,8 +248,10 @@ def _render_runtime_test_agent() -> None:
         components.html(
             """
             <script>
-            const target = window.parent.document.getElementById('runtime-agent-anchor');
-            if (target) { target.scrollIntoView({behavior: 'smooth', block: 'start'}); }
+            setTimeout(() => {
+              const target = window.parent.document.getElementById('runtime-agent-anchor');
+              if (target) { target.scrollIntoView({behavior: 'smooth', block: 'start'}); }
+            }, 250);
             </script>
             """,
             height=0,
