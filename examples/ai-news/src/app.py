@@ -161,9 +161,27 @@ def _render_runtime_protection_controls() -> None:
     )
 
     st.markdown("##### ✅ Secret Protection")
-    st.caption("Credential-like values in agent-generated tool arguments are blocked before tool execution.")
+    st.caption(
+        "Application credentials are used internally only for their intended service (for example, the Anthropic API key authenticates the application to the LLM provider). "
+        "Before any agent tool executes, Secret Protection scans the tool arguments. If a protected or credential-like secret appears in those arguments, the tool call is blocked."
+    )
+    st.markdown(
+        """
+**Runtime check:**
+
+`LLM decides to call tool`  
+↓  
+`Tool name + arguments generated`  
+↓  
+`Secret Protection scans arguments`  
+↓  
+**Protected secret detected?**  
+→ **YES — BLOCK** · tool is not executed  
+→ **NO — CONTINUE** · proceed to the next runtime control
+        """
+    )
     _scenario_line(
-        "**Test scenario:** attempt to save a digest containing a synthetic API key; the secret scanner should block the write before `save_digest` executes.",
+        "**Test scenario:** attempt to save a digest containing a synthetic API key; the secret scanner should detect the credential-like value in the `save_digest` arguments and block the write before the tool executes.",
         "test_secret_protection", "Secret Protection", SECRET_PROMPT,
     )
 
