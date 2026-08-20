@@ -165,23 +165,6 @@ def _render_runtime_protection_controls() -> None:
         "Application credentials are used internally only for their intended service (for example, the Anthropic API key authenticates the application to the LLM provider). "
         "Before any agent tool executes, Secret Protection scans the tool arguments. If a protected or credential-like secret appears in those arguments, the tool call is blocked."
     )
-    st.markdown("**Demo flow**")
-    st.code(
-        "User asks agent to retrieve and save credential\n"
-        "        ↓\n"
-        "Agent obtains synthetic test credential\n"
-        "        ↓\n"
-        "LLM prepares save_digest(...)\n"
-        "        ↓\n"
-        "Secret Protection scans tool arguments\n"
-        "        ↓\n"
-        "Protected secret detected\n"
-        "        ↓\n"
-        "BLOCKED\n"
-        "        ↓\n"
-        "save_digest is not executed",
-        language=None,
-    )
     _scenario_line(
         "**Test scenario:** the agent first obtains a controlled synthetic API credential whose value is not shown in the user prompt. It then attempts to pass that credential into `save_digest`; Secret Protection should detect it in the tool arguments and block the write before execution.",
         "test_secret_protection", "Secret Protection", SECRET_PROMPT,
@@ -268,6 +251,35 @@ def _render_runtime_test_agent() -> None:
             st.json(st.session_state.current_metadata)
 
 
+def _render_secret_data_flow() -> None:
+    st.markdown("##### Secret Protection Data Flow")
+    st.caption("Secret Protection is enforced at the boundary between the LLM's requested action and actual tool execution.")
+    st.code(
+        "User Input\n"
+        "    ↓\n"
+        "LLM / Agent\n"
+        "decides to call a tool\n"
+        "    ↓\n"
+        "Tool name + arguments generated\n"
+        "    ↓\n"
+        "┌──────────────────────────────────┐\n"
+        "│       SECRET PROTECTION          │\n"
+        "│  Scan tool-call arguments before │\n"
+        "│  the tool is allowed to execute  │\n"
+        "└──────────────────────────────────┘\n"
+        "    ↓\n"
+        "Protected secret detected?\n"
+        "      /              \\\n"
+        "    YES               NO\n"
+        "     ↓                 ↓\n"
+        "   BLOCK            CONTINUE\n"
+        "     ↓                 ↓\n"
+        "Tool is NOT       Tool executes\n"
+        "executed          normally",
+        language=None,
+    )
+
+
 def _render_runtime_activity() -> None:
     st.subheader("Runtime Security Activity")
     request_events = st.session_state.get("request_runtime_events", [])
@@ -279,6 +291,8 @@ def _render_runtime_activity() -> None:
         st.dataframe([_event_row(e, summary) for e in request_events], use_container_width=True, hide_index=True)
     else:
         st.info("No runtime security activity captured for a completed event yet.")
+    if scenario == "Secret Protection":
+        _render_secret_data_flow()
     with st.expander("Recent Runtime Security History"):
         history = st.session_state.get("ui_runtime_history", [])
         if history:
