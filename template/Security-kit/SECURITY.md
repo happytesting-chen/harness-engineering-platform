@@ -37,13 +37,15 @@ This document provides security guidance for developing AI agent systems. Each c
 | ID | Control | Source |
 |----|---------|--------|
 | S2.1 | Tools are only available when explicitly listed in `mcp-allowlist.json` — default deny for unknown tools | `[AWS-LENS]` `[HARNESS]` |
-| S2.2 | Phase-gated tools require prerequisite phases to pass before unlocking — enforces sequential workflow | `[CSA-ADD]` `[HARNESS]` |
+| S2.2 | Phase-gated tools stay locked until a human records the prerequisite phase in `signed_off_phases` — enforces sequential workflow without letting the agent release its own tools | `[CSA-ADD]` `[HARNESS]` |
 | S2.3 | Limit agent to one active task at a time (WIP=1) — prevents unbounded scope expansion | `[CSA-ADD]` |
-| S2.4 | Agent cannot modify its own governance files (permission.py, deny-list.json, mcp-allowlist.json, settings.json, hooks) — write targets are hard-denied by `check_protected_paths` | `[AWS-LENS]` `[HARNESS]` |
+| S2.4 | Agent cannot modify its own governance or detection files (permission.py, deny-list.json, mcp-allowlist.json, settings.json, the two pre-model screens, secret_scan.py, content_trust.py, hooks) — write targets are hard-denied by `check_protected_paths` | `[AWS-LENS]` `[HARNESS]` |
 | S2.5 | Scope credentials per session — use short-lived tokens, not long-lived keys | `[AWS-LENS]` |
 | S2.6 | Limit transitive tool chains — if tool A can invoke tool B, both must be in the allowlist | `[CSA-ADD]` |
 
 **Template enforcement:** `governance/permission.py` Gate 2 (phase-gate) + `governance/mcp-allowlist.json` enforce tool boundaries mechanically. `[HARNESS]`
+
+**S2.2 reads the unlock from a protected file, not from the worklog.** A tool carrying `gated_until: "phase-01"` unlocks only when `phase-01` appears in `signed_off_phases` in `mcp-allowlist.json` — a protected path, so only a human patch puts it there. It deliberately does **not** read `status` from `Harness-Best-Practice/feature_list.json`, because that file is the agent's own worklog and has to stay editable during development. Until 2026-08-17 the gate did read the worklog, and three separate one-file edits reached ALLOW (measured): mark the prerequisite `passing`; mark every phase `passing` and reach the steady-state carve-out; or delete the prerequisite entry so the id match found nothing and the loop fell through. Absent or empty `signed_off_phases` means no phase is signed off, so every gated tool stays locked — the key's absence fails closed, and the shipped template omits it. Proven by `tests/test_steady_state.py`, which drives all three former doors rather than trusting the fix. `[HARNESS]`
 
 **S2.4 enforcement and its limits.** Gate 1a (`check_protected_paths`) hard-denies any tool call whose write target resolves to a mechanism or policy file. Paths are compared on **file identity** (`os.path.samefile`, i.e. `st_dev`/`st_ino`), not spelling: `../`, `./`, absolute forms, symlinks, **hard links**, and — on case-insensitive filesystems (macOS/Windows) — case variants all collapse to the same target. The hard link is the case that makes stat comparison necessary rather than merely tidy: a symlink has a target to resolve through, a hard link is simply the same inode under a second name. `Write`, `Edit`, `MultiEdit` and `NotebookEdit` are covered (`file_path`, `notebook_path`, `path`). The protected list in `deny-list.json` is **additive only** — `BUILTIN_PROTECTED_PATHS` in `permission.py` is enforced even if the policy key is emptied or the file is deleted, so S2.4 cannot be switched off by editing policy. It runs **before** the command-pattern gate because it has that built-in floor and still returns a verdict when the policy file is *missing*. (A *corrupt* policy file is different: Gate 1a raises `PolicyError` and the CLI boundary converts it to exit 2, so the call is still denied — just with the generic fail-closed reason rather than the specific S2.4 one.) Proven by `tests/test_protected_paths.py` — which covers the structured-write surface Gate 1a owns. The shell is a separate mechanism with materially weaker coverage; read the residual-gap box below before treating S2.4 as a boundary against commands. `[HARNESS]`
 
@@ -55,17 +57,24 @@ This document provides security guidance for developing AI agent systems. Each c
 > target, so `deny-list.json` reaches for *pattern matching* instead — and patterns are
 > incomplete by construction, not merely in principle. Measured on the shipped policy
 > (`tests/test_protected_paths.py::test_shell_pattern_coverage_is_partial_and_measured`,
-> which enumerates 14 shell verbs against all 8 built-in protected paths): **64 of 112
-> combinations are not blocked.** Specifically —
+> which enumerates 14 shell verbs against all 10 built-in protected paths): **68 of 140
+> combinations are not blocked.** The open set has exactly **two shapes**, and
+> `test_the_open_set_has_exactly_two_shapes` asserts that as a set equality rather than
+> a count — so a change that closes one cell while opening another cannot hide behind an
+> unchanged total. Specifically —
 >
 > - **Verbs with no pattern at all:** `cp`, `install`, `ln -sf`, `git checkout … -- <path>`,
 >   and `dd if=… of=…` (the `dd` pattern requires `of=` as the first operand, so operand
 >   order decides the verdict). Each writes any protected path. `cp` is the one to
->   register: it is the obvious first reach and it is open for all eight.
+>   register: it is the obvious first reach and it is open for all ten.
 > - **Paths the patterns do not name:** the four regexes each carry their own path list,
->   and none covers `audit_hook.py` or `audit.log`. The redirect pattern covers only
->   `governance/` and `.claude/settings.json`, so `echo x > Security-kit/secret_scan.py`
->   is not blocked even though Gate 1a blocks a `Write` to the same file.
+>   and none covers `audit_hook.py` or `audit.log` — so those two are open to all 14 verbs.
+>   (Until 2026-08-17 there was a third, irregular shape here: the redirect pattern named
+>   only `governance/` and `.claude/settings.json`, so `echo x > Security-kit/secret_scan.py`
+>   was not blocked even though Gate 1a blocked a `Write` to the same file. That was the
+>   redirect regex having been written before `Security-kit/` held mechanism files, not a
+>   deliberate carve-out; it now names all four mechanism entry points and the gap is back
+>   to the two shapes above.)
 > - **Interpreters:** `python3 -c 'open("governance/permission.py","w")'` is not blocked,
 >   for the same reason the egress gate misses `urllib` (see §3).
 >

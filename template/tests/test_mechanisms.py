@@ -26,7 +26,7 @@ def case_matrix_parses_into_rows():
         f"parse_matrix_rows and parse_matrix disagree: "
         f"{set(rows) ^ set(flat)}"
     )
-    assert len(rows) == 22, f"expected 22 matrix rows, got {len(rows)}"
+    assert len(rows) == 24, f"expected 24 matrix rows, got {len(rows)}"
 
 
 def case_every_matrix_row_has_a_status_token():
@@ -148,12 +148,18 @@ def case_sec_tool_001_is_gone():
 
 # --- I2: internal coherence ----------------------------------------------
 
-def case_register_has_ten_rows():
-    """The template baseline (spec §4.5.3). A product adds its own rows later."""
+def case_register_row_count_is_pinned():
+    """The template baseline (spec §4.5.3). A product adds its own rows later.
+
+    12 since SEC-RESULT-001 shipped the position-④ gate. Renamed from
+    `case_register_has_ten_rows`, which asserted eleven: a case name that states a
+    number has to state the right one, or it is the same defect this file exists to
+    catch, one level up.
+    """
     reg = cc._load_register(cc.MECHANISMS_PATH)
     ids = [m["id"] for m in reg["mechanisms"]]
-    assert len(ids) == 10, f"expected 10 rows, got {len(ids)}: {ids}"
-    assert len(set(ids)) == 10, f"duplicate ids: {ids}"
+    assert len(ids) == 12, f"expected 12 rows, got {len(ids)}: {ids}"
+    assert len(set(ids)) == 12, f"duplicate ids: {ids}"
 
 
 def case_i2_passes_on_the_shipped_register():
@@ -659,7 +665,7 @@ CASES = [
     case_i5_catches_a_deleted_never_execute,
     case_i5_names_the_missing_guardrail,
     case_i5_missing_drafter_is_an_error,
-    case_register_has_ten_rows,
+    case_register_row_count_is_pinned,
     case_i2_passes_on_the_shipped_register,
     case_i2_rejects_a_gate_that_cannot_deny,
     case_i2_rejects_a_flattered_status,

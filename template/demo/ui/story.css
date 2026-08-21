@@ -1,0 +1,543 @@
+/* One attack, start to finish.
+   Standalone by design: this page shares the enamel/engrave/stop palette with the
+   instrument panel in app.css but none of its layout, so the two never fight over
+   specificity. Same product, two rooms. */
+
+:root {
+  --enamel:     #c9c6be;
+  --enamel-lo:  #b8b5ac;
+  --panel:      #dcd9d1;
+  --engrave:    #23262a;
+  --engrave-lo: #5b6068;
+  --hair:       #a8a49a;
+  --brass:      #8a7a4e;
+  --brass-lo:   #b6a373;
+  --stop:       #c2312b;
+  --stop-deep:  #8e2119;
+  --clear:      #1f6f5c;
+  --caution:    #a5730f;
+
+  --font-display: "Arial Narrow", "Helvetica Neue", Helvetica, Arial, sans-serif;
+  --font-body: system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+  --font-mono: ui-monospace, "SF Mono", SFMono-Regular, Menlo, Consolas, monospace;
+
+  --rail: 64px;
+}
+
+* { box-sizing: border-box; }
+
+html { -webkit-text-size-adjust: 100%; }
+
+body {
+  margin: 0;
+  background:
+    repeating-linear-gradient(90deg, rgba(0,0,0,.014) 0 1px, transparent 1px 4px),
+    var(--enamel);
+  color: var(--engrave);
+  font-family: var(--font-body);
+  font-size: 16px;
+  line-height: 1.5;
+}
+
+main { display: block; }
+
+.eyebrow {
+  margin: 0 0 14px;
+  font-family: var(--font-display);
+  font-stretch: condensed;
+  text-transform: uppercase;
+  letter-spacing: .22em;
+  font-size: 11px;
+  font-weight: 700;
+  color: var(--brass);
+}
+
+code {
+  font-family: var(--font-mono);
+  font-size: .88em;
+  background: rgba(35,38,42,.06);
+  padding: .1em .32em;
+  border-radius: 2px;
+}
+
+/* --- masthead ------------------------------------------------------------- */
+
+.masthead {
+  max-width: 1040px;
+  margin: 0 auto;
+  padding: 56px 32px 40px;
+  border-bottom: 1px solid var(--hair);
+}
+
+.masthead h1 {
+  margin: 0 0 20px;
+  font-family: var(--font-display);
+  font-stretch: condensed;
+  font-weight: 700;
+  font-size: clamp(38px, 6.4vw, 76px);
+  line-height: .96;
+  letter-spacing: -.015em;
+  text-transform: uppercase;
+}
+
+.standfirst {
+  max-width: 62ch;
+  margin: 0 0 28px;
+  font-size: 17px;
+  color: var(--engrave-lo);
+}
+
+.controls { display: flex; flex-wrap: wrap; gap: 10px; align-items: center; }
+
+.btn {
+  font-family: var(--font-display);
+  font-stretch: condensed;
+  text-transform: uppercase;
+  letter-spacing: .12em;
+  font-size: 13px;
+  font-weight: 700;
+  padding: 13px 22px;
+  border: 1px solid var(--engrave);
+  border-radius: 2px;
+  background: transparent;
+  color: var(--engrave);
+  cursor: pointer;
+  transition: background 120ms ease, color 120ms ease, transform 80ms ease;
+}
+.btn:hover { background: rgba(35,38,42,.08); }
+.btn:active { transform: translateY(1px); }
+.btn:focus-visible { outline: 2px solid var(--brass); outline-offset: 2px; }
+
+.btn-primary {
+  background: var(--stop-deep);
+  border-color: var(--stop-deep);
+  color: #f2efe8;
+  box-shadow: inset 0 -2px 0 rgba(0,0,0,.28);
+}
+.btn-primary:hover { background: var(--stop); }
+
+.btn-quiet { border-color: var(--hair); color: var(--engrave-lo); }
+
+.never-runs {
+  margin: 16px 0 0;
+  font-family: var(--font-mono);
+  font-size: 11.5px;
+  letter-spacing: .04em;
+  color: var(--engrave-lo);
+}
+.never-runs::before { content: "· "; color: var(--brass); }
+
+/* --- the beats ------------------------------------------------------------ */
+
+.beats {
+  max-width: 1040px;
+  margin: 0 auto;
+  padding: 8px 32px 0;
+  list-style: none;
+}
+
+.beat {
+  display: grid;
+  grid-template-columns: var(--rail) 1fr;
+  gap: 0 24px;
+  padding: 34px 0;
+  border-bottom: 1px solid var(--hair);
+  opacity: .34;
+  transition: opacity 260ms ease;
+}
+.beat[data-state="live"], .beat[data-state="done"] { opacity: 1; }
+
+.beat-mark { position: relative; }
+
+.pos {
+  display: grid;
+  place-items: center;
+  width: 44px;
+  height: 44px;
+  border: 1px solid var(--engrave);
+  border-radius: 50%;
+  font-family: var(--font-display);
+  font-stretch: condensed;
+  font-size: 20px;
+  font-weight: 700;
+  background: var(--enamel);
+}
+/* the spine: a beat is a step in time, so the sequence is load-bearing */
+.beat-mark::after {
+  content: "";
+  position: absolute;
+  left: 22px;
+  top: 52px;
+  bottom: -42px;
+  width: 1px;
+  background: var(--hair);
+}
+.beat:last-child .beat-mark::after { display: none; }
+
+.beat[data-state="live"] .pos { border-color: var(--brass); box-shadow: 0 0 0 3px rgba(182,163,115,.3); }
+.beat[data-state="done"] .pos { background: var(--engrave); color: var(--enamel); }
+
+.beat h2 {
+  margin: 6px 0 8px;
+  font-family: var(--font-display);
+  font-stretch: condensed;
+  text-transform: uppercase;
+  letter-spacing: .01em;
+  font-size: clamp(21px, 2.4vw, 28px);
+  font-weight: 700;
+  line-height: 1.05;
+}
+
+.beat-what { margin: 0 0 16px; max-width: 60ch; color: var(--engrave-lo); }
+
+.quote {
+  margin: 0 0 18px;
+  padding: 18px 20px;
+  max-width: 72ch;
+  background: var(--panel);
+  border-left: 4px solid var(--stop);
+  font-family: var(--font-body);
+  font-size: 15.5px;
+  line-height: 1.55;
+  white-space: pre-wrap;
+  word-break: break-word;
+}
+.quote-model { border-left-color: var(--caution); font-style: italic; }
+
+.mono {
+  margin: 0 0 18px;
+  padding: 14px 16px;
+  max-width: 78ch;
+  background: #1c1f23;
+  color: #d8d4c8;
+  border-radius: 2px;
+  font-family: var(--font-mono);
+  font-size: 12.5px;
+  line-height: 1.6;
+  white-space: pre-wrap;
+  word-break: break-all;
+  overflow-x: auto;
+}
+.envelope { border-left: 4px solid var(--brass-lo); }
+
+.beat-status { display: flex; flex-wrap: wrap; gap: 10px 14px; align-items: flex-start; }
+.beat-status p { margin: 0; max-width: 58ch; font-size: 14.5px; color: var(--engrave-lo); }
+
+.chip {
+  flex: none;
+  font-family: var(--font-display);
+  font-stretch: condensed;
+  text-transform: uppercase;
+  letter-spacing: .11em;
+  font-size: 11px;
+  font-weight: 700;
+  padding: 6px 11px;
+  border-radius: 2px;
+  color: #f2efe8;
+  background: var(--engrave-lo);
+}
+.chip-open  { background: var(--stop-deep); }
+.chip-watch { background: var(--caution); }
+.chip-clear { background: var(--clear); }
+
+.aside {
+  margin: 20px 0 0;
+  padding: 16px 18px;
+  max-width: 74ch;
+  border: 1px solid var(--hair);
+  border-left: 3px solid var(--brass);
+  background: rgba(255,255,255,.28);
+}
+.aside-head {
+  margin: 0 0 8px;
+  font-family: var(--font-display);
+  font-stretch: condensed;
+  text-transform: uppercase;
+  letter-spacing: .14em;
+  font-size: 11px;
+  font-weight: 700;
+  color: var(--brass);
+}
+.aside p { margin: 0 0 10px; font-size: 14.5px; }
+.aside .mono { margin-bottom: 10px; }
+.aside-note { color: var(--engrave-lo); font-size: 13.5px; }
+
+/* --- the four checks ------------------------------------------------------ */
+
+.checks {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin: 0 0 22px;
+  padding: 0;
+  list-style: none;
+}
+.checks li {
+  display: flex;
+  align-items: center;
+  gap: 9px;
+  padding: 9px 14px 9px 10px;
+  border: 1px solid var(--hair);
+  background: var(--panel);
+  font-size: 13.5px;
+  color: var(--engrave-lo);
+  border-radius: 2px;
+  transition: border-color 140ms ease, color 140ms ease, background 140ms ease;
+}
+.checks li .g {
+  font-family: var(--font-mono);
+  font-size: 11px;
+  font-weight: 700;
+  padding: 2px 5px;
+  border-radius: 2px;
+  background: rgba(35,38,42,.12);
+}
+.checks li[data-result="pass"] {
+  border-color: var(--clear);
+  color: var(--clear);
+  background: rgba(31,111,92,.08);
+}
+.checks li[data-result="pass"] .g { background: rgba(31,111,92,.16); }
+.checks li[data-result="stop"] {
+  border-color: var(--stop-deep);
+  background: var(--stop-deep);
+  color: #f4efe8;
+  font-weight: 700;
+}
+.checks li[data-result="stop"] .g { background: rgba(0,0,0,.28); }
+.checks li[data-result="stop"]::after { content: "STOP"; font-family: var(--font-mono); font-size: 11px; }
+.checks li[data-result="skipped"] { opacity: .5; }
+.checks li[data-result="skipped"]::after { content: "not reached"; font-size: 11.5px; font-style: italic; }
+
+/* --- verdict -------------------------------------------------------------- */
+
+.verdict {
+  display: flex;
+  gap: 22px;
+  align-items: center;
+  max-width: 78ch;
+  padding: 18px 20px;
+  border: 1px solid var(--hair);
+  background: var(--panel);
+  border-radius: 2px;
+}
+.verdict[data-state="blocked"] { border-color: var(--stop-deep); box-shadow: inset 4px 0 0 var(--stop-deep); }
+.verdict[data-state="open"]    { border-color: var(--caution); box-shadow: inset 4px 0 0 var(--caution); }
+
+.verdict-code { flex: none; text-align: center; min-width: 96px; }
+.verdict-code span {
+  display: block;
+  font-family: var(--font-display);
+  font-stretch: condensed;
+  font-size: 58px;
+  font-weight: 700;
+  line-height: .9;
+}
+.verdict[data-state="blocked"] .verdict-code span { color: var(--stop-deep); }
+.verdict-code em {
+  font-family: var(--font-display);
+  font-stretch: condensed;
+  font-style: normal;
+  text-transform: uppercase;
+  letter-spacing: .16em;
+  font-size: 10px;
+  color: var(--engrave-lo);
+}
+.verdict-reason {
+  margin: 0 0 6px;
+  font-family: var(--font-mono);
+  font-size: 13.5px;
+  line-height: 1.5;
+}
+.verdict-meta { margin: 0; font-size: 13px; color: var(--engrave-lo); }
+
+/* --- outcome -------------------------------------------------------------- */
+
+.outcome {
+  max-width: 1040px;
+  margin: 0 auto;
+  padding: 44px 32px 48px;
+  border-bottom: 1px solid var(--hair);
+}
+.outcome-line {
+  margin: 0 0 10px;
+  font-family: var(--font-display);
+  font-stretch: condensed;
+  text-transform: uppercase;
+  font-weight: 700;
+  font-size: clamp(26px, 4.2vw, 46px);
+  line-height: 1.02;
+  color: var(--engrave-lo);
+}
+.outcome[data-state="held"] .outcome-line  { color: var(--clear); }
+.outcome[data-state="breached"] .outcome-line { color: var(--stop-deep); }
+.outcome-sub { margin: 0; max-width: 66ch; color: var(--engrave-lo); }
+
+/* --- architecture --------------------------------------------------------- */
+
+.arch {
+  max-width: 1040px;
+  margin: 0 auto;
+  padding: 52px 32px 56px;
+  border-bottom: 1px solid var(--hair);
+}
+.arch-title {
+  margin: 0 0 16px;
+  font-family: var(--font-display);
+  font-stretch: condensed;
+  text-transform: uppercase;
+  font-weight: 700;
+  font-size: clamp(24px, 3.6vw, 40px);
+  line-height: 1.02;
+}
+.arch-lede { margin: 0 0 30px; max-width: 64ch; color: var(--engrave-lo); }
+
+.diagram-wrap { overflow-x: auto; padding-bottom: 6px; }
+.diagram { display: block; width: 100%; min-width: 760px; height: auto; }
+
+.diagram .node rect {
+  fill: var(--panel);
+  stroke: var(--hair);
+  stroke-width: 1;
+}
+.diagram .node-model rect { fill: #1c1f23; stroke: #1c1f23; }
+.diagram .node-model .n-title { fill: #e6e2d6; text-anchor: middle; }
+.diagram .node-model .n-sub {
+  fill: #a8a49a;
+  text-anchor: middle;
+  font-family: var(--font-mono);
+  font-size: 12px;
+}
+.diagram .node-gate rect { stroke: var(--brass); stroke-width: 2; fill: #d3cfc4; }
+.diagram .node-band rect { fill: rgba(255,255,255,.24); stroke-dasharray: 3 3; }
+
+.diagram .n-title {
+  font-family: var(--font-display);
+  font-stretch: condensed;
+  font-weight: 700;
+  font-size: 17px;
+  text-transform: uppercase;
+  letter-spacing: .04em;
+  fill: var(--engrave);
+}
+.diagram .n-left { text-anchor: start; }
+.diagram .n-body { font-family: var(--font-body); font-size: 12.5px; fill: var(--engrave-lo); }
+
+.diagram .pip { fill: var(--engrave); }
+.diagram .pip-n {
+  font-family: var(--font-display);
+  font-stretch: condensed;
+  font-weight: 700;
+  font-size: 15px;
+  fill: var(--enamel);
+  text-anchor: middle;
+}
+
+.diagram .n-chip {
+  font-family: var(--font-display);
+  font-stretch: condensed;
+  font-weight: 700;
+  font-size: 11.5px;
+  text-transform: uppercase;
+  letter-spacing: .12em;
+  fill: var(--engrave-lo);
+}
+.diagram .n-chip-open { fill: var(--stop-deep); }
+.diagram .n-chip-gate { fill: var(--brass); }
+
+.diagram .wires path { fill: none; stroke: var(--engrave-lo); stroke-width: 1.5; }
+.diagram .wires marker path, .diagram defs path { fill: var(--engrave-lo); stroke: none; }
+.diagram .stopbar { fill: var(--brass); opacity: .35; }
+
+/* the attack overlay only exists once you have run it */
+.diagram .attack { opacity: 0; transition: opacity 200ms ease; }
+.diagram.armed .attack { opacity: 1; }
+.diagram .attack path { fill: none; stroke: var(--stop); stroke-width: 3; stroke-dasharray: 7 5; }
+.diagram .atk-cross path { stroke-width: 3.5; stroke-dasharray: none; }
+.diagram .atk-label {
+  font-family: var(--font-mono);
+  font-size: 12px;
+  fill: var(--stop-deep);
+  text-anchor: middle;
+}
+.diagram .atk-label-stop { font-weight: 700; text-anchor: start; }
+.diagram.armed .stopbar { fill: var(--stop-deep); opacity: 1; }
+
+.diagram.armed .atk-in  { animation: draw 700ms ease-out both; }
+.diagram.armed .atk-out { animation: draw 500ms ease-out 620ms both; }
+@keyframes draw {
+  from { stroke-dasharray: 0 900; }
+  to   { stroke-dasharray: 7 5; }
+}
+
+.legend {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));
+  gap: 18px 26px;
+  margin: 34px 0 0;
+  padding: 0;
+  list-style: none;
+}
+.legend li { font-size: 14.5px; color: var(--engrave-lo); }
+.legend b { color: var(--engrave); }
+.sw {
+  display: inline-block;
+  width: 22px;
+  height: 8px;
+  margin-right: 8px;
+  vertical-align: 1px;
+  border-radius: 1px;
+}
+.sw-gate { background: var(--brass); }
+.sw-open { background: var(--stop-deep); }
+.sw-stop { background: var(--engrave); }
+
+/* --- colophon ------------------------------------------------------------- */
+
+.colophon {
+  max-width: 1040px;
+  margin: 0 auto;
+  padding: 44px 32px 72px;
+}
+.colophon ul {
+  margin: 0 0 28px;
+  padding: 0;
+  list-style: none;
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+  gap: 16px 28px;
+}
+.colophon li {
+  font-size: 13.5px;
+  line-height: 1.55;
+  color: var(--engrave-lo);
+  padding-left: 14px;
+  border-left: 1px solid var(--hair);
+}
+.colophon b { color: var(--engrave); }
+.more { margin: 0; font-size: 14.5px; color: var(--engrave-lo); }
+.more a {
+  color: var(--engrave);
+  font-weight: 700;
+  text-decoration-color: var(--brass);
+  text-underline-offset: 3px;
+}
+
+/* --- responsive ----------------------------------------------------------- */
+
+@media (max-width: 720px) {
+  :root { --rail: 44px; }
+  .masthead { padding: 36px 20px 28px; }
+  .beats, .outcome, .arch, .colophon { padding-left: 20px; padding-right: 20px; }
+  .beat { grid-template-columns: var(--rail) 1fr; gap: 0 14px; padding: 26px 0; }
+  .pos { width: 34px; height: 34px; font-size: 16px; }
+  .beat-mark::after { left: 17px; top: 42px; }
+  .verdict { flex-direction: column; align-items: flex-start; gap: 12px; }
+  .verdict-code { display: flex; align-items: baseline; gap: 10px; text-align: left; }
+  .verdict-code span { font-size: 40px; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  * { transition: none !important; animation: none !important; }
+  .beat { opacity: 1; }
+}

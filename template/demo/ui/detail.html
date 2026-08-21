@@ -1,0 +1,307 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Permission gate — interlock viewer</title>
+<link rel="stylesheet" href="app.css">
+</head>
+<body>
+
+<header class="masthead">
+  <div class="masthead-inner">
+    <p class="eyebrow"><a class="up" href="/">&larr; the walkthrough</a>
+       <span class="sep">/</span> interlock viewer</p>
+    <h1 class="headline">Argue<br>with it.</h1>
+    <div class="masthead-note">
+      <p>Every verdict on this page is an exit code from <code>governance/permission.py</code>.
+         Write whatever you like into the proposal. The gate reads a JSON envelope, not a
+         sentence, and there is nothing in it to convince.</p>
+      <dl class="provenance" id="provenance">
+        <div><dt>Gate</dt><dd id="prov-gate">loading</dd></div>
+        <div><dt>Deny-list</dt><dd id="prov-deny">loading</dd></div>
+        <div><dt>Scratch tree</dt><dd id="prov-scenario">loading</dd></div>
+      </dl>
+    </div>
+  </div>
+</header>
+
+<main class="console">
+
+  <!-- ── LEFT: what the agent is asking for ─────────────────────────── -->
+  <section class="bay bay-proposal" aria-labelledby="h-proposal">
+    <h2 class="bay-title" id="h-proposal">The proposal</h2>
+    <p class="bay-sub">What the model wants to do next.</p>
+
+    <div id="preset-groups" class="presets"></div>
+
+    <form id="proposal-form" class="compose" autocomplete="off">
+      <h3 class="compose-title">Or write your own</h3>
+      <label class="field">
+        <span class="field-label">Tool</span>
+        <select id="tool-name" class="control"></select>
+      </label>
+      <label class="field" id="field-command">
+        <span class="field-label">Command</span>
+        <textarea id="command-field" class="control mono" rows="3"
+                  placeholder="echo 'tests passed'"></textarea>
+      </label>
+      <label class="field is-hidden" id="field-path">
+        <span class="field-label">File path</span>
+        <input id="path-field" class="control mono" type="text" placeholder="sandbox/notes.md">
+      </label>
+      <label class="field is-hidden" id="field-url">
+        <span class="field-label">URL</span>
+        <input id="url-field" class="control mono" type="text" placeholder="https://example.com">
+      </label>
+      <button type="submit" class="btn btn-primary">Send to the gate</button>
+    </form>
+
+    <div class="envelope-wrap">
+      <h3 class="compose-title">Piped to stdin</h3>
+      <pre class="envelope mono" id="envelope">{}</pre>
+    </div>
+  </section>
+
+  <!-- ── CENTRE: the interlock ──────────────────────────────────────── -->
+  <section class="bay bay-interlock" aria-labelledby="h-interlock">
+    <h2 class="bay-title" id="h-interlock">The interlock</h2>
+    <p class="bay-sub">Four gates, fixed order. The first denial ends the call.</p>
+
+    <ol class="interlock" id="interlock">
+      <li class="gate" data-gate="1a" data-state="idle">
+        <span class="gate-id">1a</span>
+        <div class="gate-text">
+          <h3 class="gate-name">Protected paths</h3>
+          <p class="gate-reads">8 built-in write targets, plus <code>protected_paths</code>.
+             Matched on file identity, so <code>../</code>, absolute forms, symlinks and case
+             variants all collapse to the same file. Policy cannot switch this off.</p>
+        </div>
+        <span class="gate-verdict" aria-hidden="true"></span>
+        <span class="gate-slam" aria-hidden="true"></span>
+      </li>
+      <li class="gate" data-gate="1b" data-state="idle">
+        <span class="gate-id">1b</span>
+        <div class="gate-text">
+          <h3 class="gate-name">Deny-list</h3>
+          <p class="gate-reads"><span id="deny-count">10</span> patterns from
+             <code>deny-list.json</code>. Shell command strings only — a file write carries no
+             command, which is why gate 1a exists.</p>
+        </div>
+        <span class="gate-verdict" aria-hidden="true"></span>
+        <span class="gate-slam" aria-hidden="true"></span>
+      </li>
+      <li class="gate" data-gate="2" data-state="idle">
+        <span class="gate-id">2</span>
+        <div class="gate-text">
+          <h3 class="gate-name">Phase gate</h3>
+          <p class="gate-reads">The active phase in <code>feature_list.json</code> against
+             <code>mcp-allowlist.json</code>. A tool nobody approved fails closed:
+             <em>not in allowlist</em>.</p>
+        </div>
+        <span class="gate-verdict" aria-hidden="true"></span>
+        <span class="gate-slam" aria-hidden="true"></span>
+      </li>
+      <li class="gate" data-gate="3" data-state="idle">
+        <span class="gate-id">3</span>
+        <div class="gate-text">
+          <h3 class="gate-name">Egress</h3>
+          <p class="gate-reads">Five tokens — <code>curl wget nc ssh nmap</code> — against
+             <code>egress_hosts</code>. Bash only. Friction for shell commands, not network
+             enforcement.</p>
+        </div>
+        <span class="gate-verdict" aria-hidden="true"></span>
+        <span class="gate-slam" aria-hidden="true"></span>
+      </li>
+    </ol>
+
+    <div class="phase-console">
+      <h3 class="compose-title">Phase state</h3>
+      <ul class="phase-strip" id="phase-strip"></ul>
+      <div class="phase-actions">
+        <button type="button" class="btn" id="signoff-btn">Sign off phase-01</button>
+        <button type="button" class="btn btn-quiet" id="reset-btn">Reset scenario</button>
+      </div>
+      <p class="phase-caveat">Sign-off unlocks the gated tool for real. Nothing verifies that a
+        human did it — <code>feature_list.json</code> is not a protected path
+        (<span class="cid">SEC-PHASE-GAP-001</span>).</p>
+    </div>
+  </section>
+
+  <!-- ── RIGHT: the verdict ─────────────────────────────────────────── -->
+  <section class="bay bay-verdict" aria-labelledby="h-verdict">
+    <h2 class="bay-title" id="h-verdict">The verdict</h2>
+    <p class="bay-sub">Exit code and stderr, exactly as returned.</p>
+
+    <div class="verdict-card" id="verdict-card" data-state="empty" aria-live="polite">
+      <p class="verdict-stamp" id="verdict-stamp">—</p>
+      <p class="verdict-title" id="verdict-title">No call proposed yet</p>
+      <p class="verdict-body" id="verdict-body">Pick one on the left, or write your own command.</p>
+      <pre class="verdict-reason mono is-hidden" id="verdict-reason"></pre>
+      <p class="verdict-meta is-hidden" id="verdict-meta"></p>
+    </div>
+
+    <div class="callout is-hidden" id="routing-callout">
+      <h3 class="callout-title">The gate answered. Production never asks.</h3>
+      <p id="routing-body"></p>
+    </div>
+
+    <label class="enforce">
+      <input type="checkbox" id="enforce-toggle" checked>
+      <span><strong>Enforcement on.</strong> Uncheck to remove the hook: the gate still
+        produces a verdict and nothing consumes it.</span>
+    </label>
+
+    <div class="audit">
+      <h3 class="compose-title">Audit log <span class="audit-path mono">observability/audit.log</span></h3>
+      <ol class="audit-lines" id="audit-lines">
+        <li class="audit-empty">Empty. The gate writes a line when it denies.</li>
+      </ol>
+      <p class="audit-caveat">Denials only. Allowed calls are logged by the PostToolUse hook,
+        which is not running here.</p>
+    </div>
+  </section>
+
+</main>
+
+<!-- ── The other end of the loop ─────────────────────────────────────── -->
+<section class="ingest" aria-labelledby="h-ingest">
+  <div class="ingest-inner">
+
+    <header class="ingest-head">
+      <p class="eyebrow">Data plane <span class="sep">/</span> position ④ · the result comes back</p>
+      <h2 class="ingest-headline" id="h-ingest">Wired to nothing.</h2>
+      <div class="ingest-lede">
+        <p>Everything above happens at position ②, when the model <em>asks</em> for a tool. This
+          is the return trip: a knowledge-base hit, a fetched page, an email body — content the
+          model did not write, arriving as a tool result.</p>
+        <p><code>Security-kit/content_trust.py</code> screens exactly this, and it is correct and
+          tested. Nothing calls it. A smoke detector still in its box
+          (<span class="cid">SEC-CONTENT-001</span>, <strong>LIBRARY</strong>).</p>
+      </div>
+    </header>
+
+    <div class="ingest-grid">
+
+      <!-- untrusted record -->
+      <div class="lane lane-input">
+        <h3 class="lane-title">The untrusted record</h3>
+        <div id="record-presets" class="record-presets"></div>
+        <label class="field">
+          <span class="field-label">Tool result, as the handler returned it</span>
+          <textarea id="record-field" class="control mono" rows="9" spellcheck="false"></textarea>
+        </label>
+        <dl class="call-args">
+          <div><dt>allowed_keys</dt><dd id="arg-allowed">—</dd></div>
+          <div><dt>text_fields</dt><dd id="arg-text">—</dd></div>
+        </dl>
+        <p class="lane-note">Those two arguments are the caller's decision, not the library's.
+          Wiring this in means choosing them per ingestion point.</p>
+        <button type="button" class="btn btn-primary" id="ingest-btn">Send both ways</button>
+      </div>
+
+      <!-- as shipped -->
+      <div class="lane lane-shipped">
+        <h3 class="lane-title">As shipped <span class="lane-tag lane-tag-gap">no call</span></h3>
+        <p class="lane-sub">The real ingestion site, read from
+          <code id="harness-file">demo/harness.py</code> on load.</p>
+        <pre class="code-window mono" id="harness-code">loading</pre>
+        <p class="lane-note" id="harness-verdict"></p>
+        <div class="outcome" id="shipped-outcome" data-state="gap">
+          <h4 class="outcome-title">Enters context verbatim</h4>
+          <pre class="outcome-body mono" id="shipped-body">Send a record to see what reaches the model.</pre>
+        </div>
+      </div>
+
+      <!-- if wired -->
+      <div class="lane lane-wired">
+        <h3 class="lane-title">If wired <span class="lane-tag lane-tag-obs">observe only</span></h3>
+        <p class="lane-sub">Real output from <code>screen_record</code> in
+          <code>Security-kit/content_trust.py</code> — <span id="ct-sha" class="mono">sha256 …</span></p>
+        <div class="outcome" id="screen-outcome" data-state="idle">
+          <h4 class="outcome-title" id="screen-title">Nothing screened yet</h4>
+          <dl class="screen-result">
+            <div><dt>is_suspicious</dt><dd id="res-suspicious">—</dd></div>
+            <div><dt>dropped_keys</dt><dd id="res-dropped">—</dd></div>
+            <div><dt>injection_markers</dt><dd id="res-markers">—</dd></div>
+            <div><dt>oversize_fields</dt><dd id="res-oversize">—</dd></div>
+          </dl>
+          <p class="outcome-label">clean_fields — what the caller would pass on</p>
+          <pre class="outcome-body mono" id="res-clean">—</pre>
+          <p class="outcome-caveat">Not sanitised text. Unexpected <em>keys</em> are gone; the
+            instruction-shaped sentence is still in the body, because rewriting someone's content
+            is a worse failure than flagging it. Screening is not cleaning.</p>
+        </div>
+        <p class="lane-note"><strong>The ceiling is amber, not green.</strong> Screening cannot stop
+          the model seeing the content — it can only lower trust and route to review. Even fully
+          wired, this control is <strong>OBSERVE</strong>, never MECHANICAL
+          (<span class="cid">SEC-RESULT-GAP-001</span>).</p>
+      </div>
+    </div>
+
+    <details class="wiring">
+      <summary class="wiring-summary">What wiring it in would look like — 6 lines, one site</summary>
+      <div class="wiring-body">
+        <p>Not applied. This is the change, at the line the panel above is pointing at.</p>
+<pre class="code-window mono diff"><span class="d-ctx">             handler = TOOL_HANDLERS.get(block.name)</span>
+<span class="d-ctx">             if handler:</span>
+<span class="d-ctx">                 output = handler(block.input)</span>
+<span class="d-ctx">             else:</span>
+<span class="d-ctx">                 output = f"unknown tool: {block.name}"</span>
+<span class="d-add">+            # Position ④: content the model did not write is about to enter context.</span>
+<span class="d-add">+            markers = scan_text(output)</span>
+<span class="d-add">+            if markers:</span>
+<span class="d-add">+                record("tool_result", block.name, markers, "FLAGGED")</span>
+<span class="d-add">+                output = UNTRUSTED_BANNER + output   # or: route to human review</span>
+<span class="d-ctx">             results.append({"type": "tool_result", "tool_use_id": block.id,</span>
+<span class="d-ctx">                             "content": output})</span></pre>
+        <ul class="wiring-notes">
+          <li><strong>Two functions, two shapes.</strong> These handlers return a
+            <em>string</em>, so this site calls <code>scan_text</code>. An ingestion point that
+            returns a record — a KB hit, a DB row, an email — calls <code>screen_record</code>,
+            which also drops unexpected keys. The panel above demonstrates the record form.</li>
+          <li><strong>It cannot be a hook.</strong> <code>PostToolUse</code> fires after the side
+            effect and cannot block, and no event exists for a result entering context. In-process
+            is the only place it fits.</li>
+          <li><strong>The caller decides what suspicious means.</strong> Both functions report and
+            neither blocks. Prepending a banner is the floor; routing to human review is the honest
+            version.</li>
+          <li><strong>What it buys.</strong> <span class="cid">SEC-CONTENT-001</span> moves
+            LIBRARY → OBSERVE, and needs a test proving an ingestion path calls it —
+            <code>tests/test_content_trust.py</code> only proves the function is correct alone. If
+            <em>only</em> <code>scan_text</code> gets wired, that matrix row's cited function has
+            to change too: it currently names <code>screen_record</code>.</li>
+        </ul>
+      </div>
+    </details>
+
+  </div>
+</section>
+
+<footer class="colophon">
+  <div class="colophon-inner">
+    <h2 class="colophon-title">What this viewer is not</h2>
+    <ul class="colophon-list">
+      <li><strong>Not the enforcement path.</strong> Production enforcement is
+        <code>.claude/settings.json</code> PreToolUse hooks calling the same CLI. This is a
+        window onto it.</li>
+      <li><strong>It never runs your command.</strong> The text becomes JSON on another
+        process's stdin. Nothing here executes it, in either enforcement mode.</li>
+      <li><strong>It never touches your policy.</strong> The gate and deny-list are copied into
+        a scratch tree; the SHA-256 above is proof they were copied unmodified.</li>
+      <li><strong>Gate attribution is read back from the reason string</strong> the gate
+        returned — it is not predicted in advance.</li>
+      <li><strong>The ingestion panel is half real.</strong> The screening output is genuine —
+        <code>screen_record</code> ran on that record. The code that would call it at ingestion
+        time does not exist (<span class="cid">SEC-CONTENT-001</span>), so the right-hand lane is a
+        proposal, labelled as one.</li>
+      <li><strong>Only five tool names reach the gate in production.</strong>
+        <code>Bash Write Edit MultiEdit NotebookEdit</code>. Everything else is unrouted
+        (<span class="cid">SEC-COVER-GAP-001</span>), which the WebFetch preset demonstrates.</li>
+    </ul>
+  </div>
+</footer>
+
+<script src="app.js"></script>
+</body>
+</html>

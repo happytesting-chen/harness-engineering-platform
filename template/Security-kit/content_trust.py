@@ -35,6 +35,32 @@ _INJECTION_MARKERS = [
     re.compile(r"(?i)\b(auto[-\s]?approve|approve\s+(this|it|now)|override)\b"),
     re.compile(r"(?i)set\s+(confidence|decision|amount)\s*(to|=)"),
     re.compile(r"(?i)new\s+instructions?\s*:"),
+
+    # --- addressed-to-agent -----------------------------------------------------
+    re.compile(r"(?i)\b(note|message|instruction|instructions)\s+(for|to)\s+(the\s+)?(assistant|ai|agent|model|llm|claude|bot)\b"),
+    re.compile(r"(?i)\b(dear|hey|hello|attention)\b[,:\s]{0,3}(the\s+)?(ai\s+)?(assistant|agent|ai|model|llm|claude)\b"),
+
+    # --- authority-claim --------------------------------------------------------
+    re.compile(r"(?i)\bpre[-\s]?(verified|approved|authorised|authorized|checked|cleared)\b"),
+    re.compile(r"(?i)\b(approved|verified|authorised|authorized|signed\s*off|reviewed)\s+by\s+(the\s+)?(finance|security|legal|compliance|management|audit|admin)"),
+    re.compile(r"(?i)\b(comes|came)\s+from\s+the\s+(security|finance|legal|compliance|admin|management)\s+team\b"),
+    re.compile(r"(?i)\btreat\s+(it|this)\s+as\s+(signed\s*off|approved|verified|complete)\b"),
+
+    # --- check-suppression ------------------------------------------------------
+    re.compile(r"(?i)\bno\s+(further|additional|more)\s+(checks?|approvals?|verification|validation|review)\b"),
+    re.compile(r"(?i)\bskip\s+(the\s+)?(verification|validation|checks?|review|approval|gate)\b"),
+    re.compile(r"(?i)\b(without|bypass(?:ing)?)\s+(the\s+)?(usual\s+)?(gate|checks?|verification|approval|review)\b"),
+    re.compile(r"(?i)\b(already|previously)\s+been\s+(reviewed|verified|approved|checked)\b"),
+
+    # --- agent-imperative -------------------------------------------------------
+    re.compile(r"(?i)\b(reply|respond|answer)\s+to\s+this\s+\w+\s+by\s+(running|executing|calling)\b"),
+    re.compile(r"(?i)\byou\s+(should|must|need\s+to)\s+now\b"),
+    re.compile(r"(?i)\b(execute|run)\s+the\s+following\s+(command|code|script)\b"),
+
+    # --- exfil-shaped -----------------------------------------------------------
+    re.compile(r"(?i)\b(curl|wget)\b[^\n]{0,120}?\s(-d|--data|--upload-file|-T|POST)\b"),
+    re.compile(r"(?i)(\.ssh/id_\w+|\.aws/credentials|\bid_rsa\b)[^\n]{0,80}https?://"),
+    re.compile(r"(?i)https?://[^\s]{0,80}[^\n]{0,40}(\.ssh/id_\w+|\.aws/credentials|\bid_rsa\b)"),
 ]
 
 

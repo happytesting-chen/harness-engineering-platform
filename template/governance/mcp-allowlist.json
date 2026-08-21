@@ -18,5 +18,7 @@
       "gated_until": "phase-01"
     }
   ],
+  "_signed_off_phases_note": "HUMAN SIGN-OFF, and the only thing that unlocks a `gated_until` tool. Add a phase id here ONLY after you have seen its verification pass. It lives in this file, not in feature_list.json, because this file is a protected path and the feature list is the agent's own worklog — an agent that could unlock its own tools by writing \"status\": \"passing\" is self-promoting. Empty or absent means NO phase is signed off, so every gated tool stays locked: fails closed.",
+  "signed_off_phases": [],
   "egress_hosts": ["localhost", "127.0.0.1"]
 }

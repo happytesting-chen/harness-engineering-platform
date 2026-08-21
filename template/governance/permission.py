@@ -9,7 +9,9 @@ Four gates, evaluated in order (fail-closed):
       only gate with a built-in floor, so it still returns a specific verdict
       when the policy file is unreadable.
   1b. Hard deny — command patterns (deny-list.json `patterns`).
-  2.  Phase gate (checks feature_list.json — is this tool allowed in this phase?)
+  2.  Phase gate (feature_list.json says which phase is active; mcp-allowlist.json
+      `signed_off_phases` says which phases are human-signed-off, and that is what
+      unlocks a `gated_until` tool — never the agent-writable worklog).
   3.  Egress control (default-deny outbound to unlisted hosts).
 
 An unreadable or unparseable policy file raises PolicyError, which CLI mode turns
@@ -183,6 +185,14 @@ BUILTIN_PROTECTED_PATHS = (
     ".claude/settings.json",
     "Security-kit/secret_scan.py",
     "Security-kit/content_trust.py",
+    # The two pre-model screens. They are hook ENTRY POINTS, not library code, so
+    # unlike content_trust.py (their shared marker list, already above) each is
+    # independently sufficient to disable a control: blank result_screen.py and it
+    # exits 0 with empty stdout, which the runtime reads as "no replacement" and
+    # forwards the original tool output to the model. Measured 2026-08-17 — before
+    # these two lines, `Edit Security-kit/result_screen.py` was ALLOW.
+    "Security-kit/prompt_screen.py",
+    "Security-kit/result_screen.py",
     "Harness-Best-Practice/observability/audit_hook.py",
     "Harness-Best-Practice/observability/audit.log",
 )
@@ -262,17 +272,42 @@ def check_protected_paths(tool_input: dict) -> str | None:
 
 def check_phase_gate(tool_name: str) -> str | None:
     """Gate 2: is this tool allowed in the current active phase?
-    Reads feature_list.json to find the active phase, then checks
-    mcp-allowlist.json for phase-gated tools."""
+
+    Two questions, deliberately answered from two DIFFERENT files:
+
+        "which phase is active?"          -> feature_list.json  `status`
+        "is a gated tool unlocked?"       -> mcp-allowlist.json `signed_off_phases`
+
+    The split is the whole point. feature_list.json is the agent's own worklog and
+    must stay editable during development — that is where it records progress. A
+    tool unlock is a privilege decision, so it lives in mcp-allowlist.json, which is
+    a protected path (`BUILTIN_PROTECTED_PATHS`) and therefore human-only.
+
+    Before the split, the unlock was read from feature_list.json `status`, so an
+    agent could grant itself a gated tool by editing its own worklog. Measured
+    2026-08-17 on the shipped tree — three distinct edits reached ALLOW:
+
+        phase-01 -> "passing" and phase-02 -> "active"   ALLOW  (ordinary-looking)
+        every phase -> "passing"                         ALLOW  (steady-state path)
+        delete the phase-01 entry, phase-02 -> "active"  ALLOW  (id match found none)
+
+    The third is worth its own line: the old loop denied only on finding a matching
+    id with a non-passing status, so a MISSING prerequisite was indistinguishable
+    from a satisfied one. `signed_off_phases` inverts that — a phase absent from the
+    list is not signed off, so all three now DENY, and the default (key absent, or
+    absent value) is an empty list. Fails closed.
+    """
     features = _load_json(FEATURE_LIST_PATH).get("features", [])
     active = [f for f in features if f.get("status") == "active"]
     if not active:
         # No active phase. Distinguish two cases:
         #   (a) STEADY-STATE — every phase is "passing". Feature work is complete
         #       and human-signed-off; the harness should keep operating, not brick.
-        #       Deny-list and egress remain enforced by their own gates; any
-        #       phase-gated tool's `gated_until` phase is by definition passing,
-        #       so its gate is satisfied. Fall through to the allowlist check.
+        #       Deny-list and egress remain enforced by their own gates, and a
+        #       phase-gated tool is now decided by `signed_off_phases` below, so
+        #       falling through here grants nothing that was not human-signed.
+        #       (It used to: "all passing" reached a gate that read the same
+        #       statuses, which is why this carve-out was an escalation path.)
         #   (b) UNDEFINED — some phase is not-started/other. State is genuinely
         #       ambiguous; fail closed.
         if features and all(f.get("status") == "passing" for f in features):
@@ -285,10 +320,12 @@ def check_phase_gate(tool_name: str) -> str | None:
         if tool["name"] == tool_name:
             if "gated_until" in tool:
                 required_phase = tool["gated_until"]
-                # Check if required phase is passing
-                for f in features:
-                    if f["id"] == required_phase and f.get("status") != "passing":
-                        return f"{tool_name} gated until {required_phase} is passing"
+                signed_off = allowlist.get("signed_off_phases", [])
+                # isinstance is load-bearing, not defensive habit: `in` over a bare
+                # string is a SUBSTRING test, so a human who writes
+                # "signed_off_phases": "phase-01" would unlock "phase-0" too.
+                if not isinstance(signed_off, list) or required_phase not in signed_off:
+                    return f"{tool_name} gated until {required_phase} is signed off"
             return None  # tool found and not gated (or gate satisfied)
     return f"{tool_name} not in allowlist"
 

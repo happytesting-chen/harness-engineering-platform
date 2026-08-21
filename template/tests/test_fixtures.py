@@ -18,8 +18,14 @@ from pathlib import Path
 # Test-specific policy data matching what fixtures.json expects:
 #   - deny-list includes: "rm -rf /", "sudo", "shutdown", "reboot", "mkfs", "> /dev/"
 #   - mcp-allowlist: bash (ungated), metasploit (gated_until phase-01),
-#     egress_hosts: ["localhost", "127.0.0.1"]
+#     egress_hosts: ["localhost", "127.0.0.1"], and NO `signed_off_phases` key
 #   - feature_list: phase-01 with status "active" (not "passing")
+#
+# The absent `signed_off_phases` is the load-bearing part of the phase-gate fixture,
+# and it is absent on purpose rather than by omission: it is the shipped-template
+# state, and it has to deny. The feature-list status is now incidental to that
+# verdict — a human sign-off is what unlocks a gated tool, so no status an agent can
+# write to its own worklog changes the outcome. See tests/test_steady_state.py.
 # ---------------------------------------------------------------------------
 
 TEST_DENY_LIST = {

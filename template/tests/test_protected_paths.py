@@ -54,7 +54,12 @@ MECHANISM_AND_POLICY = list(permission.BUILTIN_PROTECTED_PATHS)
 def test_the_builtin_list_is_the_list_under_test():
     """Guards the line above: every built-in is exercised, none is assumed."""
     assert set(MECHANISM_AND_POLICY) == set(permission.BUILTIN_PROTECTED_PATHS)
-    assert len(MECHANISM_AND_POLICY) >= 8, "built-in protected paths shrank"
+    assert len(MECHANISM_AND_POLICY) >= 10, (
+        "built-in protected paths shrank. Was 8; the two pre-model screens "
+        "(prompt_screen.py, result_screen.py) were added 2026-08-17 because each is a "
+        "hook entry point that disables a control when blanked — measured, an Edit to "
+        "result_screen.py was ALLOW before that."
+    )
 
 
 def test_write_to_mechanism_and_policy_is_denied():
@@ -244,9 +249,14 @@ UNCOVERED_PATHS = {
     "Harness-Best-Practice/observability/audit_hook.py",
     "Harness-Best-Practice/observability/audit.log",
 }
-# The redirect family names only governance/ and .claude/settings.json.
-REDIRECT_ONLY_PATHS = {"Security-kit/secret_scan.py", "Security-kit/content_trust.py"}
-REDIRECT_FAMILY = {"redirect", "append", "cat-redirect"}
+
+# There used to be a third exception here — REDIRECT_ONLY_PATHS, because the redirect
+# family named only governance/ and .claude/settings.json, so `echo x >
+# Security-kit/content_trust.py` was open while an Edit to the same file was denied.
+# Adding the Security-kit branch to that pattern on 2026-08-17 closed it, and the
+# hole was never intentional: it was the redirect regex being written before
+# Security-kit had mechanism files in it. The gap is now describable without any
+# path-specific exception, which `test_the_open_set_has_exactly_two_shapes` asserts.
 
 
 def _shell_blocks(verb_template: str, path: str) -> bool:
@@ -264,8 +274,6 @@ def test_shell_patterns_block_the_common_forms_they_claim():
             continue
         for path in MECHANISM_AND_POLICY:
             if path in UNCOVERED_PATHS:
-                continue
-            if verb in REDIRECT_FAMILY and path in REDIRECT_ONLY_PATHS:
                 continue
             assert _shell_blocks(tmpl, path), (
                 f"a verb/path pair SECURITY.md claims is covered is open: {verb} -> {path}"
@@ -302,11 +310,43 @@ def test_shell_pattern_coverage_is_partial_and_measured():
         ), f"{path} gained shell coverage — update UNCOVERED_PATHS and SECURITY.md together."
 
     # 3. The measured total, as cited in SECURITY.md S2.4.
-    assert len(open_cells) == 64, (
-        f"shell coverage changed: {len(open_cells)} of {total} cells open, expected 64. "
+    assert len(open_cells) == 68, (
+        f"shell coverage changed: {len(open_cells)} of {total} cells open, expected 68. "
         f"Update the number in SECURITY.md S2.4's residual-gap box to match."
     )
-    assert total == 112, f"matrix size changed to {total}; SECURITY.md cites 112"
+    assert total == 140, f"matrix size changed to {total}; SECURITY.md cites 140"
+
+
+def test_the_open_set_has_exactly_two_shapes():
+    """The gap is two clean families, with no path-specific exception left.
+
+    Stronger than the count above, and it catches what a count cannot: a change that
+    closes one cell and opens another keeps `len(open_cells) == 68` while moving the
+    shape of the hole. Asserting set equality means the residual gap can be stated in
+    one sentence -- five shell verbs no pattern reaches, plus the two audit paths no
+    pattern names -- and the day that sentence stops being true, this fails.
+
+    It was NOT true before 2026-08-17: `Security-kit/secret_scan.py` and
+    `content_trust.py` were additionally open to the three redirect verbs, an
+    irregular third hole that the Security-kit branch of the redirect pattern closed.
+    """
+    measured = {
+        (verb, path)
+        for verb, tmpl in SHELL_WRITE_VERBS
+        for path in MECHANISM_AND_POLICY
+        if not _shell_blocks(tmpl, path)
+    }
+    predicted = {
+        (verb, path)
+        for verb, _ in SHELL_WRITE_VERBS
+        for path in MECHANISM_AND_POLICY
+        if verb in UNCOVERED_VERBS or path in UNCOVERED_PATHS
+    }
+    assert measured == predicted, (
+        "the shell gap no longer has the two-family shape SECURITY.md S2.4 describes.\n"
+        f"  open but not predicted: {sorted(measured - predicted)}\n"
+        f"  predicted but now closed: {sorted(predicted - measured)}"
+    )
 
 
 def test_uncovered_shell_verbs_actually_overwrite_the_mechanism():

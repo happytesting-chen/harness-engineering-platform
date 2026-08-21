@@ -6,7 +6,9 @@
       "risk": "self-modification",
       "requirement": "The agent cannot edit the files that decide what it may do.",
       "severity": "critical",
-      "satisfied_by": ["SEC-SELF-001"],
+      "satisfied_by": [
+        "SEC-SELF-001"
+      ],
       "residual": null
     },
     {
@@ -14,7 +16,9 @@
       "risk": "policy-unavailability",
       "requirement": "A policy the gate cannot read denies the action instead of permitting it.",
       "severity": "critical",
-      "satisfied_by": ["SEC-POLICY-001"],
+      "satisfied_by": [
+        "SEC-POLICY-001"
+      ],
       "residual": null
     },
     {
@@ -22,7 +26,10 @@
       "risk": "destructive-command",
       "requirement": "A command on the hard-blocked list never reaches a shell.",
       "severity": "critical",
-      "satisfied_by": ["SEC-CMD-001", "SEC-INTERP-GAP-001"],
+      "satisfied_by": [
+        "SEC-CMD-001",
+        "SEC-INTERP-GAP-001"
+      ],
       "residual": "SEC-INTERP-GAP-001: an interpreter one-liner opens a protected file for writing without using any blocked shell token. The requirement holds for shell forms and is unmet for interpreter forms; a test pins the gap so it cannot close silently without the documentation changing."
     },
     {
@@ -30,15 +37,20 @@
       "risk": "premature-authority",
       "requirement": "No tool acts before the phase that authorises it has been signed off, and an unrecognised tool is refused.",
       "severity": "high",
-      "satisfied_by": ["SEC-PHASE-001", "SEC-PHASE-GAP-001"],
-      "residual": "SEC-PHASE-GAP-001: the gate trusts a status field in a file that is not a protected path. Measured — editing it is allowed, and flipping the field takes a gated tool from BLOCK to ALLOW. The requirement is met against accident and unmet against intent."
+      "satisfied_by": [
+        "SEC-PHASE-001",
+        "SEC-PHASE-GAP-001"
+      ],
+      "residual": "SEC-PHASE-GAP-001: the requirement is now met against intent as well as accident — the unlock reads signed_off_phases from the protected allowlist, so the agent cannot produce it (three measured self-promotion edits now DENY, tests/test_steady_state.py). Residual: \"signed off\" means a human typed a phase id, not that the phase's verification was re-run at unlock time. An unexamined sign-off unlocks the tool and the gate cannot tell."
     },
     {
       "id": "SEC-REQ-005",
       "risk": "credential-exfiltration",
       "requirement": "A credential the agent has seen cannot be written into the repository.",
       "severity": "high",
-      "satisfied_by": ["SEC-SECRET-001"],
+      "satisfied_by": [
+        "SEC-SECRET-001"
+      ],
       "residual": "SEC-SECRET-001 is a pattern matcher over named fields. It catches the shipped pattern set, not all credentials, and a novel format passes."
     },
     {
@@ -46,7 +58,10 @@
       "risk": "unapproved-egress",
       "requirement": "The agent cannot reach a network destination nobody approved.",
       "severity": "high",
-      "satisfied_by": ["SEC-EGRESS-001", "SEC-EGRESS-GAP-001"],
+      "satisfied_by": [
+        "SEC-EGRESS-001",
+        "SEC-EGRESS-GAP-001"
+      ],
       "residual": "SEC-EGRESS-GAP-001: only five shell tokens in bash commands are checked. A fetch tool and an interpreter one-liner are complete egress channels with no egress check, so the requirement is unmet for every non-shell channel."
     },
     {
@@ -54,7 +69,10 @@
       "risk": "inert-enforcement",
       "requirement": "A gate that has been disconnected fails the build instead of passing quietly.",
       "severity": "critical",
-      "satisfied_by": ["SEC-HOOK-001", "SEC-COVER-GAP-001"],
+      "satisfied_by": [
+        "SEC-HOOK-001",
+        "SEC-COVER-GAP-001"
+      ],
       "residual": "SEC-COVER-GAP-001: the wiring is proven for the five file and shell tools the matcher lists. Tools outside it reach no gate at all, so 'the gate is wired' is true of a subset of the tool surface."
     },
     {
@@ -62,7 +80,9 @@
       "risk": "unaccountable-action",
       "requirement": "Every allow and every deny leaves a record the agent cannot rewrite.",
       "severity": "medium",
-      "satisfied_by": ["SEC-AUDIT-001"],
+      "satisfied_by": [
+        "SEC-AUDIT-001"
+      ],
       "residual": null
     },
     {
@@ -70,15 +90,21 @@
       "risk": "untrusted-content",
       "requirement": "Content the agent did not author cannot cause an action the user did not ask for.",
       "severity": "high",
-      "satisfied_by": ["SEC-CONTENT-001", "SEC-RESULT-GAP-001"],
-      "residual": "SEC-CONTENT-001 is written, tested and UNWIRED — no ingestion path calls it. SEC-RESULT-GAP-001 records that nothing preventive stands where a tool result re-enters the model, and that it cannot be closed with a hook. The requirement is currently unmet."
+      "satisfied_by": [
+        "SEC-CONTENT-001",
+        "SEC-RESULT-001",
+        "SEC-RESULT-GAP-001"
+      ],
+      "residual": "SEC-RESULT-001 closes the enforcement half at ④: a tool result matching the marker list is replaced before the model reads it. Measured 10 of 12 corpus attacks caught for 2 of 12 legitimate cases withheld (tests/test_injection_corpus.py). SEC-CONTENT-001's screen_record is still UNWIRED — no ingestion path calls it — though the marker list it owns is now enforced at both ① and ④. SEC-RESULT-GAP-001 records what remains: the call has already run, so a read that was itself the harm is not undone, and a paraphrase outside the marker list passes. The requirement is met for known phrasings arriving as tool output, and unmet in general. The earlier residual here said position ④ could not be closed with a hook; that was false."
     },
     {
       "id": "SEC-REQ-010",
       "risk": "unproven-claim",
       "requirement": "No control may be described as enforced unless a named command proves it.",
       "severity": "high",
-      "satisfied_by": ["SEC-COVERAGE-001"],
+      "satisfied_by": [
+        "SEC-COVERAGE-001"
+      ],
       "residual": null
     },
     {
@@ -86,8 +112,21 @@
       "risk": "unguarded-drafter",
       "requirement": "A component that reasons about security states its limits where the host that runs it will read them.",
       "severity": "medium",
-      "satisfied_by": ["SEC-TAILOR-Z3"],
+      "satisfied_by": [
+        "SEC-TAILOR-Z3"
+      ],
       "residual": null
+    },
+    {
+      "id": "SEC-REQ-012",
+      "risk": "prompt-injection-at-entry",
+      "requirement": "Instruction-shaped text arriving in a user turn is refused before the model reads it.",
+      "severity": "high",
+      "satisfied_by": [
+        "SEC-PROMPT-001",
+        "SEC-PROMPT-GAP-001"
+      ],
+      "residual": "SEC-PROMPT-001 enforces exactly — exit 2 erases the prompt — but only over the shipped regex marker list, and it is the operator's to downgrade with PROMPT_SCREEN_MODE=warn. SEC-PROMPT-GAP-001 records the coverage half: a paraphrase passes. The requirement is met for known phrasings and unmet in general."
     }
   ]
 }

@@ -2,6 +2,20 @@
   "_comment": "Claude Code hook configuration. Hook commands use $CLAUDE_PROJECT_DIR so they resolve from the project root regardless of the working directory when the hook runs (handlers run in the CURRENT dir, not root — see Claude Code hooks docs). This prevents the gate from failing-closed and blocking all tools when cwd drifts.",
   "_extension_guide": "Add domain-specific hooks by appending to the arrays below. Base hooks stay untouched.",
   "hooks": {
+    "UserPromptSubmit": [
+      {
+        "id": "prompt:injection-screen",
+        "description": "Screens the prompt before the model sees it. Exits 2 to BLOCK and ERASE the prompt. PROMPT_SCREEN_MODE=warn downgrades to report-only.",
+        "matcher": "*",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "python3 \"$CLAUDE_PROJECT_DIR/Security-kit/prompt_screen.py\"",
+            "timeout": 5
+          }
+        ]
+      }
+    ],
     "PreToolUse": [
       {
         "id": "pre:governance-check",
@@ -29,6 +43,18 @@
       }
     ],
     "PostToolUse": [
+      {
+        "id": "post:result-screen",
+        "description": "Screens the tool RESULT before the model reads it and, on a match, replaces it via updatedToolOutput. Runs before post:audit-capture so the audit line records the screen's own verdict too. RESULT_SCREEN_MODE=warn downgrades to report-only.",
+        "matcher": "*",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "python3 \"$CLAUDE_PROJECT_DIR/Security-kit/result_screen.py\"",
+            "timeout": 5
+          }
+        ]
+      },
       {
         "id": "post:audit-capture",
         "description": "Records every tool execution result to audit.log.",
