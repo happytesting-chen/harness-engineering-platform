@@ -152,6 +152,24 @@ if [ -d "governance" ]; then
         echo "  ✗ tests/test_protected_paths.py is MISSING — S2.4 is asserted by nothing"
         ERRORS=$((ERRORS + 1))
     fi
+    # (b3) Gate 3 — egress. Named individually rather than left to CI because the two
+    # holes it closed on 2026-08-22 were both silent: a destination in a structured field
+    # was never looked at, and host comparison was substring comparison, so
+    # `api.github.com.evil.com` passed with `api.github.com` allowed. Neither shows up as a
+    # failure anywhere else — a gate that waves a destination through looks exactly like a
+    # gate that approved it. Absent file is a WARNING, not an error, because unlike (b2)
+    # this proof is not the template's load-bearing guarantee.
+    if [ -f "tests/test_egress.py" ]; then
+        if python3 tests/test_egress.py >/dev/null 2>&1; then
+            echo "  ✓ egress tests passed (tests/test_egress.py — S3.1)"
+        else
+            echo "  ✗ egress tests FAILED — a destination may reach an unlisted host (S3.1)"
+            ERRORS=$((ERRORS + 1))
+        fi
+    else
+        echo "  ⚠ no tests/test_egress.py — host matching and structured destinations unproven"
+        WARNINGS=$((WARNINGS + 1))
+    fi
     # (c) hook-integration proof passes (drives the real hook scripts via stdin)
     if [ -f "tests/test_hooks.py" ]; then
         if python3 tests/test_hooks.py >/dev/null 2>&1; then
@@ -218,6 +236,35 @@ if [ -d "governance" ]; then
         fi
     else
         echo "  ⚠ no injection corpus — marker coverage is asserted, not measured"
+        WARNINGS=$((WARNINGS + 1))
+    fi
+    # (d.4) runtime enforcement — the same four positions for a DEPLOYED application.
+    # Every block above proves a hook, and hooks are an IDE-agent feature: none of them
+    # runs in a shipped app. These two prove the in-process path (`RuntimeDispatcher` at
+    # ②→③→④, `runtime_screen.screen_input` at ①), and the assertion that matters in both
+    # is that a denied tool call NEVER RAN — a return value alone cannot tell prevention
+    # from a logged complaint (S8.4). Absent files are a WARNING: an application that
+    # does not deploy an agent does not need them.
+    if [ -f "governance/runtime_dispatcher.py" ] && [ -f "tests/test_runtime_dispatcher.py" ]; then
+        if python3 tests/test_runtime_dispatcher.py >/dev/null 2>&1; then
+            echo "  ✓ runtime-dispatcher tests passed (tests/test_runtime_dispatcher.py — ②③④)"
+        else
+            echo "  ✗ runtime-dispatcher tests FAILED — a deployed agent's tool calls are ungated"
+            ERRORS=$((ERRORS + 1))
+        fi
+    else
+        echo "  ⚠ no runtime dispatcher — a deployed agent has no gate at ②"
+        WARNINGS=$((WARNINGS + 1))
+    fi
+    if [ -f "Security-kit/runtime_screen.py" ] && [ -f "tests/test_runtime_screen.py" ]; then
+        if python3 tests/test_runtime_screen.py >/dev/null 2>&1; then
+            echo "  ✓ runtime-screen tests passed (tests/test_runtime_screen.py — ①④)"
+        else
+            echo "  ✗ runtime-screen tests FAILED — a deployed agent reads unscreened input"
+            ERRORS=$((ERRORS + 1))
+        fi
+    else
+        echo "  ⚠ no runtime screen — a deployed agent has no screen at ① or ④"
         WARNINGS=$((WARNINGS + 1))
     fi
     # (e) hook-path integrity: every hook script wired in settings.json must resolve on

@@ -17,18 +17,32 @@ These exist only for security. A no-security build deletes them.
 
 | Path | Role | OWASP |
 |------|------|-------|
-| `governance/permission.py` | Control-plane gate (deny-list → phase-gate → egress) | LLM06, ASI02/05 |
-| `Security-kit/content_trust.py` | Data-plane boundary (injection screening) | LLM01/05, ASI01/06 |
+| `governance/permission.py` | Control-plane gate (protected paths → deny-list → phase-gate → egress) | LLM06, ASI02/05 |
+| `governance/runtime_dispatcher.py` | In-process chokepoint for a **deployed** app — gates ② ③ ④ with no hooks | LLM06, ASI02/05 |
+| `Security-kit/content_trust.py` | Data-plane boundary (injection screening) — owns `_INJECTION_MARKERS` | LLM01/05, ASI01/06 |
+| `Security-kit/prompt_screen.py` | Pre-model input screen, UserPromptSubmit adapter (①) | LLM01, ASI01 |
+| `Security-kit/result_screen.py` | Pre-model tool-output screen, PostToolUse adapter (④) | LLM01/05, ASI01 |
+| `Security-kit/runtime_screen.py` | Same ① and ④ screens as in-process calls for a deployed app | LLM01/05, ASI01 |
 | `Security-kit/secret_scan.py` | Secret-block hook adapter | LLM02, LLM07 |
 | `governance/deny-list.json` | Hard-blocked patterns (policy) | ASI05 |
 | `governance/mcp-allowlist.json` | Tool + egress allowlist (policy) | LLM03, ASI02/03/04 |
 | `Harness-Best-Practice/observability/audit_hook.py` | PostToolUse audit adapter | ASI09/10 |
-| `Security-kit/SECURITY.md` | 41-control reference (source-tagged) | all |
+| `Security-kit/SECURITY.md` | 42-control reference (source-tagged, S1.1–S8.6) | all |
 | `Security-kit/` (this dir) | Kit navigation, control matrix, crosswalk | all |
 | `tests/test_fixtures.py`, `tests/fixtures.json` | Gate ground-truth tests | LLM06 |
 | `tests/test_e2e.py` | End-to-end enforcement proof | LLM06 |
 | `tests/test_hooks.py` | Hook-integration proof (Claude path) | LLM01/02 |
 | `tests/test_content_trust.py` | Data-plane proof | LLM01 |
+| `tests/test_prompt_screen.py` | ① input-screen proof (exit 2 erases the prompt) | LLM01, ASI01 |
+| `tests/test_result_screen.py` | ④ output-substitution proof (`updatedToolOutput`, shape-preserving) | LLM01/05, ASI01 |
+| `tests/test_result_screening.py` | ④ end-to-end screening behaviour | LLM01/05 |
+| `tests/test_runtime_screen.py` | Deployed-runtime ① and ④ proof (fail-closed, non-`str` rejected) | LLM01/05, ASI01 |
+| `tests/test_runtime_dispatcher.py` | Deployed-runtime ② ③ ④ proof (`calls == 0` after a ② denial) | LLM06, ASI02/05 |
+| `tests/test_protected_paths.py` | Gate 1a self-protection proof (file identity, not spelling) | ASI09/10 |
+| `tests/test_egress.py` | Gate 3 egress proof (shell tokens + structured fields) | LLM02, ASI05 |
+| `tests/test_injection_corpus.py` | Detection recall/precision against the labelled corpus | LLM01, ASI01 |
+| `tests/test_shipped_policy.py` | The policy files as shipped, not as fixtured | LLM03, ASI04 |
+| `tests/test_steady_state.py` | Phase-gate escalation attempts all DENY | ASI09 |
 | `kiro/steering/security.md`, `kiro/steering/security-review.md` | Kiro security guidance/workflow | all |
 | `kiro/hooks/*` | Kiro enforcement hooks | LLM06 |
 | `Security-kit/check_coverage.py` | Coverage gate (init.sh block 5b) | all |
@@ -46,7 +60,9 @@ These exist only for security. A no-security build deletes them.
 | `tests/test_mechanisms.py` | I1–I5 invariant tests + the matrix census | all |
 | `tests/test_requirements.py` | I6 invariant tests, both directions | all |
 
-> Note: `Security-kit/check_coverage.py`, `Security-kit/coverage.json`, `Security-kit/coverage.schema.md`, `Security-kit/active-controls.md`, `Security-kit/eval/`, `Security-kit/mechanisms.json` and `Security-kit/requirements.json` are covered by the top-level `Security-kit/` directory deletion in `install.sh`. `tests/test_coverage.py`, `tests/test_eval_selection.py`, `tests/test_mechanisms.py` and `tests/test_requirements.py` are covered by the `tests/` directory deletion. Only `.claude/commands/security-tailor.md`, `kiro/steering/security-tailor.md` and `kiro/steering/active-controls.md` require explicit entries in TIER1: `install.sh` removes whole directories, and `kiro/steering/` is not one of them.
+> Note on `install.sh`: `TIER1` deletes whole **directories** — `governance`, `Security-kit`, `tests` among them — so every path above that sits inside one of those needs **no** explicit `TIER1` entry. That covers all of `Security-kit/` (`check_coverage.py`, `coverage.json`, `coverage.schema.md`, `active-controls.md`, `eval/`, `mechanisms.json`, `requirements.json`, the three screen modules), all of `governance/` (`runtime_dispatcher.py` included), and every `tests/test_*.py` listed here. Only `.claude/commands/security-tailor.md`, `kiro/steering/security-tailor.md` and `kiro/steering/active-controls.md` require explicit entries: `kiro/steering/` is not one of the deleted directories.
+>
+> Consequence worth stating: adding a security module under `governance/` or `Security-kit/` needs a row **here** but no `install.sh` edit. The manifest is the only place that would notice it missing.
 
 ## Tier 2 — Pure harness / non-security (kept in every build)
 
@@ -73,7 +89,7 @@ must sit at integration points that also serve non-security functions. `--no-sec
 | `CLAUDE.md` | startup workflow, WIP=1, verification, session end | the "Governance Boundaries" section + governance escalation lines + the layer-D HTML comment + `@Security-kit/active-controls.md` import (python3 strip in install.sh) |
 | `Harness-Best-Practice/feature_list.json` | phase list (behavior/verification/status) | the same file is *read by* the phase-gate — no lines to strip, but the gate stops consuming it |
 | `init.sh` | placeholder check, tests, Fresh Session Test | the "Security-kit integrity" section (block 5b) |
-| `.claude/settings.json` | Stop: clean-state-check | PreToolUse governance-check + secret-block, PostToolUse audit-capture |
+| `.claude/settings.json` | Stop: clean-state-check | UserPromptSubmit prompt-screen (①), PreToolUse governance-check + secret-block (②), PostToolUse result-screen (④) + audit-capture — 7 hooks across 4 events |
 | `Harness-Best-Practice/observability/audit.py` | (none — pure security in practice, but demo/ imports it) | append-only decision log; kept if demo/ needs it, else Tier 1 |
 | `.claude/commands/init-project.md` | Steps 1–5 project init workflow | Step 2b block (invokes `/security-tailor`; removed by install.sh — advisory doc edit, not mechanical enforcement) |
 | `.claude/commands/session-cycle.md` | full session loop startup/execution/exit | step 11b block (invokes `/security-tailor`; removed by install.sh — advisory doc edit, not mechanical enforcement) |
@@ -92,12 +108,17 @@ comparison or for a project that deliberately accepts no mechanical governance.
 
 1. **Delete** all Tier 1 paths.
 2. **Neutralize** Tier 3 security parts:
-   - `.claude/settings.json` → keep only the Stop hooks (no PreToolUse/PostToolUse).
+   - `.claude/settings.json` → keep only the Stop hooks. `install.sh` pops all three
+     security events: `UserPromptSubmit`, `PreToolUse`, `PostToolUse` (install.sh:84–86).
    - `init.sh` → drop the "Security-kit integrity" block and the two governance JSON
      entries from `REQUIRED_FILES`.
    - `CLAUDE.md` → remove the Governance Boundaries section + governance escalation lines
      + the `@Security-kit/active-controls.md` layer-D import (sed strip, Step 2b).
 3. Keep all Tier 2 as-is.
+
+Deleting Tier 1 removes **both** enforcement layers, not just the hooks: `governance/` and
+`Security-kit/` go with it, so `runtime_dispatcher.py` and `runtime_screen.py` are gone and
+a no-security build has no in-process chokepoint for a deployed app either.
 
 The result still passes its own `init.sh` (placeholder + tests + Fresh Session) but has
 **no mechanical enforcement** — exactly the control arm used in this template's own A/B

@@ -19,7 +19,8 @@ verification loop, and defined human-in-the-loop checkpoints — working out of 
 
 1. [Quick start (5 minutes)](#quick-start-5-minutes)
 2. [Step-by-step: build your first agent](#step-by-step-build-your-first-agent)
-3. [How enforcement works](#how-enforcement-works)
+3. [How enforcement works](#how-enforcement-works) — including
+   [**the deployed app**](#deployed-runtime--the-same-gates-no-hooks), which has no hooks
 4. [**Test the runtime**](#test-the-runtime) ← start here if you only want to attack the harness
 5. [The security kit](#the-security-kit)
 6. [Directory map](#directory-map)
@@ -271,9 +272,11 @@ Three of those lines are easy to misread:
   ([Step 5b](#step-5b--tailor-the-security-controls-security-tailor)).
 
 `init.sh` names its test files individually and runs them without `pytest` — that is what
-keeps the health check dependency-free. Measured 2026-08-17: **15 test files exist and
-`init.sh` names 12 of them**; `test_mechanisms.py`, `test_requirements.py` and
-`test_result_screening.py` run only under the CI pytest step. That gap is stated as
+keeps the health check dependency-free. Re-measured 2026-08-22: **18 test files exist and
+`init.sh` names 15 of them**; the same three as before — `test_mechanisms.py`,
+`test_requirements.py` and `test_result_screening.py` — run only under the CI pytest step.
+Of the 15 named, **10 report the file's absence and 5 do not**, so for those 5 a deleted
+test removes its check without changing the build's verdict. Both halves are stated as
 `SEC-PROOF-GAP-001` in `Security-kit/control-matrix.md` rather than left implied.
 
 #### What you have when this goes green — and what you don't
@@ -282,8 +285,9 @@ Worth being blunt, because the next step depends on it:
 
 | You have | You do not have |
 |---|---|
-| A gate that blocks disallowed tool calls before they run, wired and proven | **Any product code.** Not a line — the template ships no `src/`, no domain package, no entrypoint |
-| 15 test suites green, an append-only audit log, an evaluation baseline | Any test of *your* behaviour — those 15 suites test the harness |
+| A gate that blocks disallowed tool calls before they run, wired and proven **in this IDE session** | **Any product code.** Not a line — the template ships no `src/`, no domain package, no entrypoint |
+| The same four gates available in process for the app you deploy (`governance/runtime_dispatcher.py`, `Security-kit/runtime_screen.py`) | Them being *called*. They are libraries — your app has to route through them, and nothing here checks that it did (S1.6, `SEC-RUNTIME-GAP-001`) |
+| 18 test suites green, an append-only audit log, an evaluation baseline | Any test of *your* behaviour — those 18 suites test the harness |
 | A phase plan your agent must follow one phase at a time | A running application. `python3 demo/demo.py` runs a *scripted mock*, not your agent |
 | A signed applicability decision over the 20 OWASP LLM/Agentic risks | Domain controls — `/security-tailor` leaves every Verification cell for you |
 
@@ -381,7 +385,7 @@ not allowed):
 | 1a | **Protected paths** | the write target *is* a mechanism or policy file (control S2.4) | built-in floor + `governance/deny-list.json` (additive only) |
 | 1b | **Deny-list** | command matches a hard-blocked pattern | `governance/deny-list.json` |
 | 2 | **Phase-gate** | tool isn't in the allowlist, or its `gated_until` phase is not listed in `signed_off_phases` | `governance/mcp-allowlist.json` (which phase is *active* still comes from `Harness-Best-Practice/feature_list.json`) |
-| 3 | **Egress** | a network command targets a host not in `egress_hosts` | `governance/mcp-allowlist.json` |
+| 3 | **Egress** | a destination — in a shell command, or in one of 9 structured fields (`url`, `uri`, `endpoint`, `host`, …) at any depth, for **any** tool — is not an **exact** match for an `egress_hosts` entry. A subdomain must be asked for as `*.example.com` | `governance/mcp-allowlist.json` |
 
 `exit 0` = allow, `exit 2` = **BLOCK**. The gate's *logic* is proven by
 `tests/test_hooks.py` (which feeds each hook script a JSON envelope on stdin and asserts
@@ -438,6 +442,64 @@ claim smuggling `{"decision":"APPROVE"}`) and **flags instruction-shaped text** 
 caller lowers trust and routes to a human. Nothing in the template calls it — that wiring
 is yours. It reports; it never obeys. Proven by `tests/test_content_trust.py`.
 
+### Deployed runtime — the same gates, no hooks
+
+Everything above happens because Claude Code emits events. **The application you deploy
+emits none**, so a shipped copy of this harness inherits its *design* and none of its
+enforcement. Two modules close that, in process:
+
+| Position | In your IDE session | In your deployed app |
+|---|---|---|
+| ① input, before the model | `prompt_screen.py` · `UserPromptSubmit` | `runtime_screen.screen_input()` |
+| ② before a tool runs | `permission.py` · `PreToolUse` | `RuntimeDispatcher.execute()` |
+| ③ the tool executes | — | — |
+| ④ output, before the model | `result_screen.py` · `PostToolUse` | `runtime_screen.screen_result()`, on by default |
+
+```python
+import sys
+sys.path.insert(0, "governance"); sys.path.insert(0, "Security-kit")
+from runtime_dispatcher import RuntimeDispatcher
+from runtime_screen import screen_input, InputRejected
+
+dispatcher = RuntimeDispatcher({"fetch_article": fetch_article})   # ② ③ ④
+
+def handle(request_text):
+    try:
+        prompt = screen_input(request_text, source="http")          # ①
+    except InputRejected as exc:
+        return {"error": str(exc)}, 400      # our words only — never echo the request
+    return run_agent(prompt, tools=dispatcher)   # every call goes through execute()
+```
+
+Register each tool in `governance/mcp-allowlist.json` first — an unregistered tool denies
+with `<name> not in allowlist`, which is Gate 2 working, not a bug. That file is a
+protected path, so registering a tool is a **human** edit (S2.1, S5.2).
+
+Four properties worth knowing:
+
+- **`runtime_dispatcher.py` holds no second copy of any rule.** It imports
+  `make_permission_check` from `governance/permission.py` and reads the same policy JSON, so
+  the verdicts are the ones you already tested. A test asserts the file compiles no pattern
+  and loads no policy of its own.
+- **② prevents; ④ does not.** At ② nothing has happened yet, so `execute()` raises
+  `PermissionError` and the tool is never called — `tests/test_runtime_dispatcher.py`
+  asserts `calls == 0`, because a return-value-only assertion would pass either way. By ④
+  the side effect is real, so a poisoned result is *substituted*, shape preserved, and the
+  audit line records `WITHHELD` after the `ALLOWED`.
+- **① fails closed, unlike its hook counterpart, and has no warn mode.** Input that cannot
+  be scanned (anything not a `str`) is rejected rather than passed — `scan_text` returns
+  `[]` for a non-`str`, so without the type check "unscannable" would be indistinguishable
+  from "clean". There is deliberately no `RUNTIME_SCREEN_MODE=warn`: an env var that
+  downgrades a request-boundary screen to report-only is a switch an attacker would prefer
+  to the bypass.
+- **④ has no off switch; ① and ② are opt-in.** Nothing forces your application to route
+  through `RuntimeDispatcher` or to call `screen_input`. That residual is
+  `SEC-RUNTIME-GAP-001`, and verifying the wiring is a human review item at deployment.
+
+Full walkthrough: [`Security-kit/SECURITY.md`](Security-kit/SECURITY.md) S1.6. Proofs:
+`tests/test_runtime_dispatcher.py` (20 tests) and `tests/test_runtime_screen.py` (17), both
+run by `./init.sh`.
+
 ### Observability
 
 Every decision (allow or deny) appends one JSON line to
@@ -460,6 +522,14 @@ Everything else is autonomous within the gates.
 ---
 
 ## Test the runtime
+
+> **"Runtime" means two different things in this document, so this heading is worth
+> pinning.** Here it means *the live hook path in your IDE session* — is enforcement
+> actually firing, right now, on this copy. The other meaning — the app you deploy to
+> users, which has no hooks at all — is
+> [Deployed runtime](#deployed-runtime--the-same-gates-no-hooks) above. This section tests
+> the first. Nothing in it exercises `runtime_dispatcher.py`; `tests/test_runtime_dispatcher.py`
+> does that.
 
 This section is self-contained. **You do not need to build an agent, fill a single
 placeholder, or get `./init.sh` to green to test runtime enforcement.** Verified by
@@ -576,6 +646,10 @@ python3 tests/test_hooks.py
 python3 tests/test_protected_paths.py
 python3 tests/test_injection_corpus.py
 
+# The same four gates with no host and no hooks — the deployed-app path.
+python3 tests/test_runtime_dispatcher.py    # ②③④ — `calls == 0` proves prevention
+python3 tests/test_runtime_screen.py        # ①④ — ① fails closed on unscannable input
+
 # See the gate without an agent at all: scripted mock, no API key, no dependencies.
 python3 demo/demo.py            # with enforcement
 python3 demo/demo.py --nogate   # same model, no gate — the contrast is the point
@@ -586,7 +660,8 @@ python3 demo/demo.py --nogate   # same model, no gate — the contrast is the po
 | A pass means | A pass does not mean |
 |---|---|
 | The five wired hooks fire on a live agent in your host | That enforcement covers tools outside the `PreToolUse` matcher — `Agent`/`Task` and MCP file tools reach **no** permission gate (`SEC-COVER-GAP-001`) |
-| Named shell verbs and the five matched tools cannot reach a protected path | That the shell is closed: `cp`, `install`, `ln -sf`, `git checkout --`, `dd if=` and any interpreter one-liner still reach protected paths — 68 of 140 measured cells |
+| Named shell verbs and the five matched tools cannot reach a protected path | That the shell is closed: `cp`, `install`, `ln -sf`, `git checkout --`, `dd if=` and any interpreter one-liner still reach protected paths — 78 of 168 measured cells |
+| A deployed application *can* enforce all four gate positions in process, with the same policy files as your IDE session | That it *does*. `RuntimeDispatcher` and `screen_input` are opt-in — a tool your app calls directly, or a request it never screens, is ungated exactly as before (`SEC-RUNTIME-GAP-001`) |
 | Instruction-shaped text matching the shipped markers does not reach the model | That prompt injection is blocked. A paraphrase outside the markers passes, and the screens fail **open** on a malformed envelope |
 | A denied call did not execute | That a *sequence* is bounded. The gate is stateless per call — twenty identical requests each pass identically, and nothing caps turns or cost |
 
@@ -604,12 +679,12 @@ context, guidance, policy, enforcement, verification, and review evidence. It ap
 
 | Layer | Purpose | Where |
 |---|---|---|
-| **Context** | The approved posture, threats, controls | `Security-kit/SECURITY.md` (41 source-tagged controls, S1.1 – S8.6) |
+| **Context** | The approved posture, threats, controls | `Security-kit/SECURITY.md` (42 source-tagged controls, S1.1 – S8.6) |
 | **Guidance** | Shape everyday coding behaviour | `kiro/steering/security.md` (Kiro auto); `.claude/rules/` (Claude, optional) |
 | **Workflow** | Review sensitive changes consistently | `kiro/steering/security-review.md` |
 | **Policy** | Permitted tools, egress, approvals | `governance/deny-list.json`, `governance/mcp-allowlist.json`, `Harness-Best-Practice/feature_list.json` |
-| **Enforcement** | Prevent prohibited actions | `governance/permission.py` (control) + `Security-kit/content_trust.py` (data) |
-| **Verification** | Prove controls work + resist attack | `tests/test_hooks.py`, `test_e2e.py`, `test_content_trust.py`, `fixtures.json` |
+| **Enforcement** | Prevent prohibited actions | `governance/permission.py` (control) + `Security-kit/content_trust.py` (data) — in your IDE session via hooks, in your deployed app via `governance/runtime_dispatcher.py` + `Security-kit/runtime_screen.py` |
+| **Verification** | Prove controls work + resist attack | `tests/test_hooks.py`, `test_e2e.py`, `test_content_trust.py`, `test_runtime_dispatcher.py`, `test_runtime_screen.py`, `fixtures.json` |
 | **Evidence** | Record decisions, findings, residual risk | `Security-kit/control-matrix.md`, `progress.md`, git history |
 
 **Fill per project:** `Security-kit/coverage.json` — which of the 20 OWASP LLM/Agentic ids
@@ -658,12 +733,13 @@ my-agent/
 │
 ├── governance/            ← ENFORCEMENT + POLICY (top-level)
 │   ├── permission.py      ← [MECHANISM] 4-gate control plane                [never edit]
+│   ├── runtime_dispatcher.py ← [MECHANISM] ②③④ for a DEPLOYED app          [never edit]
 │   ├── deny-list.json     ← [POLICY] hard-blocked patterns                  [EXTEND]
 │   └── mcp-allowlist.json ← [POLICY] approved tools + egress hosts          [FILL]
 │
 ├── Security-kit/          ← SECURITY KIT (generic, not domain-specific)
 │   ├── README.md
-│   ├── SECURITY.md         ·  41-control reference (source-tagged, S1.1–S8.6)
+│   ├── SECURITY.md         ·  42-control reference (source-tagged, S1.1–S8.6)
 │   ├── owasp-crosswalk.md  ·  OWASP LLM/Agentic → mechanism map
 │   ├── SECURITY-MANIFEST.md·  what is security vs non-security
 │   ├── control-matrix.md   ·  control → code → test → evidence             [FILL rows]
@@ -676,6 +752,7 @@ my-agent/
 │   ├── content_trust.py    ← [MECHANISM] shared marker list (data plane)    [never edit]
 │   ├── prompt_screen.py    ← [MECHANISM] ① UserPromptSubmit screen          [never edit]
 │   ├── result_screen.py    ← [MECHANISM] ④ PostToolUse result screen        [never edit]
+│   ├── runtime_screen.py   ← [MECHANISM] ①④ for a DEPLOYED app (no hooks)  [never edit]
 │   ├── secret_scan.py      ← [MECHANISM] secret-block hook adapter          [never edit]
 │   └── eval/               ·  labelled corpus + scorer; asi01_walkthrough.py
 │
@@ -688,7 +765,7 @@ my-agent/
 │       ├── audit.py       ← [MECHANISM] append-only audit log               [never edit]
 │       └── audit_hook.py  ← [MECHANISM] PostToolUse audit adapter           [never edit]
 │
-├── tests/                 ← VERIFICATION (15 suites; all stdlib, pytest optional)
+├── tests/                 ← VERIFICATION (18 suites; all stdlib, pytest optional)
 │   ├── fixtures.json          ·  ground-truth gate cases                    [EXTEND]
 │   ├── test_fixtures.py       ·  data-driven gate runner
 │   ├── test_e2e.py            ·  end-to-end enforcement proof
@@ -704,7 +781,10 @@ my-agent/
 │   ├── test_mechanisms.py     ·  claims-register census + invariants I1–I5
 │   ├── test_requirements.py   ·  requirement spine ↔ controls (I6)
 │   ├── test_eval_selection.py ·  the scorer behind Security-kit/eval/
-│   └── test_steady_state.py   ·  availability + no self-promotion via the worklog
+│   ├── test_steady_state.py   ·  availability + no self-promotion via the worklog
+│   ├── test_egress.py         ·  Gate 3: exact host match + structured destinations
+│   ├── test_runtime_dispatcher.py· ②③④ in process; `calls == 0` proves prevention
+│   └── test_runtime_screen.py ·  ①④ in process; ① fails closed on unscannable input
 │
 ├── Context/               ← [POLICY] PROJECT AI-dev assets                   [FILL stubs]
 │   ├── README.md           ·  what belongs here

@@ -2,7 +2,7 @@
 
 > Rename to `deployment.md` and fill. Records where and how this agent runs. Deployment
 > choices drive egress policy, secret handling, and several security controls — keep this
-> consistent with `tools/mcp-allowlist.json` and `security/`.
+> consistent with `governance/mcp-allowlist.json` and `Security-kit/`.
 
 ## Target
 
@@ -13,8 +13,8 @@
 ## Data residency & boundaries
 
 - **Where does data live:** <region / on-prem store>
-- **What may leave the environment:** <maps to `egress_hosts` in tools/mcp-allowlist.json>
-- **Sensitive data classes handled:** <PII / secrets / regulated data — see security/SECURITY.md §3>
+- **What may leave the environment:** <maps to `egress_hosts` in governance/mcp-allowlist.json>
+- **Sensitive data classes handled:** <PII / secrets / regulated data — see Security-kit/SECURITY.md §3>
 
 ## Secrets & identity
 
@@ -23,8 +23,23 @@
 
 ## Egress
 
-- **Allowed outbound hosts:** <list — must match `tools/mcp-allowlist.json` egress_hosts>
+- **Allowed outbound hosts:** <list — must match `governance/mcp-allowlist.json` egress_hosts>
 - **Default:** deny (the permission gate blocks unlisted hosts)
+- **Matching is exact:** a subdomain is not covered unless you list it as `*.example.com`
+
+## Runtime enforcement wiring (S1.6)
+
+The hooks in `.claude/settings.json` fire in an IDE session only. A deployed agent emits no
+hook events, so it inherits the design of the four gates and **none** of the enforcement
+until it routes through the in-process modules. Record what this deployment actually does:
+
+- **Gate ① — input screened before the model:** <`runtime_screen.screen_input()` at which entry point(s)? / not wired>
+- **Gate ② ③ ④ — every tool call through the chokepoint:** <`RuntimeDispatcher.execute()` — where is the dispatcher constructed, and can any tool be reached without it? / not wired>
+- **Tools registered:** <must be present in `governance/mcp-allowlist.json`; an unregistered tool denies with `<name> not in allowlist`>
+- **If not wired:** <state the accepted residual and why — `SEC-RUNTIME-GAP-001`>
+
+Nothing in the repo verifies this section. It is an attestation, and a wrong one here is
+indistinguishable from a right one — which is exactly why it is written down.
 
 ## Operational
 

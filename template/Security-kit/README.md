@@ -21,17 +21,22 @@ they fail differently and are reviewed by different people.
 ║      a human reviews the selection before it takes effect                        ║
 ╟──────────────────────────────────────────────────────────────────────────────────╢
 ║  ②  WHAT do those controls say?                    decided by PEOPLE, in advance ║
-║      SECURITY.md            41 source-tagged controls (S1.1 – S8.6)              ║
+║      SECURITY.md            42 source-tagged controls (S1.1 – S8.6)              ║
 ║      owasp-crosswalk.md     OWASP LLM01–10 / ASI01–10 → mechanism, incl. gaps    ║
 ║      SECURITY-MANIFEST.md   what is security vs. domain                          ║
 ║      control-matrix.md      control → code → test → evidence  (fill per project) ║
 ╟──────────────────────────────────────────────────────────────────────────────────╢
-║  ③  WHO enforces them at runtime?                  decided by CODE, every call   ║
+║  ③  WHO enforces them, every call?                 decided by CODE               ║
 ║      governance/permission.py    control plane — 4 gates; also self-protects     ║
 ║                                  the mechanism from its own agent (S2.4)         ║
 ║      Security-kit/secret_scan.py credential block on write-shaped tools          ║
-║      Security-kit/content_trust.py  data plane — screens untrusted content       ║
+║      Security-kit/content_trust.py  data plane — owns the one marker list        ║
+║      Security-kit/prompt_screen.py  ① the prompt, before the model reads it      ║
+║      Security-kit/result_screen.py  ④ the tool result, before the model reads it ║
 ║      Security-kit/check_coverage.py completeness gate inside ./init.sh           ║
+║      ─── and for the app you DEPLOY, where none of those hooks exist: ──────     ║
+║      governance/runtime_dispatcher.py  ② ③ ④  one chokepoint your app calls      ║
+║      Security-kit/runtime_screen.py    ① ④    request boundary + tool output     ║
 ╟──────────────────────────────────────────────────────────────────────────────────╢
 ║  ④  HOW DO WE KNOW it works?                       decided by EVIDENCE          ║
 ║      tests/     is the gate CORRECT?      ground-truth fixtures + hook drive     ║
@@ -53,7 +58,14 @@ Two planes, because agents are attacked on both:
    └─ exit 2 = BLOCKED                    └─ returns a REPORT; caller decides
                                              (its docstring: "It does NOT
       MECHANICAL                              sanitize-and-trust. It reports.")
-      wired + tested                          LIBRARY — not wired into any path yet
+      wired + tested
+                                             MECHANICAL via two adapters:
+                                             `scan_text` is called by
+                                             prompt_screen.py ① and
+                                             result_screen.py ④, which DO act on
+                                             the report (erase / replace).
+                                             `screen_record` is still LIBRARY —
+                                             nothing calls it.
 ```
 
 ## 2. How does it work?
@@ -66,16 +78,18 @@ produced a JSON proposal — and something else decides whether to run it.
 ```
   ① you type a prompt   "read the claim in the DB, then email the customer"
         │
-        │   ✗ UNUSED ATTACH POINT — Claude Code offers `UserPromptSubmit`, and it
-        │     CAN block (exit 2 "blocks prompt processing and erases the prompt").
-        │     This template wires none: grep finds `UserPromptSubmit` only in docs.
+        │   ★ 1 GATE — `UserPromptSubmit` → prompt_screen.py. Exit 2 "blocks prompt
+        │     processing and erases the prompt". Fires once per HUMAN turn, never
+        │     for a subagent, so it adds nothing while the agent is looping.
+        │     In a DEPLOYED app: runtime_screen.screen_input(), which fails closed.
         ▼
   ┌───────────┐   the model runs nothing. It PROPOSES:
   │    LLM    │     {"tool":"send_email","args":{"to":"…"}}
   └─────┬─────┘   ← still just text. Nothing has happened yet.
         │
-  ② the proposal   ★ ALL enforcement lives in this gap — between
-        │            "the model asked" and "the tool ran"
+  ② the proposal   ★ 4 GATES — the only boundary that stops an ACTION, because
+        │            here the side effect has not happened yet
+        │            In a DEPLOYED app: RuntimeDispatcher.execute(), same gates
         ▼
   ┌───────────┐   ordinary deterministic code reads that JSON and rules on it
   │   GATE    │     ALLOW (exit 0) → run it
@@ -88,10 +102,11 @@ produced a JSON proposal — and something else decides whether to run it.
         │
   ④ the result re-enters the model   ◀── the attacker's way in
         │
-        │   ✗ NO PREVENTIVE CONTROL POSSIBLE HERE. PostToolUse is the only
-        │     event, and the docs say it "cannot block — the tool already ran".
-        │     audit_hook.py logs and always exits 0. content_trust.py could
-        │     screen the text — nothing calls it.
+        │   ★ 1 GATE — `PostToolUse` → result_screen.py. It cannot veto the CALL,
+        │     but it REPLACES the output via `updatedToolOutput` before the model
+        │     reads it. Fires per tool call, matcher `*`, so it covers agent
+        │     runtime including subagents and MCP results.
+        │     In a DEPLOYED app: screen_result(), on by default, no off switch.
         ▼
   ┌───────────┐
   │    LLM    │   now reasoning over attacker-influenced text
@@ -102,29 +117,36 @@ produced a JSON proposal — and something else decides whether to run it.
               previous twenty. Nothing sees the sequence.
 ```
 
-**Read the ✗ marks first.** One of five positions has a preventive control. That is not a
-backlog; it is what "the mechanism" currently means, and it decides which attacks the
-design can *possibly* stop.
+**Read the ✗ mark first.** Three of the five positions carry a preventive control; ③ is
+past the point of prevention by definition, and ⑤ has nothing. That is what "the
+mechanism" currently means, and it decides which attacks the design can *possibly* stop.
 
-The four ✗s are **not the same kind of gap**, and the difference is what to do next:
+The three positions that *do* have a control are not equally strong, and the difference
+is what an attacker gets:
 
-| ✗ | Kind | Why |
+| Position | Strength | What it can and cannot do |
 |---|---|---|
-| ① prompt | **unused attach point** — cheap to close | `UserPromptSubmit` exists and can block (exit 2 erases the prompt). We just never wired one. Note it would be `OBSERVE`: a paraphrase defeats a pattern |
-| ④ result | **no blocking event exists** — cannot be closed at this layer | `PostToolUse` fires after the effect and cannot veto. Screening has to happen *inside* whatever reads the content — which is why `content_trust.py` is a library you call, not a hook |
-| ⑤ sequence | **architectural** — the gate holds no state | Needs session-cumulative counters (spec §4 A2), not a new hook |
-| ② coverage | **misconfiguration** — one-line fix | The gate is correct; the `matcher` lists five tools (`SEC-COVER-GAP-001`) |
+| ① prompt | **prevents**, but only human turns | Exit 2 erases the prompt before the model sees it. `UserPromptSubmit` never fires for a subagent, so it adds nothing once the agent is looping. Detection is pattern-based — a paraphrase outside the 24 markers passes |
+| ② proposal | **prevents** — the only place an action can be refused | The side effect has not happened yet, so DENY means it never happens. Stateless per call, and the `matcher` lists five tools (`SEC-COVER-GAP-001`) |
+| ④ result | **substitutes, does not prevent** | `PostToolUse` cannot veto the call — ③ already ran. It *can* replace the output the model reads, via `updatedToolOutput`. Fires per tool call, so this is the one pre-model control that covers agent runtime |
+| ⑤ sequence | **✗ nothing** — architectural | Needs session-cumulative counters (spec §4 A2), not a new hook. No gate, hook or runtime, holds state across calls |
 
-Two consequences of the ✗s specifically:
+An earlier version of this file said ④ *cannot* be closed, on the grounds that
+`PostToolUse` cannot block. That was wrong and it was load-bearing — a gap labelled
+impossible never gets scheduled. `PostToolUse` cannot veto the **call**; it can replace
+the **output**.
 
-- **Position ② is the whole control surface**, so a risk is only covered if it can be
-  expressed as *"deny this single call"*. "Don't be talked into a goal" (①) and "don't
-  trust what you just read" (④) cannot be, and are not covered.
+Two consequences that remain true:
+
+- **② is the only boundary that stops an ACTION.** ① and ④ both act on *text* — they
+  change what the model reads. If a risk can only be expressed as "don't let this happen",
+  ② is the only place it can be expressed, and there it must fit in a single call.
 - **A stateless gate cannot see a sequence.** Twenty $500 refunds each pass identically;
-  each iteration of ⑤ gives injected content a fresh, fully-authorised attempt at ②.
-  See `owasp-crosswalk.md` for which OWASP risks that leaves standing.
+  each iteration of ⑤ gives injected content a fresh, fully-authorised attempt at ②. The
+  screens lower the odds per pass; they do not bound the sequence. See
+  `owasp-crosswalk.md` for which OWASP risks that leaves standing.
 
-**Everything else follows from the gap at ②.** Three consequences:
+**Everything else follows from the gate at ②.** Three consequences:
 
 1. **The prompt cannot be the control.** A system prompt saying "never delete anything"
    lives *inside* the box that produces proposals. Whatever persuades the model disables
@@ -202,6 +224,58 @@ whereas the deny-list has nothing to fall back on.
 > previous revision cited `:32/:66/:99`, and every one of those anchors broke the moment
 > Gate 1a was inserted above them. Names survive edits; line numbers rot silently.
 
+### The enforcement path (deployed runtime, no hooks)
+
+The diagram above is an *event subscription*. A deployed application emits no hook events,
+so none of it fires. The same four positions are available as in-process calls:
+
+| Position | Build-time (hooks) | Deployed runtime (in-process) |
+|---|---|---|
+| ① input before the model | `prompt_screen.py` · UserPromptSubmit | `runtime_screen.screen_input()` |
+| ② before a tool runs | `permission.py` · PreToolUse | `RuntimeDispatcher.execute()` |
+| ③ the tool executes | — | — |
+| ④ output before the model | `result_screen.py` · PostToolUse | `screen_result()`, on by default |
+
+```python
+import sys
+sys.path.insert(0, "governance"); sys.path.insert(0, "Security-kit")
+from runtime_dispatcher import RuntimeDispatcher
+from runtime_screen import screen_input, InputRejected
+
+dispatcher = RuntimeDispatcher({"fetch_article": fetch_article})   # gates ② ③ ④
+
+def handle(request_text):
+    try:
+        prompt = screen_input(request_text, source="http")          # gate ①
+    except InputRejected as exc:
+        return {"error": str(exc)}, 400      # our words only — never echo the request
+    return run_agent(prompt, tools=dispatcher)   # every call goes through execute()
+```
+
+Four properties, and the reason for each:
+
+- **No second copy of any rule.** `RuntimeDispatcher` imports `permission.py` and reads the
+  same `deny-list.json` / `mcp-allowlist.json`. A policy edit moves both planes at once;
+  there is no runtime deny-list to drift out of step.
+- **② prevents, ④ does not.** `execute()` raises `PermissionError` *before* calling the
+  tool, so the side effect never happens; `screen_result()` runs after it. The tests assert
+  `calls == 0` after a ② denial and `calls == 1` after a ④ withholding — a return-value-only
+  test would pass in both cases and prove nothing (S8.4).
+- **① fails closed, with no warn mode.** `scan_text` returns `[]` for a non-`str`, so
+  `screen_input` type-checks explicitly — otherwise "unscannable" would be
+  indistinguishable from "clean". A rejected input raises; it is never passed through
+  annotated.
+- **④ has no off switch; ① and ② are opt-in.** Once a call goes through `execute()` its
+  result is screened. The `result_screen=` argument exists to let an application *extend*
+  the screen — passing `None` raises `ValueError` rather than skipping it, because a
+  default argument is far too quiet a place to keep an off switch on a data-plane control.
+  Whether any call goes through `execute()` at all is your application's decision, and
+  nothing here verifies it (`SEC-RUNTIME-GAP-001`).
+
+Registering a tool means adding it to `governance/mcp-allowlist.json`. An unregistered
+tool denies with `<name> not in allowlist` — that is Gate ② working, not a bug. That file
+is a protected path, so registering a tool is a **human** edit (S2.1, S5.2).
+
 ### The tailoring path (build-time, human-reviewed)
 
 The two paths meet at a **file**, not at a function call. The model writes it once; the
@@ -242,20 +316,25 @@ a test proves that path.
 | Credential block, dev-time | `Security-kit/secret_scan.py` | **Mechanical.** Wired in `.claude/settings.json` |
 | Coverage completeness | `check_coverage.py` inside `./init.sh` | **Mechanical, and currently failing closed** — no `coverage.json` on disk yet, so it exits 1 until `/security-tailor` runs |
 | Audit trail | `Harness-Best-Practice/observability/audit_hook.py` | **Mechanical** for observation only — PostToolUse cannot veto |
-| Data plane | `Security-kit/content_trust.py` | **Library only.** Referenced from `tests/` and nowhere else — no ingestion path calls it |
+| Data plane, `scan_text` | `Security-kit/content_trust.py` | **Mechanical via two adapters.** `prompt_screen.py` (①) and `result_screen.py` (④) both call it and both *act* on the report — erase the prompt, replace the output. Neither adapter owns a pattern; `_INJECTION_MARKERS` lives here alone, and anti-drift tests scan adapter source to keep it that way |
+| Data plane, `screen_record` | `Security-kit/content_trust.py` | **Library only.** Field allowlisting for structured records is tested and has no caller — no ingestion path uses it |
 | Tool coverage | the `matcher` in `.claude/settings.json` | **Gap.** It lists five tools; anything outside it (`WebFetch`, MCP writes, subagent spawns, scheduled jobs) reaches no gate. Gate ①a *would* judge an MCP write carrying a `path`, but the matcher never invokes it |
-| Prompt-entry gate | — | **Gap — unused attach point, not a missing capability.** `UserPromptSubmit` exists and *can* block (exit 2 erases the prompt, per the hooks docs); this repo wires none. Wiring one would be `OBSERVE`, not prevention |
-| Runtime enforcement | `Security-kit/runtime/` | **Does not exist.** Design only — see `docs/superpowers/specs/2026-08-13-security-kit-build-design.md` §4 and §5.3 |
+| Prompt-entry gate (①) | `Security-kit/prompt_screen.py` via UserPromptSubmit | **Mechanical.** Wired in `.claude/settings.json`, exit 2 erases the prompt, proven by `tests/test_prompt_screen.py`. It is a protected path. **Enforcement is exact; detection is not** — fires once per human turn only, and a paraphrase outside the markers passes |
+| Result screen (④) | `Security-kit/result_screen.py` via PostToolUse | **Mechanical.** Replaces the tool output via `updatedToolOutput` before the model reads it, shape-preserving so the runtime cannot discard the substitution. Fires per tool call, matcher `*`. Proven by `tests/test_result_screen.py`. It does **not** undo the call — ③ has already happened |
+| Runtime enforcement (deployed app) | `governance/runtime_dispatcher.py`, `Security-kit/runtime_screen.py` | **Mechanical when called, and calling it is opt-in.** All four gate positions exist in process, importing the *same* `permission.py` and the same policy JSON as the hooks; proven by `tests/test_runtime_dispatcher.py` and `tests/test_runtime_screen.py`. **The residual is the wiring:** nothing checks that your application routed through them (`SEC-RUNTIME-GAP-001`, SECURITY.md S1.6) |
 
 Two boundaries worth stating plainly:
 
 - **`demo/` is not the production path.** It is scripted evaluation infrastructure
   (`demo/ARCHITECTURE.md:3`). The real path is `.claude/settings.json` hooks →
   `governance/permission.py` CLI mode (`demo/ARCHITECTURE.md:29`).
-- **Dev-time ≠ runtime.** A dev-time hook is a *subscription to Claude Code's event loop*
-  — JSON on stdin, exit 2 to block. A deployed agent (LangChain, Strands, a plain loop)
-  has no hook system; there, enforcement is a function you wrote calling another function
-  you wrote. The kit ships the first today; the second is specified, not built.
+- **Dev-time ≠ runtime, and both now ship.** A dev-time hook is a *subscription to Claude
+  Code's event loop* — JSON on stdin, exit 2 to block. A deployed agent (LangChain,
+  Strands, a plain loop) has no hook system; there, enforcement is a function your app
+  calls. The kit ships both: `governance/runtime_dispatcher.py` for ② ③ ④ and
+  `Security-kit/runtime_screen.py` for ① ④, over the same policy files. What is *not*
+  mechanical is the call site — a copy of this harness inherits the design and none of the
+  enforcement until the application routes through those two modules.
 
 ### The claims register and its six invariants
 
