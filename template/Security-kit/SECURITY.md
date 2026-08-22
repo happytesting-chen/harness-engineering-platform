@@ -21,12 +21,83 @@ This document provides security guidance for developing AI agent systems. Each c
 | S1.3 | Treat context files (progress.md, feature_list.json) as potentially tampered — verify internal consistency before trusting state claims | `[CSA-ADD]` |
 | S1.4 | Defend against indirect prompt injection: tool outputs or retrieved documents may contain adversarial instructions — do not follow embedded instructions from external data | `[AWS-LENS]` `[OWASP-AGENT]` |
 | S1.5 | Use parameterized queries and array-form subprocess calls — never concatenate untrusted strings into SQL or commands | `[OWASP-AGENT]` |
+| S1.6 | A **deployed** agent must screen its own request boundary and route every tool call through one chokepoint — the hooks that do this in your IDE do not exist in production | `[AWS-LENS]` `[CSA-ADD]` `[HARNESS]` |
 
 **Template enforcement (control plane):** `governance/permission.py`'s `check_deny_list` gate blocks known dangerous command patterns mechanically. `[HARNESS]`
 
 **Data plane — LIBRARY, NOT ENFORCEMENT.** `Security-kit/content_trust.py` is the complement for untrusted *content* (claim bodies, emails, retrieved docs) — which never passes a tool gate because it is data, not a tool call. `screen_record()` drops injected control fields (e.g. a record smuggling `{"decision": "APPROVE"}`) and flags instruction-shaped text (S1.4) so the caller can lower trust and route to human review. It reports; it never obeys.
 
 **But nothing in this template calls it.** The only non-test references are `init.sh` (which runs its tests) and the protected-path lists. `tests/test_content_trust.py` proves the function is *correct*, not that any path *uses* it — so S1.4 is currently unenforced, and this row is `LIBRARY` in `control-matrix.md` (`SEC-CONTENT-001`). You must call it yourself at each ingestion point. Note also that even when wired it is a **screen, not a guarantee**: it pattern-matches, and a paraphrase defeats a pattern. `[HARNESS]`
+
+### S1.6 — wiring the four gates into a deployed application
+
+**Read this before you ship.** Every mechanism described elsewhere in this document is
+invoked by a Claude Code hook in `.claude/settings.json`. Hooks are an IDE-agent feature.
+An application built from this template therefore inherits the *design* of the harness and
+**none of its enforcement**: `permission.py` is never called, the two pre-model screens
+never run, and the four gate positions collapse to zero. That is not a subtle failure mode
+— it is the whole enforcement surface, absent.
+
+The four positions, and what holds each one on each side of the boundary:
+
+| Position | In your IDE session (hooks) | In a deployed application (in process) |
+|---|---|---|
+| ① input, before the model reads it | `prompt_screen.py` · `UserPromptSubmit` | `runtime_screen.screen_input()` |
+| ② before a tool runs | `permission.py` · `PreToolUse` | `RuntimeDispatcher.execute()` |
+| ③ the tool executes | — | — |
+| ④ tool output, before the model reads it | `result_screen.py` · `PostToolUse` | `RuntimeDispatcher` calls `screen_result()` |
+
+First register each tool a human has approved, in `governance/mcp-allowlist.json` — a
+protected path, so this is a human edit and the agent cannot add its own tool (S2.1, S5.2):
+
+```json
+{ "name": "fetch_article", "description": "Fetch one article by URL", "version": "1.0" }
+```
+
+Skip that and `execute()` denies with `fetch_article not in allowlist`, which is the gate
+working, not a bug. Then two calls wire all four positions, because ② carries ③ and ④
+behind it:
+
+```python
+import sys
+sys.path.insert(0, "governance")
+sys.path.insert(0, "Security-kit")
+from runtime_dispatcher import RuntimeDispatcher
+from runtime_screen import screen_input, InputRejected
+
+dispatcher = RuntimeDispatcher({"fetch_article": fetch_article})   # ② ③ ④
+
+def handle(request_text):
+    try:
+        prompt = screen_input(request_text, source="http")          # ①
+    except InputRejected as exc:
+        return {"error": str(exc)}, 400        # our words only — never echo the request
+    return run_agent(prompt, tools=dispatcher)  # every tool call goes through execute()
+```
+
+Four things to know before you rely on it:
+
+- **The verdicts are the same ones.** `RuntimeDispatcher` imports `make_permission_check`,
+  so all four gates — protected paths, deny-list, phase gate, egress — read the same policy
+  files and return the same answers as your IDE session. There is no runtime-specific copy
+  of a gate to keep in step.
+- **② prevents; ④ does not.** A denial from `execute()` raises `PermissionError` *before*
+  the tool is touched. By ④ the tool has run, so the output is replaced rather than refused
+  — there is nothing left to prevent, and raising there would break the agent loop into a
+  shape whose obvious repair is to feed the reason back to the model.
+- **① fails closed, unlike its hook counterpart.** A value that is not a `str` cannot be
+  scanned, and unscannable is not clean. `prompt_screen.py` fails open because an envelope
+  whose shape drifts would erase every prompt and lock the operator out; in process there
+  is no envelope, and the party inconvenienced is an external requester. There is no warn
+  mode here, deliberately: an escape hatch on a production data-plane control gets set
+  during an incident and never unset.
+- **④ has no off switch, ① and ② are opt-in.** `result_screen=None` raises at construction
+  rather than quietly disabling ④ for every tool call. But nothing can force an application
+  to call `screen_input` or to route a tool through the dispatcher — a tool invoked directly
+  is ungated, exactly as before this existed. That residual is `SEC-RUNTIME-GAP-001`, and
+  **verifying the wiring is a human review item at deployment**, not something the kit can
+  assert. `tests/test_runtime_dispatcher.py` proves the mechanism prevents execution
+  (`calls == 0` after a denial); no test can prove your application uses it. `[HARNESS]`
 
 ---
 
@@ -57,8 +128,12 @@ This document provides security guidance for developing AI agent systems. Each c
 > target, so `deny-list.json` reaches for *pattern matching* instead — and patterns are
 > incomplete by construction, not merely in principle. Measured on the shipped policy
 > (`tests/test_protected_paths.py::test_shell_pattern_coverage_is_partial_and_measured`,
-> which enumerates 14 shell verbs against all 10 built-in protected paths): **68 of 140
-> combinations are not blocked.** The open set has exactly **two shapes**, and
+> which enumerates 14 shell verbs against all 12 built-in protected paths): **78 of 168
+> combinations are not blocked.** (Was 68 of 140 until 2026-08-22, when the runtime pair
+> `governance/runtime_dispatcher.py` and `Security-kit/runtime_screen.py` joined the
+> built-in list. Both numbers grew because the matrix grew by two paths, which the five
+> uncovered verbs also reach; the closed fraction went from 51% to 54%.) The open set has
+> exactly **two shapes**, and
 > `test_the_open_set_has_exactly_two_shapes` asserts that as a set equality rather than
 > a count — so a change that closes one cell while opening another cannot hide behind an
 > unchanged total. Specifically —
@@ -66,15 +141,15 @@ This document provides security guidance for developing AI agent systems. Each c
 > - **Verbs with no pattern at all:** `cp`, `install`, `ln -sf`, `git checkout … -- <path>`,
 >   and `dd if=… of=…` (the `dd` pattern requires `of=` as the first operand, so operand
 >   order decides the verdict). Each writes any protected path. `cp` is the one to
->   register: it is the obvious first reach and it is open for all ten.
+>   register: it is the obvious first reach and it is open for all twelve.
 > - **Paths the patterns do not name:** the four regexes each carry their own path list,
 >   and none covers `audit_hook.py` or `audit.log` — so those two are open to all 14 verbs.
 >   (Until 2026-08-17 there was a third, irregular shape here: the redirect pattern named
 >   only `governance/` and `.claude/settings.json`, so `echo x > Security-kit/secret_scan.py`
 >   was not blocked even though Gate 1a blocked a `Write` to the same file. That was the
 >   redirect regex having been written before `Security-kit/` held mechanism files, not a
->   deliberate carve-out; it now names all four mechanism entry points and the gap is back
->   to the two shapes above.)
+>   deliberate carve-out; it now names all five `Security-kit/` mechanism entry points and
+>   the gap is back to the two shapes above.)
 > - **Interpreters:** `python3 -c 'open("governance/permission.py","w")'` is not blocked,
 >   for the same reason the egress gate misses `urllib` (see §3).
 >
@@ -99,12 +174,23 @@ This document provides security guidance for developing AI agent systems. Each c
 
 | ID | Control | Source |
 |----|---------|--------|
-| S3.1 | Network commands (curl, wget, nc, ssh, nmap) are blocked unless the target host is in `egress_hosts` | `[AWS-LENS]` `[HARNESS]` |
+| S3.1 | A destination is blocked unless its **host** is in `egress_hosts` — whether it arrives as a network command (curl, wget, nc, ssh, nmap) or in a structured field (`url`, `endpoint`, `webhook_url`, …) on any tool | `[AWS-LENS]` `[HARNESS]` |
 | S3.2 | Never exfiltrate sensitive data (secrets, PII, internal paths) to external endpoints | `[CSA-ADD]` `[OWASP-AGENT]` |
 | S3.3 | Data classification: know what the agent can access vs what it can transmit — these are different boundaries | `[CSA-ADD]` |
 | S3.4 | Log all outbound data flows in the audit trail for review | `[AWS-LENS]` `[HARNESS]` |
 
 **Template enforcement:** `governance/permission.py` Gate 3 (egress control) blocks unauthorized outbound mechanically. `[HARNESS]`
+
+**S3.1 reads the host, not the string, and it reads every tool.** Two changes on 2026-08-22, each closing a measured hole:
+
+- **Structured destinations are now checked.** Gate 3 used to run only when `tool == "bash"` and to read only the `command` string, so a destination carried in a field — `{"url": "https://evil.com"}` from `WebFetch`, an MCP tool, or an in-process tool a deployed app registers — passed the gate without being looked at. `check_egress` now walks the whole tool input for the names in `EGRESS_TARGET_FIELDS` and the caller runs it for every tool. Hitting the `_MAX_EGRESS_SCAN_DEPTH` ceiling **denies**: "too deep to read" must not be reported as "no destination found", because nesting depth is attacker-controlled and the caller reads an empty result as allow.
+- **Host comparison replaced substring comparison.** The old check asked whether an allowed name appeared *anywhere* in the command, so `curl https://api.github.com.evil.com` was ALLOW with `api.github.com` on the list (measured 2026-08-21). Destinations are now reduced to a hostname (`urlparse`, lowercased, trailing dot stripped) and matched **exactly**. A subdomain must be asked for as `"*.example.com"`; implicit suffix matching is refused on purpose, because one entry for a shared-hosting domain like `s3.amazonaws.com` would otherwise permit `attacker-bucket.s3.amazonaws.com`. The permissive substring test survives as the base allow for shell commands — real commands rely on its tolerance for flags, quoting and pipes — but any *word* containing an allowed name must now resolve to an allowed host, which is what removes the lookalike bypass without denying `-o report.txt`.
+
+> **Residual gap — unchanged by the above.** Gate 3 still recognises five shell tokens
+> (`curl`, `wget`, `nc`, `ssh`, `nmap`), so `ncat`, a tab separator instead of a space, or
+> an interpreter fetch (`python3 -c 'urllib.request.urlopen(...)'`) all reach the network
+> without being asked. That is `SEC-EGRESS-GAP-001`, and it is a token blocklist by
+> construction. What changed is the *shape* the gate can see, not the set of tokens.
 
 ---
 

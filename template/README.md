@@ -586,7 +586,8 @@ python3 demo/demo.py --nogate   # same model, no gate — the contrast is the po
 | A pass means | A pass does not mean |
 |---|---|
 | The five wired hooks fire on a live agent in your host | That enforcement covers tools outside the `PreToolUse` matcher — `Agent`/`Task` and MCP file tools reach **no** permission gate (`SEC-COVER-GAP-001`) |
-| Named shell verbs and the five matched tools cannot reach a protected path | That the shell is closed: `cp`, `install`, `ln -sf`, `git checkout --`, `dd if=` and any interpreter one-liner still reach protected paths — 68 of 140 measured cells |
+| Named shell verbs and the five matched tools cannot reach a protected path | That the shell is closed: `cp`, `install`, `ln -sf`, `git checkout --`, `dd if=` and any interpreter one-liner still reach protected paths — 78 of 168 measured cells |
+| A deployed application *can* enforce all four gate positions in process, with the same policy files as your IDE session | That it *does*. `RuntimeDispatcher` and `screen_input` are opt-in — a tool your app calls directly, or a request it never screens, is ungated exactly as before (`SEC-RUNTIME-GAP-001`) |
 | Instruction-shaped text matching the shipped markers does not reach the model | That prompt injection is blocked. A paraphrase outside the markers passes, and the screens fail **open** on a malformed envelope |
 | A denied call did not execute | That a *sequence* is bounded. The gate is stateless per call — twenty identical requests each pass identically, and nothing caps turns or cost |
 

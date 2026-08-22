@@ -12,7 +12,8 @@ Four gates, evaluated in order (fail-closed):
   2.  Phase gate (feature_list.json says which phase is active; mcp-allowlist.json
       `signed_off_phases` says which phases are human-signed-off, and that is what
       unlocks a `gated_until` tool — never the agent-writable worklog).
-  3.  Egress control (default-deny outbound to unlisted hosts).
+  3.  Egress control (default-deny outbound to unlisted hosts), for a destination
+      written as a shell command OR carried in a structured field.
 
 An unreadable or unparseable policy file raises PolicyError, which CLI mode turns
 into exit 2. That is load-bearing, not defensive habit: Claude Code blocks only on
@@ -26,6 +27,7 @@ import json
 import os
 import re
 from pathlib import Path
+from urllib.parse import urlparse
 
 # Layout: <project_root>/governance/permission.py
 #   deny-list.json + mcp-allowlist.json are siblings (in governance/)
@@ -193,6 +195,15 @@ BUILTIN_PROTECTED_PATHS = (
     # these two lines, `Edit Security-kit/result_screen.py` was ALLOW.
     "Security-kit/prompt_screen.py",
     "Security-kit/result_screen.py",
+    # The runtime pair, added 2026-08-22 with the mechanism itself. The dispatcher is
+    # the single chokepoint that holds a deployed app's only call to the permission
+    # gate, so editing it disables gate ② for the whole application in one line —
+    # strictly more damaging than editing any hook adapter, which only affects a
+    # developer's IDE session. `runtime_screen.py` is its ①/④ counterpart.
+    # Measured on dev_fengmin 2026-08-21: without this line
+    # `Edit governance/runtime_dispatcher.py` returned exit 0 (ALLOW).
+    "governance/runtime_dispatcher.py",
+    "Security-kit/runtime_screen.py",
     "Harness-Best-Practice/observability/audit_hook.py",
     "Harness-Best-Practice/observability/audit.log",
 )
@@ -330,14 +341,173 @@ def check_phase_gate(tool_name: str) -> str | None:
     return f"{tool_name} not in allowlist"
 
 
-def check_egress(command: str) -> str | None:
-    """Gate 3: default-deny outbound network access."""
-    network_tokens = ["curl ", "wget ", "nc ", "ssh ", "nmap "]
-    if not any(tok in command for tok in network_tokens):
+# --- Gate 3: egress ---------------------------------------------------------------
+#
+# A destination reaches the agent in two shapes, and until 2026-08-22 this gate saw
+# only the first:
+#   - a shell command string   -- `curl https://x`         (Bash)
+#   - a structured field       -- {"url": "https://x"}     (WebFetch, MCP tools, and
+#     every in-process tool a deployed app registers through RuntimeDispatcher)
+# The second was invisible for two independent reasons: `check_egress` read only
+# `command`, and the caller ran it only when `tool == "bash"`. Both are fixed here.
+
+# Field names that carry an outbound destination. Matched case-insensitively.
+EGRESS_TARGET_FIELDS = frozenset({
+    "url", "uri", "endpoint", "base_url", "target_url",
+    "webhook_url", "callback_url", "host", "hostname",
+})
+
+# Ceiling on how deep a payload is walked looking for those fields. Hitting it is
+# reported, never shrugged off — see `_collect_egress_targets`.
+_MAX_EGRESS_SCAN_DEPTH = 8
+
+NETWORK_TOKENS = ("curl ", "wget ", "nc ", "ssh ", "nmap ")
+_URL_IN_TEXT = re.compile(r"[a-zA-Z][a-zA-Z0-9+.\-]*://[^\s'\"`;|&<>]+")
+
+
+def _normalise_host(value) -> str | None:
+    """Reduce a destination to a bare lowercase hostname, or None if it has none.
+
+    `urlparse` does the work so that every shape a destination is written in collapses
+    to one comparable string: `https://api.github.com/x?y`, `api.github.com:8443`,
+    `user@api.github.com` and a bare `api.github.com` all yield `api.github.com`. The
+    trailing dot goes because `example.com.` is the same host to a resolver and a
+    different string to `==`.
+    """
+    if not isinstance(value, str) or not value.strip():
         return None
-    allowlist = _load_json(ALLOWLIST_PATH)
-    allowed_hosts = allowlist.get("egress_hosts", [])
-    if any(host in command for host in allowed_hosts):
+    raw = value.strip()
+    try:
+        parsed = urlparse(raw if "://" in raw else f"//{raw}")
+        host = parsed.hostname
+    except ValueError:
+        return None
+    if not host:
+        return None
+    return host.lower().rstrip(".")
+
+
+def _host_allowed(host: str, allowed_hosts) -> bool:
+    """Is `host` on the allowlist? EXACT match, unless the entry opts into a wildcard.
+
+        "api.github.com"  -> api.github.com and nothing else
+        "*.github.com"    -> github.com and any subdomain of it
+
+    Exact-by-default is the deliberate half. Implicit suffix matching — reading one
+    entry for `api.github.com` as also permitting `anything.api.github.com` — looks
+    harmless until the allowlist names a domain where third parties can create names:
+    a single entry for `s3.amazonaws.com` would then permit
+    `attacker-bucket.s3.amazonaws.com`, an exfil destination anyone can register. So a
+    subdomain has to be asked for in the policy file, where a human can see it.
+    """
+    for configured in allowed_hosts:
+        if not isinstance(configured, str) or not configured.strip():
+            continue
+        entry = configured.strip()
+        wildcard = entry.startswith("*.")
+        allowed = _normalise_host(entry[2:] if wildcard else entry)
+        if not allowed:
+            continue
+        if host == allowed or (wildcard and host.endswith(f".{allowed}")):
+            return True
+    return False
+
+
+def _collect_egress_targets(node, out: list, depth: int = 0) -> bool:
+    """Append every destination string in a tool payload. Returns True if the walk hit
+    the depth ceiling — i.e. the answer is INCOMPLETE, not empty.
+
+    That return value is the whole reason this is not a generator. A bare `return` at
+    the ceiling makes an unverifiable payload indistinguishable from a clean one, and
+    the caller reads "no destinations" as ALLOW. Nesting depth is attacker-controlled,
+    so that is a one-line bypass: bury the URL nine levels down and the gate waves it
+    through. Measured on dev_fengmin 2026-08-21, where the generator form did exactly
+    that — same destination nested 9 deep ALLOW, flat DENY.
+    """
+    if depth > _MAX_EGRESS_SCAN_DEPTH:
+        return True
+    truncated = False
+    if isinstance(node, dict):
+        for key, val in node.items():
+            is_target = isinstance(key, str) and key.lower() in EGRESS_TARGET_FIELDS
+            if is_target and isinstance(val, str):
+                out.append(val)
+            elif is_target and isinstance(val, (list, tuple)):
+                out.extend(v for v in val if isinstance(v, str))
+            elif isinstance(val, (dict, list, tuple)):
+                truncated = _collect_egress_targets(val, out, depth + 1) or truncated
+    elif isinstance(node, (list, tuple)):
+        for val in node:
+            truncated = _collect_egress_targets(val, out, depth + 1) or truncated
+    return truncated
+
+
+def _reject_lookalike_hosts(command: str, allowed_hosts) -> str | None:
+    """Deny a command that only LOOKS like it targets an allowed host.
+
+    The base allow at the end of `check_egress` is a substring test, and that is what
+    makes `curl https://localhost.evil.com` read as permitted: the allowed name really
+    is in the string, just not as the host. Measured on both main and dev_fengmin
+    2026-08-21 — `curl https://api.github.com.evil.com` was ALLOW.
+
+    Rather than delete the substring test — every real-world command relies on its
+    tolerance for flags, quoting and pipes — this examines only the words that contain
+    an allowed name, and requires each one to actually RESOLVE to an allowed host. A
+    word with no allowed name in it is never looked at, so an ordinary `-o report.txt`
+    cannot be mistaken for a destination. The residue is a filename that embeds an
+    allowed host name (`-o report.localhost.txt`), which denies; fail-closed and rare.
+    """
+    names = [
+        n for n in (
+            _normalise_host(h[2:] if h.strip().startswith("*.") else h)
+            for h in allowed_hosts if isinstance(h, str) and h.strip()
+        ) if n
+    ]
+    if not names:
+        return None
+    for line in _shell_lines(command):
+        # `=` is split as a separator so `--url=https://localhost.evil.com` is judged
+        # on its destination rather than on the whole flag.
+        for word in line.replace("=", " ").split():
+            token = word.strip("'\"`,()")
+            if not any(name in token.lower() for name in names):
+                continue
+            host = _normalise_host(token)
+            if host is None or not _host_allowed(host, allowed_hosts):
+                return (f"default-deny egress: '{token}' contains an allowed host name "
+                        f"but does not resolve to an allowed host")
+    return None
+
+
+def check_egress(command: str, tool_input: dict | None = None) -> str | None:
+    """Gate 3: default-deny outbound network access. Reason if denied, None if allowed."""
+    allowed_hosts = _load_json(ALLOWLIST_PATH).get("egress_hosts", [])
+    if not isinstance(allowed_hosts, list):
+        allowed_hosts = []  # a malformed value denies everything, it does not allow
+
+    # Path A — structured destination fields, for every tool including non-bash ones.
+    targets: list = []
+    if _collect_egress_targets(tool_input or {}, targets):
+        return (f"default-deny egress: tool input nests deeper than "
+                f"{_MAX_EGRESS_SCAN_DEPTH} levels — destination not verifiable")
+    for target in targets:
+        host = _normalise_host(target)
+        if host is None:
+            return "default-deny egress: destination field carries no readable host"
+        if not _host_allowed(host, allowed_hosts):
+            return f"default-deny egress: host '{host}' not on egress_hosts"
+
+    # Path B — a destination written into a shell command string.
+    if not any(tok in command for tok in NETWORK_TOKENS):
+        return None
+    for match in _URL_IN_TEXT.finditer(command):
+        host = _normalise_host(match.group(0))
+        if host and not _host_allowed(host, allowed_hosts):
+            return f"default-deny egress: host '{host}' not on egress_hosts"
+    reason = _reject_lookalike_hosts(command, allowed_hosts)
+    if reason:
+        return reason
+    if any(host in command for host in allowed_hosts if isinstance(host, str)):
         return None
     return "default-deny egress: target host not on allowlist"
 
@@ -370,11 +540,14 @@ def make_permission_check(auto_deny_on_ask=True):
         if reason:
             return False, reason
 
-        # Gate 3: egress
-        if tool == "bash":
-            reason = check_egress(cmd)
-            if reason:
-                return False, reason
+        # Gate 3: egress. Runs for EVERY tool, not just bash. The old `if tool ==
+        # "bash"` guard was written when a shell command was the only way to reach the
+        # network; it meant a WebFetch, an MCP tool or an in-process tool carrying
+        # {"url": ...} was never egress-checked at all. `check_egress` returns None
+        # for a payload with no destination in it, so the guard bought nothing.
+        reason = check_egress(cmd, tool_input)
+        if reason:
+            return False, reason
 
         return True, ""
     return permission_check
