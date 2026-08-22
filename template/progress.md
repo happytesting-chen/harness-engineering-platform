@@ -577,3 +577,69 @@ planes).
 | 08-17 | The end-state block names what is **absent** (product code, tests of your behaviour, a running app) | A green health check on a harness with nothing in it is the single most likely misreading of this template. Listing the absences is the only phrasing that cannot be skimmed as a feature list |
 | 08-17 | The example README states its own generation gap instead of the example being ported | Porting is real work with its own baseline risk; an undocumented 7-file divergence in the artifact labelled "Start here" is a defect *today*. Naming it costs one table |
 | 08-17 | Demo caveats written from a **run**, not from `ARCHITECTURE.md` | The policy-file swap (`demo.py:192-210`) is not documented in the demo's own architecture note — only running it and checking `git status` surfaced it |
+
+---
+
+## Session 13 — 2026-08-17 (pre-model screening at ① and ④) — `5e8a16f`
+
+Closed the two pre-model positions the loop diagram had marked ✗. Both are *data-plane*
+controls: they change what the model reads, never whether something happens.
+
+- `Security-kit/prompt_screen.py` — `UserPromptSubmit`, exit 2 erases the prompt (①).
+- `Security-kit/result_screen.py` — `PostToolUse` matcher `*`, replaces the output via
+  `updatedToolOutput` before the model reads it (④).
+- Both are thin adapters. `content_trust.py` remains the sole owner of
+  `_INJECTION_MARKERS`; anti-drift tests scan adapter **source** for `re.compile` so a
+  second copy cannot appear quietly.
+- Both added to `BUILTIN_PROTECTED_PATHS`. Measured before that line: `Edit
+  Security-kit/result_screen.py` returned exit 0 (ALLOW) — and a blanked screen exits 0
+  with empty stdout, which the runtime reads as "no replacement", so the control could
+  have been disabled by the output it exists to screen.
+- Also closed the ASI06 phase-gate escalation: the unlock moved from `status` in the
+  agent-writable worklog to `signed_off_phases` in the protected allowlist. Three measured
+  escalation edits now DENY (`tests/test_steady_state.py`).
+
+The load-bearing correction: an earlier `owasp-crosswalk.md` said ④ *cannot* be closed
+because `PostToolUse` cannot block. `PostToolUse` cannot veto the **call**; it can replace
+the **output**. A gap labelled impossible never gets scheduled.
+
+## Session 14 — 2026-08-22 (the four gates in a deployed application) — `30d8016`
+
+Sessions up to 13 hardened one enforcement layer: Claude Code / Kiro hooks. A deployed
+application emits no hook events, so a shipped copy of this harness inherited the *design*
+of all four gates and none of the enforcement. Two modules close that:
+
+- `governance/runtime_dispatcher.py` — one in-process chokepoint, gates ② ③ ④. Imports
+  `permission.py` and reads the same policy JSON; holds no rule of its own.
+- `Security-kit/runtime_screen.py` — `screen_input()` (①) and `screen_result()` (④).
+
+| Position | Build-time (hooks) | Deployed runtime (in-process) |
+|---|---|---|
+| ① input before the model | `prompt_screen.py` · UserPromptSubmit | `runtime_screen.screen_input()` |
+| ② before a tool runs | `permission.py` · PreToolUse | `RuntimeDispatcher.execute()` |
+| ③ the tool executes | — | — |
+| ④ output before the model | `result_screen.py` · PostToolUse | `screen_result()`, on by default |
+
+Measured after: 18 test files, 169 tests pass; `./init.sh` exits 1 with the same 5-error
+set as before (the baseline, gated on the error **set**, not on exit 0). Both new suites
+are named in `init.sh`; 15 of the 18 files are.
+
+Then the doc sweep, which was the larger half. Ten files disagreed with the code — and not
+only because of this change: `Security-kit/README.md` and `SECURITY-MANIFEST.md` were still
+two revisions behind, describing ① as an unwired attach point and ④ as impossible. Updated:
+root `README.md`, `template/README.md`, `Security-kit/README.md`, `SECURITY-MANIFEST.md`,
+`owasp-crosswalk.md`, `governance/ARCHITECTURE.md`, `tests/ARCHITECTURE.md`,
+`Context/deployment.md.template`, `kiro/steering/security.md`, this file.
+
+### Decisions
+
+| Date | Decision | Rationale |
+|---|---|---|
+| 08-22 | ① fails **closed** in the runtime, with no `RUNTIME_SCREEN_MODE=warn` | `scan_text` returns `[]` for a non-`str`, so "unscannable" and "clean" are the same value — the screen must type-check and raise. A warn mode on a data-plane control is the first thing an incident report finds |
+| 08-22 | `result_screen=None` raises `ValueError` instead of skipping gate ④ | The argument exists so an application can *extend* the screen. A default argument is far too quiet a place to keep an off switch |
+| 08-22 | The dispatcher **imports** `permission.py` rather than re-checking | A second implementation is a second thing to drift. One policy edit must move both layers, and no runtime deny-list exists to fall out of step |
+| 08-22 | Denial tests assert on **call counts**, not return values | `calls == 0` after a ② denial and `calls == 1` after a ④ withholding is the only assertion that distinguishes prevention from substitution. A return-value test passes in both cases and proves nothing (SECURITY.md S8.4) |
+| 08-22 | Both runtime modules added to `BUILTIN_PROTECTED_PATHS` in the same commit as the mechanism | Editing the dispatcher disables gate ② for a whole application in one line — strictly worse than editing a hook adapter, which affects one developer's session. Measured 2026-08-21: without the line, `Edit governance/runtime_dispatcher.py` was ALLOW |
+| 08-22 | Wiring stays **opt-in**, and is documented as the residual (`SEC-RUNTIME-GAP-001`, S1.6) rather than claimed as closed | Nothing in a library can force an application to call it. Writing "runtime enforcement: mechanical" would be the same class of error as the old "④ cannot be closed" |
+| 08-22 | The doc sweep covered pre-existing staleness, not just this diff | Three files were already wrong from Session 13 and this change made them *more* wrong. Fixing only the new sentences would have left the file self-contradictory |
+| 08-22 | `mechanisms.json` and `requirements.json` left **unedited**; replacement text lives in the commit message | The claims register is human-owned at merge time. A model-written register is the exact inversion the plane split exists to prevent |

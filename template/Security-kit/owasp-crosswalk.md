@@ -15,23 +15,39 @@ Legend for "How the template addresses it":
 
 > ### ⚠ Read this before using the ASI table as evidence of coverage
 >
-> **Most enforcement still lives at ONE point in the loop** — the tool-call proposal
-> boundary, the PreToolUse hook into `governance/permission.py`. Measured, there are five
-> positions in an agent loop; three now carry a preventive control and two do not:
+> **The heaviest enforcement still sits at ONE point in the loop** — the tool-call proposal
+> boundary, `governance/permission.py`. Measured, there are five positions in an agent loop;
+> three carry a preventive control, ③ is past prevention by definition, and ⑤ has nothing.
+> Each of the three is reachable **two ways**: as a Claude Code / Kiro hook while you build,
+> and as an in-process call in the application you deploy, where no hook events exist.
 >
 > ```
->   ① prompt ─────────▶ ★ 1 GATE         SEC-PROMPT-001, exit 2 erases the prompt.
->                                         Fires once per HUMAN turn — never for a
->                                         subagent, so it adds nothing at runtime
->   ② proposal ───────▶ ★ 4 GATES        ← the only boundary that stops an ACTION
->   ③ tool runs ──────▶ side effect happens
->   ④ result → LLM ───▶ ★ 1 GATE         SEC-RESULT-001, PostToolUse replaces the
->   │                                     output via updatedToolOutput before the
->   │                                     model reads it. Fires per tool call, so
->   │                                     this is the pre-model control that covers
->   │                                     agent RUNTIME. Cannot undo the call
->   └─ ⑤ loop back to ② ▶ ✗ stateless    the gate has no memory across turns
+>                        BUILD-TIME (hooks)          DEPLOYED APP (in-process)
+>   ① prompt ────────▶  ★ prompt_screen.py          ★ runtime_screen.screen_input()
+>                        exit 2 erases the prompt     raises InputRejected
+>                        HUMAN turns only             every request, fails closed
+>   ② proposal ──────▶  ★ permission.py, 4 gates    ★ RuntimeDispatcher.execute()
+>                        ← the only boundary that stops an ACTION; same 4 gates,
+>                          same policy files, one implementation
+>   ③ tool runs ─────▶  side effect happens          side effect happens
+>   ④ result → LLM ──▶  ★ result_screen.py          ★ screen_result()
+>                        PostToolUse replaces the     substitutes before the caller
+>                        output via updatedToolOutput sees it, no off switch
+>                        per tool call, so it covers agent RUNTIME. Cannot undo ③
+>   ⑤ loop back to ② ▶  ✗ stateless                 ✗ stateless
+>                        no memory across calls, in either layer
 > ```
+>
+> The two columns are not two implementations. `RuntimeDispatcher` imports `permission.py`
+> and reads the same `deny-list.json` / `mcp-allowlist.json`; `runtime_screen` and both hook
+> adapters share `content_trust.py`'s single marker list. A policy or detection change moves
+> both columns at once — there is no second copy to drift.
+>
+> **What is opt-in is the right-hand column's call site.** The hooks fire because
+> `.claude/settings.json` subscribes them. Nothing subscribes a deployed application: it has
+> to route through `execute()` and `screen_input()`, and no check here verifies that it did
+> (`SEC-RUNTIME-GAP-001`, SECURITY.md S1.6). A shipped copy of this template inherits the
+> design of all four gates and, until wired, none of the enforcement.
 >
 > An earlier version of this file said ④ *cannot* be closed with a hook, on the grounds
 > that `PostToolUse` cannot block. That was wrong and it was load-bearing — a gap
@@ -39,11 +55,13 @@ Legend for "How the template addresses it":
 > can replace the **output**, which the runtime documents as "Replaces the tool output
 > before it is sent to the model" (Claude Code 2.1.231, read 2026-08-17).
 >
-> **State of the ④ control:** the mechanism (`Security-kit/result_screen.py`) and its
-> proof (`tests/test_result_screen.py`, 18 tests) are in the tree and green. The wiring
-> touches protected and human-owned files, so it ships as `asi01-result-screen.patch`
-> and is LIVE only once that patch is applied. Everything below describes the
-> post-patch tree.
+> **State of the ④ control:** live. `Security-kit/result_screen.py` is wired as a
+> `PostToolUse` hook with matcher `*` in `.claude/settings.json`, and its proof
+> (`tests/test_result_screen.py`, 18 tests) is green. An earlier revision described it as
+> shipping behind a patch file; there is no patch file — the wiring is in the template.
+> Its in-process twin for a deployed app is `runtime_screen.screen_result()`, called by
+> `RuntimeDispatcher.execute()` on every tool result (`tests/test_runtime_dispatcher.py`,
+> 20 tests; `tests/test_runtime_screen.py`, 17 tests).
 >
 > ① and ④ are different controls, not two copies of one. ① erases a human's prompt and
 > fires once per turn; ④ replaces a tool result and fires per call, including inside a
@@ -65,7 +83,8 @@ Legend for "How the template addresses it":
 >
 > Verified by reading source and driving the live hooks: gate ② on 2026-08-10, the
 > ① and ④ screens on 2026-08-17 (including the runtime's `updatedToolOutput`
-> handling, read from the Claude Code 2.1.231 bundle rather than the docs).
+> handling, read from the Claude Code 2.1.231 bundle rather than the docs), and the
+> in-process runtime pair on 2026-08-22 (37 tests, `./init.sh` runs both suites).
 
 Sources (verified 2026-08-03):
 - OWASP Top 10 for LLM Applications — **v2025** ([genai.owasp.org/llm-top-10](https://genai.owasp.org/llm-top-10/))
@@ -106,6 +125,14 @@ Sources (verified 2026-08-03):
 | ASI09 | Human-Agent Trust Exploitation | **[MECH]** policy updates are genuinely human-only — `governance/*`, `.claude/settings.json` and both pre-model screens are protected paths (Gate 1a); **[MECH]** "the agent cannot self-promote phases" became a control on 2026-08-17: the unlock is `signed_off_phases` in the protected allowlist, so the agent's own worklog no longer releases a gated tool (three measured escalation edits now DENY, `tests/test_steady_state.py`); **[OBS]** append-only audit records verdicts but cannot veto; **[GAP]** sign-off is still an *attestation* — adding a phase id re-runs no verification, so a human who signs off without looking is indistinguishable from one who checked (`SEC-PHASE-GAP-001`) | `permission.py` `check_protected_paths` / `check_phase_gate`, `Harness-Best-Practice/observability/audit.py`, `Security-kit/SECURITY.md` §6 |
 | ASI10 | Rogue Agents | **[MECH]** append-only audit trail + Gate 1a (`check_protected_paths`) hard-denies writes to the agent's own mechanism/policy — 12 built-in paths, including both pre-model screens, the two detection modules, and (since 2026-08-22) the runtime pair `runtime_dispatcher.py` / `runtime_screen.py`, which a deployed application's gate calls route through (file-identity match, covering traversal, symlinks, hard links and case variants; not policy-disableable); **[GAP]** an interpreter (`python3 -c`), plus `cp`/`install`/`ln -sf`/`git checkout`/`dd if=`, can still write those files, and the audit files are open to every shell verb — 78 of 168 cells, see SECURITY.md S2.4; **[GUIDE]** review audit for drift | `Harness-Best-Practice/observability/audit.py`, `permission.py` `check_protected_paths`, `Security-kit/SECURITY.md` S2.4, S6.4–S6.5 |
 
+> **Both tables cite hook paths.** Every `[MECH]` row above describes what fires in a
+> Claude Code / Kiro session. The same gates are reachable from a deployed application
+> through `governance/runtime_dispatcher.py` (② ③ ④) and `Security-kit/runtime_screen.py`
+> (① ④), over the same `permission.py` and the same policy JSON — so a `[MECH]` row does
+> not become `[GAP]` when you ship. It becomes **conditional on your call site**: the row
+> holds if and only if your application routes through those two modules, and nothing in
+> this repo verifies that it does (`SEC-RUNTIME-GAP-001`, SECURITY.md S1.6).
+
 ---
 
 ## Where each risk lands in the loop
@@ -117,37 +144,58 @@ the five from the box at the top of this file.
 ```
      RISK ENTERS AT            IS A CONTROL THERE?        SO WHAT SURVIVES
   ───────────────────────────────────────────────────────────────────────────────
-  ① the prompt                 ★ 1 GATE                   LLM07, ASI09
-     LLM01 ASI01                 SEC-PROMPT-001, exit 2      LLM01/ASI01 survive
-                                 erases the prompt. Human    only as a paraphrase
-                                 turns only, never a         outside the markers
-                                 subagent's
+  ① the prompt                 ★ hook: prompt_screen.py   LLM07, ASI09
+     LLM01 ASI01                 exit 2 erases the prompt.   LLM01/ASI01 survive
+                                 Human turns only, never a   only as a paraphrase
+                                 subagent's                  outside the markers.
+                                 ★ app: screen_input()       In a build-time
+                                 every request, fails        session, a subagent's
+                                 closed on non-str           own prompt is unseen
   ───────────────────────────────────────────────────────────────────────────────
-  ② the tool-call proposal      ★ 4 GATES  ← everything    LLM02 LLM03 LLM06
-     LLM02 LLM03 LLM06            mechanical lives here      partially: only for
-     ASI02 ASI03 ASI05                                       the 5 matched tools
-     ASI10                                                   (SEC-COVER-GAP-001)
+  ② the tool-call proposal      ★ hook: permission.py      LLM02 LLM03 LLM06
+     LLM02 LLM03 LLM06            4 gates, exit 2 = DENY     partially: at BUILD
+     ASI02 ASI03 ASI05            ← the only place an        time only for the 5
+     ASI10                          ACTION can be refused    matched tools
+                                 ★ app: execute() raises     (SEC-COVER-GAP-001).
+                                 PermissionError BEFORE      In a deployed app the
+                                 the tool runs, same 4       dispatcher has no
+                                 gates                       matcher — every
+                                                             registered tool is
+                                                             gated
   ───────────────────────────────────────────────────────────────────────────────
   ③ the side effect             n/a — already happened     —
   ───────────────────────────────────────────────────────────────────────────────
-  ④ the result re-entering      ★ 1 GATE                   ASI06, ASI07
-     the model                    SEC-RESULT-001 replaces    LLM05/ASI01 survive
-     LLM05 ASI01 ASI06 ASI07      the output before the      only as a paraphrase.
-                                  model reads it. Per tool   ASI06 poisoning of a
-                                  call, so it covers agent   file the agent WROTE
-                                  runtime. The call itself   is not tool output —
-                                  is not undone              see the ASI06 row
+  ④ the result re-entering      ★ hook: result_screen.py   ASI06, ASI07
+     the model                    replaces the output via     LLM05/ASI01 survive
+     LLM05 ASI01 ASI06 ASI07      updatedToolOutput. Per      only as a paraphrase.
+                                  tool call, so it covers     ASI06 poisoning of a
+                                  agent runtime               file the agent WROTE
+                                 ★ app: screen_result(),      is not tool output —
+                                  on by default, None         see the ASI06 row
+                                  raises rather than skips
+                                  Neither undoes the call
   ───────────────────────────────────────────────────────────────────────────────
-  ⑤ the sequence / the run      ✗ stateless                LLM10, ASI06, ASI08
-     LLM10 ASI06 ASI08            gate has no memory         ASI09 — every
-     ASI09                        across calls               cumulative attack
+  ⑤ the sequence / the run      ✗ stateless in BOTH       LLM10, ASI06, ASI08
+     LLM10 ASI06 ASI08            layers — no memory         ASI09 — every
+     ASI09                        across calls anywhere      cumulative attack
 ```
 
-Read the columns, not the rows: **every mechanical control the template has sits at ②**.
-That is a real boundary and it holds — `governance/permission.py` is why an Edit to the
-gate, a deny-listed command and an unregistered tool are all refused. But it is *one*
-boundary out of five, it is per-call, and the deny-list is bypassed by choosing an
-unmatched tool rather than by defeating a check.
+Read the columns, not the rows: **② is where the template's enforcement is concentrated,
+and it is the only position that can refuse an action at all.** That boundary is real and
+it holds — `governance/permission.py` is why an Edit to the gate, a deny-listed command
+and an unregistered tool are all refused. ① and ④ are genuine controls but they act on
+*text*: they change what the model reads, never whether something happens.
+
+Three limits remain, and none of them is closed by adding a hook:
+
+- **Per-call, not per-run.** ② judges one proposal at a time; ⑤ has nothing in either layer.
+- **Build-time coverage is matcher-shaped.** In an IDE session the `matcher` lists five
+  tools, so `WebFetch`, MCP writes and subagent spawns reach no ② gate. A deployed app
+  using `RuntimeDispatcher` has no matcher — but it also has nothing forcing it to use the
+  dispatcher (`SEC-RUNTIME-GAP-001`).
+- **Detection is patterns.** ① and ④ share 24 regexes; measured recall on the corpus is 10
+  of 12 attacks caught for 2 of 12 legitimate cases withheld. Enforcement is exact;
+  detection is not.
 
 The honest one-line summary: **the template is a well-built tool-boundary gate, not
 agentic-risk coverage.** The G-tier (what a gateway catches: which tool, which command,
