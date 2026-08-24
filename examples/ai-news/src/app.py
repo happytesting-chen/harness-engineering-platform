@@ -23,6 +23,7 @@ if str(PROJECT_ROOT) not in sys.path:
 
 from src.agent import build_agent
 from src.run_news import DEFAULT_PROMPT
+from src.runtime_flows import get_runtime_flow
 from src.security_demo import (
     ALLOWED_EGRESS_PROMPT,
     BLOCKED_EGRESS_PROMPT,
@@ -178,33 +179,13 @@ def _render_runtime_protection_controls() -> None:
     )
 
 
-def _render_tool_permission_flow() -> None:
-    st.markdown("##### Tool Permission Flow")
-    st.caption(
-        "The LLM is allowed to request a tool call. Runtime permission decides whether the underlying tool handler is actually allowed to execute."
-    )
-    st.code(
-        "User Input\n"
-        "    ↓\n"
-        "LLM / Agent reasoning\n"
-        "decides the delete_digest tool is needed\n"
-        "    ↓\n"
-        "Tool call request created: delete_digest(...)\n"
-        "    ↓\n"
-        "┌──────────────────────────────────┐\n"
-        "│       TOOL PERMISSION POLICY     │\n"
-        "│  Is delete_digest authorized?    │\n"
-        "└──────────────────────────────────┘\n"
-        "    ↓\n"
-        "NOT APPROVED\n"
-        "    ↓\n"
-        "BLOCKED before real handler executes\n"
-        "    ↓\n"
-        "LLM receives the runtime block result\n"
-        "    ↓\n"
-        "LLM summarizes the block reason to user",
-        language=None,
-    )
+def _render_runtime_flow(scenario: str, *, location: str) -> None:
+    flow = get_runtime_flow(scenario)
+    if not flow:
+        return
+    st.markdown(f"##### {flow['title']}")
+    st.caption(flow["caption"])
+    st.code(flow["flow"], language=None)
 
 
 def _render_runtime_test_agent() -> None:
@@ -275,37 +256,6 @@ def _render_runtime_test_agent() -> None:
     if st.session_state.get("current_answer"):
         st.markdown("**Agent response**")
         st.write(st.session_state.current_answer)
-        if st.session_state.get("current_scenario") == "Tool Permission":
-            _render_tool_permission_flow()
-
-
-def _render_secret_data_flow() -> None:
-    st.markdown("##### Secret Protection Data Flow")
-    st.caption("Secret Protection is enforced at the boundary between the LLM's requested action and actual tool execution.")
-    st.code(
-        "User Input\n"
-        "    ↓\n"
-        "LLM / Agent\n"
-        "decides to call a tool\n"
-        "    ↓\n"
-        "Tool name + arguments generated\n"
-        "    ↓\n"
-        "┌──────────────────────────────────┐\n"
-        "│       SECRET PROTECTION          │\n"
-        "│  Scan tool-call arguments before │\n"
-        "│  the tool is allowed to execute  │\n"
-        "└──────────────────────────────────┘\n"
-        "    ↓\n"
-        "Protected secret detected?\n"
-        "      /              \\\n"
-        "    YES               NO\n"
-        "     ↓                 ↓\n"
-        "   BLOCK            CONTINUE\n"
-        "     ↓                 ↓\n"
-        "Tool is NOT       Tool executes\n"
-        "executed          normally",
-        language=None,
-    )
 
 
 def _render_runtime_activity() -> None:
@@ -319,8 +269,10 @@ def _render_runtime_activity() -> None:
         st.dataframe([_event_row(e, summary) for e in request_events], use_container_width=True, hide_index=True)
     else:
         st.info("No runtime security activity captured for a completed event yet.")
-    if scenario == "Secret Protection":
-        _render_secret_data_flow()
+
+    if scenario in {"Tool Permission", "Allowed Egress", "Blocked Egress", "Secret Protection", "Content Trust"}:
+        _render_runtime_flow(scenario, location="current_event")
+
     with st.expander("Recent Runtime Security History"):
         history = st.session_state.get("ui_runtime_history", [])
         if history:
