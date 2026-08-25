@@ -117,23 +117,39 @@ def _render_runtime_flow(scenario, events):
     control_names = {"Tool Permission":"TOOL PERMISSION POLICY","Allowed Egress":"EGRESS CONTROL","Blocked Egress":"EGRESS CONTROL","Secret Protection":"SECRET PROTECTION","Content Trust":"CONTENT TRUST"}
     control = control_names.get(scenario, "RUNTIME SECURITY")
     lines = flow["flow"].splitlines()
-    before, box, after = [], [], []
-    state = "before"
-    for line in lines:
-        if control in line: state = "box"
-        if state == "before": before.append(line)
-        elif state == "box":
-            box.append(line)
-            if "└" in line: state = "after"
-        else: after.append(line)
-    if not box:
+
+    # Locate the COMPLETE ASCII control box. Starting from the control label caused
+    # the top border to remain in the previous grey code block.
+    control_index = next((i for i, line in enumerate(lines) if control in line), None)
+    if control_index is None:
         st.code(flow["flow"], language=None); return
+    box_start = control_index
+    while box_start > 0 and "┌" not in lines[box_start]:
+        box_start -= 1
+    box_end = control_index
+    while box_end < len(lines) - 1 and "└" not in lines[box_end]:
+        box_end += 1
+    if "┌" not in lines[box_start] or "└" not in lines[box_end]:
+        st.code(flow["flow"], language=None); return
+
+    before = lines[:box_start]
+    box = lines[box_start:box_end + 1]
+    after = lines[box_end + 1:]
     if before: st.code("\n".join(before).rstrip(), language=None)
-    # Keep the highlight tightly around the original security-control box instead
-    # of stretching it across the full Streamlit content row.
+
+    # The yellow HTML container itself is the visual box. Do not draw a second
+    # ASCII border inside it; this avoids the awkward double-box appearance.
+    inner_lines = [line for line in box[1:-1]]
+    cleaned = []
+    for line in inner_lines:
+        text = line.strip()
+        if text.startswith("│"): text = text[1:]
+        if text.endswith("│"): text = text[:-1]
+        cleaned.append(text.strip())
+    control_body = "\n".join(cleaned)
     st.markdown(
-        '<div style="display:inline-block;width:auto;max-width:100%;background:#fff3cd;border:2px solid #f0ad4e;border-radius:8px;padding:10px 14px;margin:8px 0;font-family:monospace;white-space:pre;overflow-x:auto;">'
-        '<strong>🛡 RUNTIME CHECKING POINT</strong><br>' + html.escape("\n".join(box)) + '</div>',
+        '<div style="display:table;background:#fff3cd;border:2px solid #f0ad4e;border-radius:8px;padding:12px 18px;margin:8px 0;font-family:monospace;white-space:pre;">'
+        '<strong>🛡 RUNTIME CHECKING POINT</strong><br><br>' + html.escape(control_body) + '</div>',
         unsafe_allow_html=True,
     )
     if after: st.code("\n".join(after).lstrip("\n"), language=None)
