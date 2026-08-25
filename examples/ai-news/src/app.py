@@ -167,9 +167,11 @@ def _current_flow_decision(scenario: str, events: list[dict]) -> str | None:
     candidates = [e for e in events if e.get("event") == preferred_event] or events
     for event in reversed(candidates):
         decision = str(event.get("decision", "")).upper()
-        if decision in {"BLOCK", "BLOCKED", "DENY", "DENIED"}:
+        # Content Trust records suspicious instruction-shaped output as SUSPICIOUS.
+        # That is an enforcement/block outcome, not an undecided state.
+        if decision in {"BLOCK", "BLOCKED", "DENY", "DENIED", "SUSPICIOUS"}:
             return "BLOCK"
-        if decision in {"ALLOW", "ALLOWED", "APPROVED", "PASS", "PASSED"}:
+        if decision in {"ALLOW", "ALLOWED", "APPROVED", "PASS", "PASSED", "CLEAN", "TRUSTED"}:
             return "ALLOW"
     return None
 
