@@ -107,6 +107,10 @@ def _current_flow_decision(scenario, events):
     return None
 
 
+def _flow_arrow():
+    st.markdown('<div style="font-family:monospace;font-size:22px;line-height:1;text-align:left;margin:3px 0 3px 52px;">↓</div>', unsafe_allow_html=True)
+
+
 def _render_runtime_flow(scenario, events):
     decision = _current_flow_decision(scenario, events)
     if not decision:
@@ -117,31 +121,24 @@ def _render_runtime_flow(scenario, events):
     control_names = {"Tool Permission":"TOOL PERMISSION POLICY","Allowed Egress":"EGRESS CONTROL","Blocked Egress":"EGRESS CONTROL","Secret Protection":"SECRET PROTECTION","Content Trust":"CONTENT TRUST"}
     control = control_names.get(scenario, "RUNTIME SECURITY")
     lines = flow["flow"].splitlines()
-
-    # Locate the COMPLETE ASCII control box. Starting from the control label caused
-    # the top border to remain in the previous grey code block.
     control_index = next((i for i, line in enumerate(lines) if control in line), None)
     if control_index is None:
         st.code(flow["flow"], language=None); return
     box_start = control_index
-    while box_start > 0 and "┌" not in lines[box_start]:
-        box_start -= 1
+    while box_start > 0 and "┌" not in lines[box_start]: box_start -= 1
     box_end = control_index
-    while box_end < len(lines) - 1 and "└" not in lines[box_end]:
-        box_end += 1
+    while box_end < len(lines) - 1 and "└" not in lines[box_end]: box_end += 1
     if "┌" not in lines[box_start] or "└" not in lines[box_end]:
         st.code(flow["flow"], language=None); return
 
     before = lines[:box_start]
     box = lines[box_start:box_end + 1]
     after = lines[box_end + 1:]
+    while after and after[0].strip() in {"", "↓"}: after.pop(0)
     if before: st.code("\n".join(before).rstrip(), language=None)
 
-    # The yellow HTML container itself is the visual box. Do not draw a second
-    # ASCII border inside it; this avoids the awkward double-box appearance.
-    inner_lines = [line for line in box[1:-1]]
     cleaned = []
-    for line in inner_lines:
+    for line in box[1:-1]:
         text = line.strip()
         if text.startswith("│"): text = text[1:]
         if text.endswith("│"): text = text[:-1]
@@ -152,7 +149,24 @@ def _render_runtime_flow(scenario, events):
         '<strong>🛡 RUNTIME CHECKING POINT</strong><br><br>' + html.escape(control_body) + '</div>',
         unsafe_allow_html=True,
     )
-    if after: st.code("\n".join(after).lstrip("\n"), language=None)
+
+    result_text = flow.get("result")
+    if result_text:
+        _flow_arrow()
+        if decision == "BLOCK":
+            result_style = "background:#fdecec;border:2px solid #d9534f;color:#9f1d1d;"
+            result_icon = "⛔"
+        else:
+            result_style = "background:#e9f7ed;border:2px solid #4caf50;color:#176b2c;"
+            result_icon = "✓"
+        st.markdown(
+            f'<div style="display:table;{result_style}border-radius:8px;padding:9px 15px;margin:6px 0;font-family:monospace;font-weight:700;">'
+            f'{result_icon} {html.escape(result_text)}</div>',
+            unsafe_allow_html=True,
+        )
+        if after: _flow_arrow()
+
+    if after: st.code("\n".join(after), language=None)
 
 
 def _render_runtime_test_agent():
