@@ -6,8 +6,8 @@ across model changes.
 """
 
 
-def _flow(title: str, caption: str, body: str) -> dict:
-    return {"title": title, "caption": caption, "flow": body}
+def _flow(title: str, caption: str, body: str, result: str) -> dict:
+    return {"title": title, "caption": caption, "flow": body, "result": result}
 
 
 RUNTIME_FLOWS = {
@@ -16,7 +16,7 @@ RUNTIME_FLOWS = {
         "The LLM requested delete_digest, but runtime permission denied execution.",
         "User: Delete the latest digest now.\n"
         "    ↓\n"
-        "LLM / Agent reasoning\n"
+        "LLM reasoning\n"
         "decides delete_digest(...) is needed\n"
         "    ↓\n"
         "Tool-call request created\n"
@@ -26,25 +26,26 @@ RUNTIME_FLOWS = {
         "│  Is delete_digest authorized?    │\n"
         "└──────────────────────────────────┘\n"
         "    ↓\n"
-        "NOT APPROVED → BLOCKED\n"
-        "    ↓\n"
         "Real delete handler never executes\n"
         "    ↓\n"
         "LLM receives runtime block result\n"
         "    ↓\n"
         "LLM summarizes the block reason to user",
+        "NOT APPROVED → BLOCKED",
     ),
     ("Tool Permission", "ALLOW"): _flow(
         "Tool Permission Flow — Allowed",
         "Runtime permission confirmed that the requested tool is authorized.",
-        "User Input\n    ↓\nLLM / Agent chooses an approved tool\n    ↓\nTool-call request created\n    ↓\nTOOL PERMISSION POLICY\n    ↓\nAPPROVED → ALLOWED\n    ↓\nReal tool handler executes\n    ↓\nResult returns to LLM\n    ↓\nLLM answers user",
+        "User Input\n    ↓\nLLM reasoning\nchooses an approved tool\n    ↓\nTool-call request created\n    ↓\nTOOL PERMISSION POLICY\n    ↓\nReal tool handler executes\n    ↓\nResult returns to LLM\n    ↓\nLLM answers user",
+        "APPROVED → ALLOWED",
     ),
     ("Allowed Egress", "ALLOW"): _flow(
         "Egress Control Flow — Allowed",
         "Runtime egress policy confirmed that the requested destination is approved.",
         "User Input\n"
         "    ↓\n"
-        "LLM / Agent decides external data is needed\n"
+        "LLM reasoning\n"
+        "decides external data is needed\n"
         "    ↓\n"
         "get_trending_repos(endpoint=api.github.com, ...) requested\n"
         "    ↓\n"
@@ -53,25 +54,26 @@ RUNTIME_FLOWS = {
         "│  Is destination host approved?   │\n"
         "└──────────────────────────────────┘\n"
         "    ↓\n"
-        "api.github.com APPROVED → ALLOWED\n"
-        "    ↓\n"
         "Real network request executes\n"
         "    ↓\n"
         "Tool result returns to LLM\n"
         "    ↓\n"
         "LLM summarizes result to user",
+        "api.github.com APPROVED → ALLOWED",
     ),
     ("Allowed Egress", "BLOCK"): _flow(
         "Egress Control Flow — Blocked",
         "The requested destination did not pass runtime egress policy.",
-        "User Input\n    ↓\nLLM / Agent requests network tool\n    ↓\nEGRESS CONTROL\n    ↓\nDestination NOT APPROVED → BLOCKED\n    ↓\nReal network request never executes\n    ↓\nLLM receives block result\n    ↓\nLLM summarizes reason",
+        "User Input\n    ↓\nLLM reasoning\nrequests network tool\n    ↓\nEGRESS CONTROL\n    ↓\nReal network request never executes\n    ↓\nLLM receives block result\n    ↓\nLLM summarizes reason",
+        "DESTINATION NOT APPROVED → BLOCKED",
     ),
     ("Blocked Egress", "BLOCK"): _flow(
         "Egress Control Flow — Blocked",
         "A legitimate destination is still denied because it is outside the application's approved egress policy.",
         "User Input\n"
         "    ↓\n"
-        "LLM / Agent decides fetch_news is needed\n"
+        "LLM reasoning\n"
+        "decides fetch_news is needed\n"
         "    ↓\n"
         "fetch_news(url=arstechnica.com/...) requested\n"
         "    ↓\n"
@@ -80,27 +82,28 @@ RUNTIME_FLOWS = {
         "│  Is destination host approved?   │\n"
         "└──────────────────────────────────┘\n"
         "    ↓\n"
-        "arstechnica.com NOT APPROVED → BLOCKED\n"
-        "    ↓\n"
         "Real network request never executes\n"
         "    ↓\n"
         "LLM receives runtime block result\n"
         "    ↓\n"
         "LLM summarizes block reason to user",
+        "arstechnica.com NOT APPROVED → BLOCKED",
     ),
     ("Blocked Egress", "ALLOW"): _flow(
         "Egress Control Flow — Allowed",
         "The actual runtime decision allowed the destination.",
-        "User Input\n    ↓\nLLM / Agent requests network tool\n    ↓\nEGRESS CONTROL\n    ↓\nDestination APPROVED → ALLOWED\n    ↓\nReal network request executes\n    ↓\nResult returns to LLM\n    ↓\nLLM answers user",
+        "User Input\n    ↓\nLLM reasoning\nrequests network tool\n    ↓\nEGRESS CONTROL\n    ↓\nReal network request executes\n    ↓\nResult returns to LLM\n    ↓\nLLM answers user",
+        "DESTINATION APPROVED → ALLOWED",
     ),
     ("Secret Protection", "BLOCK"): _flow(
         "Secret Protection Flow — Blocked",
         "Secret Protection detected protected or credential-like data in the proposed tool arguments and stopped execution.",
         "User Input\n"
         "    ↓\n"
-        "LLM / Agent obtains controlled synthetic credential\n"
+        "LLM obtains controlled synthetic credential\n"
         "    ↓\n"
-        "LLM decides to call save_digest(...)\n"
+        "LLM reasoning\n"
+        "decides to call save_digest(...)\n"
         "    ↓\n"
         "Tool name + arguments generated\n"
         "    ↓\n"
@@ -110,25 +113,26 @@ RUNTIME_FLOWS = {
         "│ actual tool execution            │\n"
         "└──────────────────────────────────┘\n"
         "    ↓\n"
-        "Protected secret DETECTED → BLOCKED\n"
-        "    ↓\n"
         "save_digest handler never executes\n"
         "    ↓\n"
         "LLM receives block result\n"
         "    ↓\n"
         "LLM summarizes block reason to user",
+        "PROTECTED SECRET DETECTED → BLOCKED",
     ),
     ("Secret Protection", "ALLOW"): _flow(
         "Secret Protection Flow — Allowed",
         "No protected or credential-like data was detected in the proposed tool arguments.",
-        "User Input\n    ↓\nLLM / Agent proposes tool call\n    ↓\nTool name + arguments generated\n    ↓\nSECRET PROTECTION scans arguments\n    ↓\nNo protected secret detected → ALLOWED\n    ↓\nTool proceeds to remaining runtime checks / execution",
+        "User Input\n    ↓\nLLM reasoning\nproposes tool call\n    ↓\nTool name + arguments generated\n    ↓\nSECRET PROTECTION scans arguments\n    ↓\nTool proceeds to remaining runtime checks / execution",
+        "NO PROTECTED SECRET DETECTED → ALLOWED",
     ),
     ("Content Trust", "BLOCK"): _flow(
         "Content Trust Flow — Blocked",
         "The fetched external content contained instruction-shaped content, so Content Trust blocked it before normal model use.",
         "User Input\n"
         "    ↓\n"
-        "LLM / Agent decides fetch_news is needed\n"
+        "LLM reasoning\n"
+        "decides fetch_news is needed\n"
         "    ↓\n"
         "fetch_news(...) passes permission / egress checks\n"
         "    ↓\n"
@@ -141,23 +145,21 @@ RUNTIME_FLOWS = {
         "│ Scan untrusted tool output before│\n"
         "│ normal model-context use         │\n"
         "└──────────────────────────────────┘\n"
-        "    ↓\n"
-        "Suspicious instruction-shaped content DETECTED\n"
-        "    ↓\n"
-        "BLOCKED\n"
         "    ↓\n"
         "Suspicious content is NOT exposed for normal LLM use\n"
         "    ↓\n"
         "LLM receives structured block result\n"
         "    ↓\n"
         "LLM summarizes block reason to user",
+        "SUSPICIOUS CONTENT DETECTED → BLOCKED",
     ),
     ("Content Trust", "ALLOW"): _flow(
         "Content Trust Flow — Allowed",
         "The fetched external content passed Content Trust and can be returned to the LLM for normal use.",
         "User Input\n"
         "    ↓\n"
-        "LLM / Agent decides fetch_news is needed\n"
+        "LLM reasoning\n"
+        "decides fetch_news is needed\n"
         "    ↓\n"
         "fetch_news(...) passes permission / egress checks\n"
         "    ↓\n"
@@ -171,13 +173,10 @@ RUNTIME_FLOWS = {
         "│ normal model-context use         │\n"
         "└──────────────────────────────────┘\n"
         "    ↓\n"
-        "No suspicious instruction-shaped content detected\n"
-        "    ↓\n"
-        "ALLOWED\n"
-        "    ↓\n"
         "Content returned to LLM for normal use\n"
         "    ↓\n"
         "LLM uses content to answer user",
+        "NO SUSPICIOUS CONTENT DETECTED → ALLOWED",
     ),
 }
 
