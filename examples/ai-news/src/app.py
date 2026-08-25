@@ -114,9 +114,6 @@ def _render_runtime_flow(scenario, events):
     flow = get_runtime_flow(scenario, decision)
     if not flow: return
     st.markdown(f"##### {flow['title']}"); st.caption(flow["caption"])
-    # Render the fixed template as a readable flow, but visually emphasize the
-    # runtime enforcement boundary. This is presentation only; the decision still
-    # comes from the actual audit event.
     control_names = {"Tool Permission":"TOOL PERMISSION POLICY","Allowed Egress":"EGRESS CONTROL","Blocked Egress":"EGRESS CONTROL","Secret Protection":"SECRET PROTECTION","Content Trust":"CONTENT TRUST"}
     control = control_names.get(scenario, "RUNTIME SECURITY")
     lines = flow["flow"].splitlines()
@@ -132,8 +129,10 @@ def _render_runtime_flow(scenario, events):
     if not box:
         st.code(flow["flow"], language=None); return
     if before: st.code("\n".join(before).rstrip(), language=None)
+    # Keep the highlight tightly around the original security-control box instead
+    # of stretching it across the full Streamlit content row.
     st.markdown(
-        '<div style="background:#fff3cd;border:2px solid #f0ad4e;border-radius:10px;padding:14px 18px;margin:8px 0;font-family:monospace;white-space:pre-wrap;">'
+        '<div style="display:inline-block;width:auto;max-width:100%;background:#fff3cd;border:2px solid #f0ad4e;border-radius:8px;padding:10px 14px;margin:8px 0;font-family:monospace;white-space:pre;overflow-x:auto;">'
         '<strong>🛡 RUNTIME CHECKING POINT</strong><br>' + html.escape("\n".join(box)) + '</div>',
         unsafe_allow_html=True,
     )
