@@ -113,13 +113,11 @@ def _run_agent(prompt: str):
 
 
 def _prepare_test(label: str, prompt: str | None = None) -> None:
-    """Prepare the visible request; the actual test runs only after Send."""
     if label == "Content Trust":
         prompt, metadata = start_untrusted_content_fixture()
     else:
         stop_untrusted_content_fixture()
         metadata = {}
-
     st.session_state.prepared_scenario = label
     st.session_state.runtime_agent_input = prompt or ""
     st.session_state.current_prompt = ""
@@ -142,45 +140,46 @@ def _render_runtime_protection_controls() -> None:
     st.subheader("Runtime Protection")
     st.toggle("Runtime Protection", value=True, disabled=True, help="Mandatory for this secured application")
     st.caption("Protection is mandatory for this application and cannot be disabled from the UI.")
-
     st.markdown("##### ✅ Tool Permission")
     st.caption("Even if the agent knows about a capability, it cannot execute it until runtime policy explicitly authorizes it.")
-    _scenario_line(
-        "**Test scenario:** the test-only `delete_digest` tool is visible to the agent, but the application developer has not approved it in the runtime tool allowlist. Runtime permission should deny it.",
-        "test_tool_permission", "Tool Permission", TOOL_PERMISSION_PROMPT,
-    )
-
+    _scenario_line("**Test scenario:** the test-only `delete_digest` tool is visible to the agent, but the application developer has not approved it in the runtime tool allowlist. Runtime permission should deny it.", "test_tool_permission", "Tool Permission", TOOL_PERMISSION_PROMPT)
     st.markdown("##### ✅ Egress Control")
     st.caption("Authorized tools can connect only to destinations explicitly permitted by runtime policy.")
-    _scenario_line(
-        "**Allowed scenario:** request GitHub trend data from the explicitly allowlisted `api.github.com` destination.",
-        "test_allowed_egress", "Allowed Egress", ALLOWED_EGRESS_PROMPT,
-    )
-    _scenario_line(
-        "**Blocked scenario:** request a legitimate Ars Technica page whose host is not on the application's egress allowlist.",
-        "test_blocked_egress", "Blocked Egress", BLOCKED_EGRESS_PROMPT,
-    )
-
+    _scenario_line("**Allowed scenario:** request GitHub trend data from the explicitly allowlisted `api.github.com` destination.", "test_allowed_egress", "Allowed Egress", ALLOWED_EGRESS_PROMPT)
+    _scenario_line("**Blocked scenario:** request a legitimate Ars Technica page whose host is not on the application's egress allowlist.", "test_blocked_egress", "Blocked Egress", BLOCKED_EGRESS_PROMPT)
     st.markdown("##### ✅ Secret Protection")
-    st.caption(
-        "Application credentials are used internally only for their intended service (for example, the Anthropic API key authenticates the application to the LLM provider). "
-        "Before any agent tool executes, Secret Protection scans the tool arguments. If a protected or credential-like secret appears in those arguments, the tool call is blocked."
-    )
-    _scenario_line(
-        "**Test scenario:** the agent first obtains a controlled synthetic API credential whose value is not shown in the user prompt. It then attempts to pass that credential into `save_digest`; Secret Protection should detect it in the tool arguments and block the write before execution.",
-        "test_secret_protection", "Secret Protection", SECRET_PROMPT,
-    )
-
+    st.caption("Application credentials are used internally only for their intended service (for example, the Anthropic API key authenticates the application to the LLM provider). Before any agent tool executes, Secret Protection scans the tool arguments. If a protected or credential-like secret appears in those arguments, the tool call is blocked.")
+    _scenario_line("**Test scenario:** the agent first obtains a controlled synthetic API credential whose value is not shown in the user prompt. It then attempts to pass that credential into `save_digest`; Secret Protection should detect it in the tool arguments and block the write before execution.", "test_secret_protection", "Secret Protection", SECRET_PROMPT)
     st.markdown("##### ✅ Content Trust")
     st.caption("External content remains untrusted; instruction-shaped content is detected before normal model use.")
-    _scenario_line(
-        "**Test scenario:** start a controlled local article containing prompt-injection-style instructions; the exact live URL is copied into Ask the AI News Agent, then content trust should detect and block the suspicious returned content.",
-        "test_content_trust", "Content Trust",
-    )
+    _scenario_line("**Test scenario:** start a controlled local article containing prompt-injection-style instructions; the exact live URL is copied into Ask the AI News Agent, then content trust should detect and block the suspicious returned content.", "test_content_trust", "Content Trust")
 
 
-def _render_runtime_flow(scenario: str, *, location: str) -> None:
-    flow = get_runtime_flow(scenario)
+def _current_flow_decision(scenario: str, events: list[dict]) -> str | None:
+    """Select the UI branch from runtime evidence, never from LLM reasoning."""
+    preferred_event = {
+        "Tool Permission": "tool_call",
+        "Allowed Egress": "tool_call",
+        "Blocked Egress": "tool_call",
+        "Secret Protection": "secret_check",
+        "Content Trust": "content_trust",
+    }.get(scenario)
+    candidates = [e for e in events if e.get("event") == preferred_event] or events
+    for event in reversed(candidates):
+        decision = str(event.get("decision", "")).upper()
+        if decision in {"BLOCK", "BLOCKED", "DENY", "DENIED"}:
+            return "BLOCK"
+        if decision in {"ALLOW", "ALLOWED", "APPROVED", "PASS", "PASSED"}:
+            return "ALLOW"
+    return None
+
+
+def _render_runtime_flow(scenario: str, events: list[dict]) -> None:
+    decision = _current_flow_decision(scenario, events)
+    if not decision:
+        st.caption("No conclusive runtime decision is available yet, so no outcome flow is shown.")
+        return
+    flow = get_runtime_flow(scenario, decision)
     if not flow:
         return
     st.markdown(f"##### {flow['title']}")
@@ -192,31 +191,11 @@ def _render_runtime_test_agent() -> None:
     st.markdown('<div id="runtime-agent-anchor" style="scroll-margin-top: 96px;"></div>', unsafe_allow_html=True)
     st.subheader("Ask the AI News Agent")
     st.caption("A Test button above prepares the prompt. Review it here, then press Send to execute.")
-
     if "runtime_agent_input" not in st.session_state:
         st.session_state.runtime_agent_input = ""
-
-    question = st.text_area(
-        "Runtime test request",
-        key="runtime_agent_input",
-        height=120,
-        placeholder="Select a Test scenario above or enter a runtime-security request...",
-        label_visibility="collapsed",
-    )
-
+    question = st.text_area("Runtime test request", key="runtime_agent_input", height=120, placeholder="Select a Test scenario above or enter a runtime-security request...", label_visibility="collapsed")
     if st.session_state.pop("jump_to_agent", False):
-        components.html(
-            """
-            <script>
-            setTimeout(() => {
-              const target = window.parent.document.getElementById('runtime-agent-anchor');
-              if (target) target.scrollIntoView({behavior: 'smooth', block: 'start'});
-            }, 100);
-            </script>
-            """,
-            height=0,
-        )
-
+        components.html("""<script>setTimeout(() => { const target = window.parent.document.getElementById('runtime-agent-anchor'); if (target) target.scrollIntoView({behavior: 'smooth', block: 'start'}); }, 100);</script>""", height=0)
     if st.button("Send", key="runtime_send", type="primary"):
         prompt = question.strip()
         if not prompt:
@@ -249,7 +228,6 @@ def _render_runtime_test_agent() -> None:
             finally:
                 _capture_request_activity(start_count, st.session_state.current_prompt)
                 st.session_state.prepared_scenario = None
-
     if st.session_state.get("current_prompt"):
         st.caption("Last submitted request")
         st.code(st.session_state.current_prompt, language=None)
@@ -269,10 +247,8 @@ def _render_runtime_activity() -> None:
         st.dataframe([_event_row(e, summary) for e in request_events], use_container_width=True, hide_index=True)
     else:
         st.info("No runtime security activity captured for a completed event yet.")
-
     if scenario in {"Tool Permission", "Allowed Egress", "Blocked Egress", "Secret Protection", "Content Trust"}:
-        _render_runtime_flow(scenario, location="current_event")
-
+        _render_runtime_flow(scenario, request_events)
     with st.expander("Recent Runtime Security History"):
         history = st.session_state.get("ui_runtime_history", [])
         if history:
