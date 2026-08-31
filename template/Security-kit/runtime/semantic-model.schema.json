@@ -1,0 +1,48 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "semantic-model.lock.json — human-approved pinned classifier",
+  "description": "Written by a HUMAN at the Task 5 selection gate after reviewing measured benchmark results. Code never generates this file. runtime/classifier.py load_lock() enforces the same constraints at runtime; this schema exists so the lock can also be validated by generic tooling.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema_version",
+    "protocol_version",
+    "executable_path",
+    "executable_sha256",
+    "model_path",
+    "model_sha256",
+    "corpus_sha256",
+    "confidence_floor",
+    "approved_by",
+    "approved_date"
+  ],
+  "properties": {
+    "schema_version": { "const": 1 },
+    "protocol_version": { "const": 1 },
+    "executable_path": {
+      "type": "string",
+      "pattern": "^/",
+      "description": "Absolute path to the classifier executable. Relative paths are rejected."
+    },
+    "executable_sha256": { "type": "string", "pattern": "^[0-9a-f]{64}$" },
+    "model_path": {
+      "type": "string",
+      "pattern": "^/",
+      "description": "Absolute path to the model artifact. Relative paths are rejected."
+    },
+    "model_sha256": { "type": "string", "pattern": "^[0-9a-f]{64}$" },
+    "corpus_sha256": {
+      "type": "string",
+      "pattern": "^[0-9a-f]{64}$",
+      "description": "Digest of the corpus the approved benchmark ran on. eval_runtime_injection.py --verify recomputes and compares."
+    },
+    "confidence_floor": {
+      "type": "number",
+      "minimum": 0,
+      "maximum": 1,
+      "description": "Below this, any label becomes UNRESOLVED. Measured at the benchmark, recorded here, never tuned live."
+    },
+    "approved_by": { "type": "string", "minLength": 1 },
+    "approved_date": { "type": "string", "pattern": "^\\d{4}-\\d{2}-\\d{2}$" }
+  }
+}
