@@ -1273,10 +1273,22 @@ how a runtime design ends up waiting for an event nobody emits:
   subscriber raises / returns garbage  ──▶  DENY
 ```
 
+> **Superseded in part, 2026-08-31.** The re-scoped runtime plan (AD-1) replaces
+> `ON_CONTENT` **for pre-context use** with a binding ingress boundary, `ON_INGRESS`:
+> outcomes `ALLOW` / `REQUIRE_REVIEW`, where `REQUIRE_REVIEW` withholds the content from
+> model context and routes it to quarantine, releasable only by an exact-digest
+> `ContentReleaseReceipt`. The structural argument below ("no denial channel by type")
+> was load-bearing against hanging a *guarantee* on a regex — and it survives: the rule
+> layer still never returns `data`, and `ON_INGRESS` still cannot authorize an action.
+> What changed is that withholding-before-context is now expressible in code. `ON_ACTION`
+> remains the binding action boundary; `ON_RECORD` remains audit-only; `ON_CONTENT`
+> remains as described for the non-pre-context positions (⑧ output transform).
+
 | Event | Fires at | Semantics | Subscribers |
 |---|---|---|---|
 | `ON_ACTION` | ⑤ | **VETO** — the verdict is binding | M4 `decide()` → **A4** → **A5** |
-| `ON_CONTENT` | ② ③ ⑥ ⑧ | **TRANSFORM + FLAG** — returns labelled content, advisory | M6, **A1**, M12 |
+| `ON_INGRESS` | ② ③ ⑥ | **WITHHOLD or ALLOW** — binding pre-context; non-`data` quarantines (AD-1, 2026-08-31) | ingress pipeline (rules + semantic) |
+| `ON_CONTENT` | ⑧ | **TRANSFORM + FLAG** — returns labelled content, advisory | M6, **A1**, M12 |
 | `ON_RECORD` | ① ⓗ ⑦ ⑫ | **AUDIT** — cannot alter flow | M8, M9 fan-out |
 
 An earlier revision defined seven events (`ON_PROMPT`, `ON_CONTEXT`, `ON_PRE_ACTION`,
