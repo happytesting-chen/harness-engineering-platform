@@ -310,18 +310,19 @@ def test_shell_pattern_coverage_is_partial_and_measured():
         ), f"{path} gained shell coverage — update UNCOVERED_PATHS and SECURITY.md together."
 
     # 3. The measured total, as cited in SECURITY.md S2.4.
-    #    Was 68 of 140 until 2026-08-22, when the runtime pair
-    #    (governance/runtime_dispatcher.py, Security-kit/runtime_screen.py) joined
-    #    BUILTIN_PROTECTED_PATHS. Both numbers grew because the matrix grew by two
-    #    paths — the five uncovered verbs reach the new paths too. Coverage did not
-    #    regress: the ratio moved from 51% to 54% closed, and
-    #    test_the_open_set_has_exactly_two_shapes still passes, which is the
-    #    assertion that would catch a new irregular hole.
-    assert len(open_cells) == 78, (
-        f"shell coverage changed: {len(open_cells)} of {total} cells open, expected 78. "
+    #    Was 78 of 168 until 2026-09-01, when the 15 runtime-mvp modules and the
+    #    signed classifier lock joined BUILTIN_PROTECTED_PATHS (12 -> 28 paths) and
+    #    the redirect and chmod/chown/rm/mv families gained a Security-kit/runtime/
+    #    prefix so the new paths are covered like every other mechanism file. The
+    #    ratio IMPROVED, 54% -> 60% closed: the added paths are covered by all nine
+    #    covered verbs, so they dilute the two uncovered audit paths. The open set
+    #    still has exactly two shapes — adding covered paths cannot create a third,
+    #    which test_the_open_set_has_exactly_two_shapes asserts independently.
+    assert len(open_cells) == 158, (
+        f"shell coverage changed: {len(open_cells)} of {total} cells open, expected 158. "
         f"Update the number in SECURITY.md S2.4's residual-gap box to match."
     )
-    assert total == 168, f"matrix size changed to {total}; SECURITY.md cites 168"
+    assert total == 392, f"matrix size changed to {total}; SECURITY.md cites 392"
 
 
 def test_the_open_set_has_exactly_two_shapes():

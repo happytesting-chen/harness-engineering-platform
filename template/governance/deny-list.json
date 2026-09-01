@@ -14,7 +14,7 @@
     "reboot",
     {
       "_note": "S2.4 shell vector: a file_path check cannot see a shell redirect or in-place edit, so block the obvious command forms that target the harness's own mechanism/policy. Pattern-based and therefore incomplete by nature - see SECURITY.md S2.4 for the residual gap. The Security-kit branch was added 2026-08-17: this family named only governance/ and settings.json, so `echo x > Security-kit/content_trust.py` was ALLOW (measured) even though an Edit to the same file was DENY. runtime_dispatcher.py and runtime_screen.py joined both filename lists on 2026-08-22, in the same commit that added the mechanism - a protected path whose name no shell pattern carries is protected against Edit and open to `echo x >`.",
-      "pattern": ">>?\\s*[^|;&]*(governance/(permission\\.py|deny-list\\.json|mcp-allowlist\\.json|runtime_dispatcher\\.py)|\\.claude/settings\\.json|Security-kit/(secret_scan|content_trust|prompt_screen|result_screen|runtime_screen)\\.py)",
+      "pattern": ">>?\\s*[^|;&]*(governance/(permission\\.py|deny-list\\.json|mcp-allowlist\\.json|runtime_dispatcher\\.py)|\\.claude/settings\\.json|Security-kit/(secret_scan|content_trust|prompt_screen|result_screen|runtime_screen)\\.py|Security-kit/runtime/)",
       "mode": "regex"
     },
     {
@@ -27,7 +27,7 @@
     },
     {
       "_note": "Enumerated rather than a bare `Security-kit/` prefix on purpose: this family includes `rm`, and `Security-kit/` also holds generated files (coverage.json) plus the eval corpus, which a project legitimately deletes and regenerates. Naming the five mechanism entry points blocks the vector without an over-block.",
-      "pattern": "\\b(chmod|chown|rm|mv)\\s+[^|;&]*(governance/|\\.claude/settings\\.json|Security-kit/(secret_scan|content_trust|prompt_screen|result_screen|runtime_screen)\\.py)",
+      "pattern": "\\b(chmod|chown|rm|mv)\\s+[^|;&]*(governance/|\\.claude/settings\\.json|Security-kit/(secret_scan|content_trust|prompt_screen|result_screen|runtime_screen)\\.py|Security-kit/runtime/)",
       "mode": "regex"
     }
   ],
@@ -43,6 +43,22 @@
     "Security-kit/result_screen.py",
     "governance/runtime_dispatcher.py",
     "Security-kit/runtime_screen.py",
+    "Security-kit/runtime/__init__.py",
+    "Security-kit/runtime/adapters.py",
+    "Security-kit/runtime/audit.py",
+    "Security-kit/runtime/classifier.py",
+    "Security-kit/runtime/contracts.py",
+    "Security-kit/runtime/guarded.py",
+    "Security-kit/runtime/host.py",
+    "Security-kit/runtime/ingress.py",
+    "Security-kit/runtime/normalization.py",
+    "Security-kit/runtime/output.py",
+    "Security-kit/runtime/review.py",
+    "Security-kit/runtime/review_cli.py",
+    "Security-kit/runtime/rules.py",
+    "Security-kit/runtime/session.py",
+    "Security-kit/runtime/startup.py",
+    "Security-kit/runtime/semantic-model.lock.json",
     "Harness-Best-Practice/observability/audit_hook.py",
     "Harness-Best-Practice/observability/audit.log"
   ]

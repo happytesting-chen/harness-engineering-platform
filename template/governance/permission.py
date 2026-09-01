@@ -204,6 +204,31 @@ BUILTIN_PROTECTED_PATHS = (
     # `Edit governance/runtime_dispatcher.py` returned exit 0 (ALLOW).
     "governance/runtime_dispatcher.py",
     "Security-kit/runtime_screen.py",
+    # The runtime-mvp semantic profile, added with the 2026-09-01 claims batch. Same
+    # reasoning as the runtime pair above: each is an in-process enforcement module for
+    # a DEPLOYED application, so one edit disables a control for the whole app, and the
+    # app has no hook layer to catch it. The signed classifier lock is here too — it is
+    # the artifact a human approved by digest, and rewriting it swaps the model silently.
+    # NOT listed, deliberately: runtime/attack_driver.py and runtime/semantic-model.
+    # schema.json — evaluation tooling and inert documentation, matching how
+    # Security-kit/eval/ is left unprotected. The shell patterns use a
+    # Security-kit/runtime/ PREFIX, so those two still get shell coverage.
+    "Security-kit/runtime/__init__.py",
+    "Security-kit/runtime/adapters.py",
+    "Security-kit/runtime/audit.py",
+    "Security-kit/runtime/classifier.py",
+    "Security-kit/runtime/contracts.py",
+    "Security-kit/runtime/guarded.py",
+    "Security-kit/runtime/host.py",
+    "Security-kit/runtime/ingress.py",
+    "Security-kit/runtime/normalization.py",
+    "Security-kit/runtime/output.py",
+    "Security-kit/runtime/review.py",
+    "Security-kit/runtime/review_cli.py",
+    "Security-kit/runtime/rules.py",
+    "Security-kit/runtime/session.py",
+    "Security-kit/runtime/startup.py",
+    "Security-kit/runtime/semantic-model.lock.json",
     "Harness-Best-Practice/observability/audit_hook.py",
     "Harness-Best-Practice/observability/audit.log",
 )

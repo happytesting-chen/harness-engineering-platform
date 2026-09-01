@@ -128,11 +128,12 @@ Four things to know before you rely on it:
 > target, so `deny-list.json` reaches for *pattern matching* instead — and patterns are
 > incomplete by construction, not merely in principle. Measured on the shipped policy
 > (`tests/test_protected_paths.py::test_shell_pattern_coverage_is_partial_and_measured`,
-> which enumerates 14 shell verbs against all 12 built-in protected paths): **78 of 168
-> combinations are not blocked.** (Was 68 of 140 until 2026-08-22, when the runtime pair
-> `governance/runtime_dispatcher.py` and `Security-kit/runtime_screen.py` joined the
-> built-in list. Both numbers grew because the matrix grew by two paths, which the five
-> uncovered verbs also reach; the closed fraction went from 51% to 54%.) The open set has
+> which enumerates 14 shell verbs against all 28 built-in protected paths): **158 of 392
+> combinations are not blocked.** (Was 78 of 168 until 2026-09-01, when the 15 runtime-mvp
+> modules and the signed classifier lock joined the built-in list and the redirect and
+> chmod/chown/rm/mv families gained a `Security-kit/runtime/` prefix. The closed fraction
+> IMPROVED, 54% → 60%: the added paths are covered by all nine covered verbs, so the two
+> uncovered audit paths are a smaller share of a larger matrix.) The open set has
 > exactly **two shapes**, and
 > `test_the_open_set_has_exactly_two_shapes` asserts that as a set equality rather than
 > a count — so a change that closes one cell while opening another cannot hide behind an
