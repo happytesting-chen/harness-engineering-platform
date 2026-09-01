@@ -1,47 +1,65 @@
-# Deferred: protect the runtime-mvp modules (acceptance condition 19)
+# Protect the runtime-mvp modules (acceptance condition 19) — RESOLVED, Option B
 
-**Status:** not in the claims batch. Split out 2026-09-01 after it broke the shell census.
+**Status:** authored and verified as
+`2026-09-01-protect-runtime-modules.patch`. Human-apply (both `permission.py` and
+`deny-list.json` are protected paths). Split out of the claims batch 2026-09-01 after the
+bundled first attempt broke the shell census.
 
-## Why it was split out
+## The risk this closes
 
-Acceptance condition 19 says every new enforcement module joins
-`BUILTIN_PROTECTED_PATHS`. Adding the 15 runtime-mvp modules + the classifier lock does
-give them **structured** (Gate 1a, file-identity) write protection — the primary control.
-But it also perturbs the **shell-coverage census** that `test_protected_paths.py`,
-`control-matrix.md` (SEC-SELF-001), `mechanisms.json` and `SECURITY.md` S2.4 all pin and
-document together:
+Before this patch the 15 runtime-mvp enforcement modules and the human-signed classifier
+lock were **not** in `BUILTIN_PROTECTED_PATHS`. An agent `Edit` to
+`Security-kit/runtime/host.py` — or to `ingress.py`, or to the signed lock — was
+**ALLOWED**. Every control the runtime profile claims was editable by the agent it
+constrains, which is the exact failure `SEC-SELF-001` exists to prevent and the reason
+the runtime pair joined the list on 2026-08-22 in the same commit as the mechanism.
 
-- protected paths 12 → 27, census cells 168 → 378, open cells 78 → **243**
-- documented closed ratio 54% → **36%**
-- and the shell deny-list never *names* the runtime paths, so they are open for **every**
-  shell verb — which breaks `test_the_open_set_has_exactly_two_shapes` (the gap gains a
-  third family) and `test_shell_patterns_block_the_common_forms_they_claim`.
+## Why Option B (full parity), not Option A (structured-only)
 
-That is a real security-design decision, not a mechanical bump, so it does not belong
-bundled under the claims register batch.
+Option A would have added the paths to `BUILTIN_PROTECTED_PATHS` and to `UNCOVERED_PATHS`,
+accepting that the shell deny-list never names them. Measured, that produced **243 of 378
+cells open (36% closed, down from 54%)** and broke
+`test_the_open_set_has_exactly_two_shapes` — the runtime paths formed a **third** gap
+family, so the residual could no longer be stated in one sentence.
 
-## The decision to make
+Option B instead gives the runtime modules the same shell coverage every other mechanism
+file has, by adding a `Security-kit/runtime/` prefix to the two deny-list families that
+enumerate filenames (redirect `>`/`>>`, and `chmod|chown|rm|mv`). The other two families
+(`sed|perl|awk -i`, `tee|truncate|dd of=`) already use a bare `Security-kit/` prefix and
+covered the new paths with no change.
 
-**Option A — structured-only (smaller).** Accept that the runtime modules have Gate 1a
-structured protection but no shell-deny coverage. Add all 15 + the lock to
-`UNCOVERED_PATHS` in `test_protected_paths.py` (they behave exactly like the two audit
-paths: open for every verb), update the census to 243/378 and the "two shapes" model to
-"5 uncovered verbs + 17 uncovered paths", and update the three docs. Honest, but the
-headline closed ratio drops to 36%.
+**Measured result: 158 of 392 cells open — 60% closed, IMPROVED from 54%.** Adding paths
+that carry full coverage dilutes the two uncovered audit paths, so the ratio rises rather
+than falls, and the gap keeps its two-family shape.
 
-**Option B — full parity (larger, better).** Extend `governance/deny-list.json` (a
-protected path) with shell-write patterns naming `Security-kit/runtime/`, so the runtime
-modules get the same shell coverage the governance modules have. Keeps the two-family
-shape and a healthy ratio. Requires a deny-list patch + re-measuring the census.
+## What the patch contains
 
-Recommendation: **Option B** — the runtime dispatcher and screens are as security-critical
-as the governance gate they compose around; giving them weaker shell coverage than
-`permission.py` is an inconsistency a reviewer will rightly question. B is more work but
-it is the coverage the files deserve.
+| File | Change |
+|---|---|
+| `governance/permission.py` | `BUILTIN_PROTECTED_PATHS` 12 → 28: the 15 runtime modules + `semantic-model.lock.json` |
+| `governance/deny-list.json` | `Security-kit/runtime/` prefix added to the redirect and `chmod\|chown\|rm\|mv` families; the same paths mirrored into the advisory `protected_paths` list |
+| `tests/test_protected_paths.py` | census pins 78 → 158 open, 168 → 392 total, with the reasoning comment rewritten |
+| `control-matrix.md`, `mechanisms.json`, `SECURITY.md` | the SEC-SELF-001 / S2.4 census citations, all three moved together |
 
-Either option is a human-applied patch (both `permission.py` and `deny-list.json` are
-protected paths). Until then, the runtime modules are protected against the agent's own
-Edit/Write tool calls by being un-listed... no — **they are currently NOT in
-`BUILTIN_PROTECTED_PATHS` at all**, so an agent's Edit to `Security-kit/runtime/host.py`
-is presently ALLOWED. That is the open risk this follow-up closes; `SEC-RUNTIME-GAP-001`
-already tracks the routing gap, and this is the self-protection gap beside it.
+**Deliberately NOT protected:** `runtime/attack_driver.py` (evaluation tooling) and
+`runtime/semantic-model.schema.json` (inert documentation of the lock format) — matching
+how `Security-kit/eval/` is left unprotected. Both still gain shell coverage from the
+directory prefix; they are simply not claimed as protected paths in the census.
+
+## Verification (done in a scratch copy of the template, not the working tree)
+
+- `pytest tests -q` → **309 passed**, including `test_protected_paths.py` in full
+- `test_shell_patterns_block_the_common_forms_they_claim` → passes (redirect now covers runtime)
+- `test_the_open_set_has_exactly_two_shapes` → passes (no third family)
+- `./init.sh` → the unchanged **5-error baseline**
+- **Composes with the claims batch:** both applied together → 309 passed, all six
+  invariants green, `init.sh` at baseline
+
+## Apply
+
+```bash
+cd template
+git apply docs/superpowers/patches/2026-09-01-runtime-claims-batch.patch
+git apply docs/superpowers/patches/2026-09-01-protect-runtime-modules.patch
+./init.sh && python3 -m pytest tests -q
+```
