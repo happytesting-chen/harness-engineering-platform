@@ -1,0 +1,151 @@
+--- a/template/governance/permission.py
++++ b/template/governance/permission.py
+@@ -204,6 +204,31 @@
+     # `Edit governance/runtime_dispatcher.py` returned exit 0 (ALLOW).
+     "governance/runtime_dispatcher.py",
+     "Security-kit/runtime_screen.py",
++    # The runtime-mvp semantic profile, added with the 2026-09-01 claims batch. Same
++    # reasoning as the runtime pair above: each is an in-process enforcement module for
++    # a DEPLOYED application, so one edit disables a control for the whole app, and the
++    # app has no hook layer to catch it. The signed classifier lock is here too — it is
++    # the artifact a human approved by digest, and rewriting it swaps the model silently.
++    # NOT listed, deliberately: runtime/attack_driver.py and runtime/semantic-model.
++    # schema.json — evaluation tooling and inert documentation, matching how
++    # Security-kit/eval/ is left unprotected. The shell patterns use a
++    # Security-kit/runtime/ PREFIX, so those two still get shell coverage.
++    "Security-kit/runtime/__init__.py",
++    "Security-kit/runtime/adapters.py",
++    "Security-kit/runtime/audit.py",
++    "Security-kit/runtime/classifier.py",
++    "Security-kit/runtime/contracts.py",
++    "Security-kit/runtime/guarded.py",
++    "Security-kit/runtime/host.py",
++    "Security-kit/runtime/ingress.py",
++    "Security-kit/runtime/normalization.py",
++    "Security-kit/runtime/output.py",
++    "Security-kit/runtime/review.py",
++    "Security-kit/runtime/review_cli.py",
++    "Security-kit/runtime/rules.py",
++    "Security-kit/runtime/session.py",
++    "Security-kit/runtime/startup.py",
++    "Security-kit/runtime/semantic-model.lock.json",
+     "Harness-Best-Practice/observability/audit_hook.py",
+     "Harness-Best-Practice/observability/audit.log",
+ )
+--- a/template/governance/deny-list.json
++++ b/template/governance/deny-list.json
+@@ -14,7 +14,7 @@
+     "reboot",
+     {
+       "_note": "S2.4 shell vector: a file_path check cannot see a shell redirect or in-place edit, so block the obvious command forms that target the harness's own mechanism/policy. Pattern-based and therefore incomplete by nature - see SECURITY.md S2.4 for the residual gap. The Security-kit branch was added 2026-08-17: this family named only governance/ and settings.json, so `echo x > Security-kit/content_trust.py` was ALLOW (measured) even though an Edit to the same file was DENY. runtime_dispatcher.py and runtime_screen.py joined both filename lists on 2026-08-22, in the same commit that added the mechanism - a protected path whose name no shell pattern carries is protected against Edit and open to `echo x >`.",
+-      "pattern": ">>?\\s*[^|;&]*(governance/(permission\\.py|deny-list\\.json|mcp-allowlist\\.json|runtime_dispatcher\\.py)|\\.claude/settings\\.json|Security-kit/(secret_scan|content_trust|prompt_screen|result_screen|runtime_screen)\\.py)",
++      "pattern": ">>?\\s*[^|;&]*(governance/(permission\\.py|deny-list\\.json|mcp-allowlist\\.json|runtime_dispatcher\\.py)|\\.claude/settings\\.json|Security-kit/(secret_scan|content_trust|prompt_screen|result_screen|runtime_screen)\\.py|Security-kit/runtime/)",
+       "mode": "regex"
+     },
+     {
+@@ -27,7 +27,7 @@
+     },
+     {
+       "_note": "Enumerated rather than a bare `Security-kit/` prefix on purpose: this family includes `rm`, and `Security-kit/` also holds generated files (coverage.json) plus the eval corpus, which a project legitimately deletes and regenerates. Naming the five mechanism entry points blocks the vector without an over-block.",
+-      "pattern": "\\b(chmod|chown|rm|mv)\\s+[^|;&]*(governance/|\\.claude/settings\\.json|Security-kit/(secret_scan|content_trust|prompt_screen|result_screen|runtime_screen)\\.py)",
++      "pattern": "\\b(chmod|chown|rm|mv)\\s+[^|;&]*(governance/|\\.claude/settings\\.json|Security-kit/(secret_scan|content_trust|prompt_screen|result_screen|runtime_screen)\\.py|Security-kit/runtime/)",
+       "mode": "regex"
+     }
+   ],
+@@ -43,6 +43,22 @@
+     "Security-kit/result_screen.py",
+     "governance/runtime_dispatcher.py",
+     "Security-kit/runtime_screen.py",
++    "Security-kit/runtime/__init__.py",
++    "Security-kit/runtime/adapters.py",
++    "Security-kit/runtime/audit.py",
++    "Security-kit/runtime/classifier.py",
++    "Security-kit/runtime/contracts.py",
++    "Security-kit/runtime/guarded.py",
++    "Security-kit/runtime/host.py",
++    "Security-kit/runtime/ingress.py",
++    "Security-kit/runtime/normalization.py",
++    "Security-kit/runtime/output.py",
++    "Security-kit/runtime/review.py",
++    "Security-kit/runtime/review_cli.py",
++    "Security-kit/runtime/rules.py",
++    "Security-kit/runtime/session.py",
++    "Security-kit/runtime/startup.py",
++    "Security-kit/runtime/semantic-model.lock.json",
+     "Harness-Best-Practice/observability/audit_hook.py",
+     "Harness-Best-Practice/observability/audit.log"
+   ]
+--- a/template/tests/test_protected_paths.py
++++ b/template/tests/test_protected_paths.py
+@@ -310,18 +310,19 @@
+         ), f"{path} gained shell coverage — update UNCOVERED_PATHS and SECURITY.md together."
+ 
+     # 3. The measured total, as cited in SECURITY.md S2.4.
+-    #    Was 68 of 140 until 2026-08-22, when the runtime pair
+-    #    (governance/runtime_dispatcher.py, Security-kit/runtime_screen.py) joined
+-    #    BUILTIN_PROTECTED_PATHS. Both numbers grew because the matrix grew by two
+-    #    paths — the five uncovered verbs reach the new paths too. Coverage did not
+-    #    regress: the ratio moved from 51% to 54% closed, and
+-    #    test_the_open_set_has_exactly_two_shapes still passes, which is the
+-    #    assertion that would catch a new irregular hole.
+-    assert len(open_cells) == 78, (
+-        f"shell coverage changed: {len(open_cells)} of {total} cells open, expected 78. "
++    #    Was 78 of 168 until 2026-09-01, when the 15 runtime-mvp modules and the
++    #    signed classifier lock joined BUILTIN_PROTECTED_PATHS (12 -> 28 paths) and
++    #    the redirect and chmod/chown/rm/mv families gained a Security-kit/runtime/
++    #    prefix so the new paths are covered like every other mechanism file. The
++    #    ratio IMPROVED, 54% -> 60% closed: the added paths are covered by all nine
++    #    covered verbs, so they dilute the two uncovered audit paths. The open set
++    #    still has exactly two shapes — adding covered paths cannot create a third,
++    #    which test_the_open_set_has_exactly_two_shapes asserts independently.
++    assert len(open_cells) == 158, (
++        f"shell coverage changed: {len(open_cells)} of {total} cells open, expected 158. "
+         f"Update the number in SECURITY.md S2.4's residual-gap box to match."
+     )
+-    assert total == 168, f"matrix size changed to {total}; SECURITY.md cites 168"
++    assert total == 392, f"matrix size changed to {total}; SECURITY.md cites 392"
+ 
+ 
+ def test_the_open_set_has_exactly_two_shapes():
+--- a/template/Security-kit/control-matrix.md
++++ b/template/Security-kit/control-matrix.md
+@@ -23,7 +23,7 @@
+ | Control ID | Objective and boundary | Implementation location | Verification | Review evidence |
+ |---|---|---|---|---|
+ | `SEC-EGRESS-001` | **MECHANICAL** — a destination is blocked unless its **host** is in `egress_hosts`, for both shapes a destination arrives in: a network shell token (`curl`, `wget`, `nc`, `ssh`, `nmap`) or a structured field (`url`, `endpoint`, `webhook_url`, … — `EGRESS_TARGET_FIELDS`) on **any** tool. Two fixes on 2026-08-22: the `tool == "bash"` guard is gone, so `WebFetch` and in-process tools are now checked; and host comparison replaced substring comparison, which had made `curl https://api.github.com.evil.com` an ALLOW. Nesting past `_MAX_EGRESS_SCAN_DEPTH` **denies** — "too deep to read" must not report as "no destination". **Scope still narrow:** the shell half is a five-token blocklist, so `ncat`, a tab separator or an interpreter fetch pass. The remainder is `SEC-EGRESS-GAP-001` | `governance/mcp-allowlist.json`, `governance/permission.py` `check_egress` | `python3 tests/test_egress.py` | Egress policy review; host-match and depth-denies decisions |
+-| `SEC-SELF-001` | **MECHANICAL** — the agent cannot rewrite the mechanism that constrains it (S2.4), including both pre-model screens (each of which fails *open* when blanked) and, since 2026-08-22, the runtime pair `governance/runtime_dispatcher.py` and `Security-kit/runtime_screen.py` — the dispatcher holds a deployed application's only call to the gate, so one edit there disables ② for the whole application. Matched on file *identity*, so `../`, absolute paths, symlinks, hard links and case variants all collapse to the same target. Residual: 78 of 168 shell verb/path cells open, in two shapes (was 68 of 140 before the matrix grew by those two paths; 51% → 54% closed) | `governance/permission.py` `check_protected_paths` + `BUILTIN_PROTECTED_PATHS` (12 paths) | `python3 -m pytest tests/test_protected_paths.py -q` | Gate 1a review; `SECURITY.md` S2.4 |
++| `SEC-SELF-001` | **MECHANICAL** — the agent cannot rewrite the mechanism that constrains it (S2.4), including both pre-model screens (each of which fails *open* when blanked) and, since 2026-08-22, the runtime pair `governance/runtime_dispatcher.py` and `Security-kit/runtime_screen.py` — the dispatcher holds a deployed application's only call to the gate, so one edit there disables ② for the whole application. Matched on file *identity*, so `../`, absolute paths, symlinks, hard links and case variants all collapse to the same target. Residual: 158 of 392 shell verb/path cells open, in two shapes (was 78 of 168 before the 15 runtime-mvp modules and the signed classifier lock joined on 2026-09-01; **54% → 60% closed** — the added paths carry full shell coverage, so they improve the ratio rather than dilute it) | `governance/permission.py` `check_protected_paths` + `BUILTIN_PROTECTED_PATHS` (28 paths) | `python3 -m pytest tests/test_protected_paths.py -q` | Gate 1a review; `SECURITY.md` S2.4 |
+ | `SEC-POLICY-001` | **MECHANICAL** — an unreadable or unparseable policy file yields no verdict, so it must DENY (exit 2), never error open | `governance/permission.py` `PolicyError`, `_load_json` | `python3 -m pytest tests/test_protected_paths.py -q` | `SECURITY.md` S2.4 "untrusted policy" note |
+ | `SEC-CMD-001` | **MECHANICAL** — hard-blocked command patterns never execute | `governance/deny-list.json`, `governance/permission.py` `check_deny_list` | `python3 tests/test_fixtures.py` | Deny-list policy review |
+ | `SEC-PHASE-001` | **MECHANICAL** — only approved tools may execute, and a tool stays locked until a *human* records its prerequisite phase in `signed_off_phases` in the protected allowlist; the agent-writable worklog cannot unlock it, and unknown tools fail closed (`not in allowlist`). Supersedes the former `SEC-TOOL-001`, which named the same function | `governance/mcp-allowlist.json` `signed_off_phases`, `governance/permission.py` `check_phase_gate`, `Harness-Best-Practice/feature_list.json` (active phase only) | `python3 tests/test_steady_state.py` | Phase sign-off record; tool/version approval |
+--- a/template/Security-kit/mechanisms.json
++++ b/template/Security-kit/mechanisms.json
+@@ -11,7 +11,7 @@
+       "proof": "python3 tests/test_protected_paths.py",
+       "status": "MECHANICAL",
+       "portable_to_runtime": true,
+-      "limits": "covers the five tools in the PreToolUse matcher only (SEC-COVER-GAP-001). Strong on structured write targets (file identity, not spelling); the shell is a separate pattern-matching mechanism with measured partial coverage - 68 of 140 verb/path cells open, in exactly two shapes, pinned by test_the_open_set_has_exactly_two_shapes. The 10 built-in paths include both pre-model screens as of 2026-08-17; before that an Edit to Security-kit/result_screen.py was ALLOW, and blanking it fails OPEN (exit 0, empty stdout = no replacement), so each screen is independently sufficient to disable a control"
++      "limits": "covers the five tools in the PreToolUse matcher only (SEC-COVER-GAP-001). Strong on structured write targets (file identity, not spelling); the shell is a separate pattern-matching mechanism with measured partial coverage - 158 of 392 verb/path cells open, in exactly two shapes, pinned by test_the_open_set_has_exactly_two_shapes. The 28 built-in paths include both pre-model screens as of 2026-08-17 and the 15 runtime-mvp modules plus the signed classifier lock as of 2026-09-01; before that an Edit to Security-kit/result_screen.py was ALLOW, and blanking it fails OPEN (exit 0, empty stdout = no replacement), so each screen is independently sufficient to disable a control"
+     },
+     {
+       "id": "SEC-CMD-001",
+--- a/template/Security-kit/SECURITY.md
++++ b/template/Security-kit/SECURITY.md
+@@ -128,11 +128,12 @@
+ > target, so `deny-list.json` reaches for *pattern matching* instead — and patterns are
+ > incomplete by construction, not merely in principle. Measured on the shipped policy
+ > (`tests/test_protected_paths.py::test_shell_pattern_coverage_is_partial_and_measured`,
+-> which enumerates 14 shell verbs against all 12 built-in protected paths): **78 of 168
+-> combinations are not blocked.** (Was 68 of 140 until 2026-08-22, when the runtime pair
+-> `governance/runtime_dispatcher.py` and `Security-kit/runtime_screen.py` joined the
+-> built-in list. Both numbers grew because the matrix grew by two paths, which the five
+-> uncovered verbs also reach; the closed fraction went from 51% to 54%.) The open set has
++> which enumerates 14 shell verbs against all 28 built-in protected paths): **158 of 392
++> combinations are not blocked.** (Was 78 of 168 until 2026-09-01, when the 15 runtime-mvp
++> modules and the signed classifier lock joined the built-in list and the redirect and
++> chmod/chown/rm/mv families gained a `Security-kit/runtime/` prefix. The closed fraction
++> IMPROVED, 54% → 60%: the added paths are covered by all nine covered verbs, so the two
++> uncovered audit paths are a smaller share of a larger matrix.) The open set has
+ > exactly **two shapes**, and
+ > `test_the_open_set_has_exactly_two_shapes` asserts that as a set equality rather than
+ > a count — so a change that closes one cell while opening another cannot hide behind an

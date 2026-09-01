@@ -33,6 +33,14 @@ decisions. Copy off the `.template` suffix and fill:
 - `ai-stack.md.template` → `ai-stack.md` — framework + model choice and rationale.
 - `deployment.md.template` → `deployment.md` — on-prem/cloud target, egress, secrets.
 
+One shipped document is **not** a stub and is test-pinned — do not rename or trim it:
+
+- `runtime-security-profile.md` — the `runtime-mvp` deployment profile: binding
+  boundaries, disabled capabilities, sources/sinks, stated residuals. Its required
+  vocabulary is enforced by `tests/runtime/test_design_contract.py`; it is the exception
+  to the "security artifacts do not go here" rule above because it is a *deployment
+  profile* the runtime host validates against, not a control mapping.
+
 ## Guidelines
 
 - Author these per project — they describe *your* system, not the framework.

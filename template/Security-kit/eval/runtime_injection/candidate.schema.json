@@ -1,0 +1,18 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "candidate manifest — one classifier under measurement",
+  "description": "Names the exact artifacts a benchmark run measures. Written by the operator per candidate; contains no command supplied through untrusted content. A candidate with any protocol error during the run is ineligible for the lock.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["name", "executable_path", "executable_sha256", "model_path", "model_sha256", "timeout_ms", "confidence_floor"],
+  "properties": {
+    "name": { "type": "string", "minLength": 1 },
+    "executable_path": { "type": "string", "pattern": "^/" },
+    "executable_sha256": { "type": "string", "pattern": "^[0-9a-f]{64}$" },
+    "model_path": { "type": "string", "pattern": "^/" },
+    "model_sha256": { "type": "string", "pattern": "^[0-9a-f]{64}$" },
+    "timeout_ms": { "type": "integer", "minimum": 1 },
+    "confidence_floor": { "type": "number", "minimum": 0, "maximum": 1 },
+    "notes": { "type": "string" }
+  }
+}

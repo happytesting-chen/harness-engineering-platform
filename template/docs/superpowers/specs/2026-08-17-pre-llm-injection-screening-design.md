@@ -1,9 +1,25 @@
 # Pre-LLM Injection Screening — Design Note
 
-**Status:** design note. No code. Describes the layer that decides whether text is an
-instruction *before* a model reads it, why the shipped version catches almost nothing,
-and what the two candidate upgrades cost. Requested scope was "design the classifier
-first, no code yet" — so §3 is the classifier and §5 is how it would be proved.
+**Status:** design note, **partially superseded 2026-08-31** by
+`docs/superpowers/plans/2026-08-31-runtime-security-semantic-enforcement-rescoped.md`.
+The open decisions in §7 (D1–D6) are resolved by that plan's AD-1 through AD-6; the
+binding pre-context boundary is now named `ON_INGRESS` (AD-1: outcomes `ALLOW` /
+`REQUIRE_REVIEW`, content withheld on non-`data`). Historical text below is preserved
+as written and labelled where superseded.
+
+**Corrected baseline (measured, current as of 2026-08-22):** the shipped rule layer is
+the 24-marker list owned by `Security-kit/content_trust.py`, screened at ① by
+`prompt_screen.py` and at ④ by `result_screen.py` — measured **10 of 12** corpus attacks
+caught for **2 of 12** legitimate cases withheld (`tests/test_injection_corpus.py`).
+"The shipped version catches almost nothing" below described the pre-08-17 tree and is
+superseded. Also superseded: any claim that ④ (result replacement) is unavailable —
+`result_screen.py` has been live via `PostToolUse` `updatedToolOutput` since 08-17, and
+the in-process runtime pair (`runtime_dispatcher.py` / `runtime_screen.py`) since 08-22.
+
+Describes the layer that decides whether text is an
+instruction *before* a model reads it, and what the two candidate upgrades cost.
+Requested scope was "design the classifier first, no code yet" — so §3 is the
+classifier and §5 is how it would be proved.
 
 **Measurement provenance.** Every figure below was measured on **2026-08-17** by
 executing the cited file in this working tree, or is marked `[unmeasured]`. Code is
@@ -393,6 +409,16 @@ provenance class, rather than one row with a footnote.
 ---
 
 ## 7. Open decisions
+
+> **Resolved 2026-08-31** by the re-scoped runtime plan's architecture decisions:
+> D1 → AD-2 (families ship inside one strict pipeline with normalization, never alone);
+> D2 → AD-1/AD-4 (no warn split — non-`data` withholds to review, recoverable by
+> `ContentReleaseReceipt`); D3 → AD-5 (absent/drifted classifier is a runtime-mvp
+> **startup error**, and the demo profile is unaffected); D4 → AD-4 + R-2 (FPs are a
+> review queue with a stated bound, not a budget of silent allows); D5 → AD-2 (yes —
+> tool results are `EXTERNAL_CONTENT` through the same ingress); D6 → Task 5 (the
+> corpus lives in this repo at `Security-kit/eval/runtime_injection/`, human-labelled).
+> The table is preserved as written for the record.
 
 | ID | Decision | Why it can't be defaulted |
 |---|---|---|
