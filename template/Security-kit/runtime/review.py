@@ -59,6 +59,59 @@ class NonceStore:
             return True
 
 
+def action_sha256(tool_name: str, args: dict) -> str:
+    """Canonical digest of one exact action: tool name + sorted compact-JSON args.
+    A receipt binds to this, so approving 'send to ops' can never approve 'send to
+    attacker' — different args, different digest, different receipt."""
+    payload = json.dumps({"name": tool_name, "args": args},
+                         sort_keys=True, separators=(",", ":")).encode("utf-8")
+    return hashlib.sha256(payload).hexdigest()
+
+
+@dataclass(frozen=True)
+class ActionReviewRequest:
+    """What a reviewer approves on the action plane: one exact action digest, under
+    one exact policy. No content field exists here by design."""
+
+    action_sha256: str
+    policy_sha256: str
+    reviewer_id: str
+    ttl_seconds: int
+    nonce: str
+
+    def __post_init__(self):
+        if self.ttl_seconds <= 0:
+            raise ValueError("ttl_seconds must be positive")
+
+
+def _action_receipt_fields(receipt: ActionApprovalReceipt) -> dict:
+    return {
+        "kind": "action-approval",
+        "action_sha256": receipt.action_sha256,
+        "policy_sha256": receipt.policy_sha256,
+        "reviewer_id": receipt.reviewer_id,
+        "issued_at": receipt.issued_at,
+        "expires_at": receipt.expires_at,
+        "nonce": receipt.nonce,
+    }
+
+
+def issue_action_receipt(request: ActionReviewRequest, master_key: bytes, now: int) -> ActionApprovalReceipt:
+    key = _derive_key(master_key, ACTION_DOMAIN)
+    unsigned = ActionApprovalReceipt(
+        action_sha256=request.action_sha256,
+        policy_sha256=request.policy_sha256,
+        reviewer_id=request.reviewer_id,
+        issued_at=now,
+        expires_at=now + request.ttl_seconds,
+        nonce=request.nonce,
+        signature="",
+    )
+    signature = _sign_payload(key, _content_payload(_action_receipt_fields(unsigned)))
+    import dataclasses
+    return dataclasses.replace(unsigned, signature=signature)
+
+
 @dataclass(frozen=True)
 class ContentReviewRequest:
     """What a reviewer approves: one exact digest, in one exact detection context."""
@@ -156,7 +209,16 @@ class ReceiptVerifier:
                 f"action approval requires an ActionApprovalReceipt, got "
                 f"{type(receipt).__name__} — a content release can never authorize an action"
             )
-        raise NotImplementedError(
-            "action receipt verification lands in Task 9; the type gate above is "
-            "deliberately in place first"
-        )
+        expected = _sign_payload(self._action_key,
+                                 _content_payload(_action_receipt_fields(receipt)))
+        if not hmac.compare_digest(expected, receipt.signature):
+            return False
+        if not (receipt.issued_at <= now <= receipt.expires_at):
+            return False
+        if not hmac.compare_digest(receipt.action_sha256,
+                                   action_sha256(action.name, action.args)):
+            return False
+        if not hmac.compare_digest(receipt.policy_sha256, self._policy_sha256):
+            return False
+        # nonce last: a receipt that fails any check above is not burned
+        return self._nonces.consume(receipt.nonce)

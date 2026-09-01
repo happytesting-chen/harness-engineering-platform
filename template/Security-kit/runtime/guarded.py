@@ -28,10 +28,34 @@ from .session import SessionPolicy, SessionState
 
 
 class GuardedDispatcher:
-    def __init__(self, *, inner, policy: SessionPolicy, state: SessionState | None = None):
+    def __init__(self, *, inner, policy: SessionPolicy, state: SessionState | None = None,
+                 verifier=None):
+        if policy.require_approval and verifier is None:
+            raise ValueError(
+                "policy pauses tools for approval but no receipt verifier was given — "
+                "an approval tier with nothing to verify receipts is an off switch"
+            )
         self._inner = inner
         self._policy = policy
         self._state = state if state is not None else SessionState()
+        self._verifier = verifier
+
+    def _check_approval(self, tool_name: str, args: dict, approval, now: int) -> None:
+        """REQUIRE_APPROVAL is a PAUSE: a valid receipt lets evaluation continue —
+        the reservation and every inner gate still run after this. It is never a
+        bypass, so a receipt cannot convert an inner DENY into anything."""
+        if tool_name not in self._policy.require_approval:
+            return
+        if approval is None:
+            raise PermissionError(
+                f"{tool_name}: this tool requires human approval — no receipt presented"
+            )
+        # a wrong receipt TYPE raises TypeError inside the verifier, deliberately
+        if not self._verifier.verify_action(approval, _as_action(tool_name, args), now=now):
+            raise PermissionError(
+                f"{tool_name}: approval receipt invalid — wrong action digest, "
+                f"expired, replayed, or issued under a different policy"
+            )
 
     def _check_schema(self, tool_name: str, args: dict) -> None:
         schema = self._policy.arg_schemas.get(tool_name)
@@ -65,11 +89,12 @@ class GuardedDispatcher:
             )
 
     def execute(self, tool_name: str, tool_input: dict | None = None, *,
-                origins: frozenset = frozenset()):
+                origins: frozenset = frozenset(), approval=None, now: int = 0):
         args = dict(tool_input or {})
         # turn/shape rules first — they need no budget and their denial is cheap
         self._check_origins(tool_name, origins)
         self._check_schema(tool_name, args)
+        self._check_approval(tool_name, args, approval, now)
         # then the reservation, then the inner gate; rollback on ANY failure
         if not self._state.reserve(tool_name, self._policy):
             raise PermissionError(f"{tool_name}: session ceiling reached — call refused")
@@ -82,9 +107,15 @@ class GuardedDispatcher:
         return result
 
     async def aexecute(self, tool_name: str, tool_input: dict | None = None, *,
-                       origins: frozenset = frozenset()):
+                       origins: frozenset = frozenset(), approval=None, now: int = 0):
         """Async variant over the same lock-guarded state — the ceiling holds across
         a `gather` exactly as it does across threads."""
         return await asyncio.to_thread(
-            self.execute, tool_name, tool_input, origins=origins
+            lambda: self.execute(tool_name, tool_input, origins=origins,
+                                 approval=approval, now=now)
         )
+
+
+def _as_action(tool_name: str, args: dict):
+    from .contracts import Action
+    return Action(name=tool_name, args=args, origins=frozenset())

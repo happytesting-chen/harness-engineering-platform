@@ -21,6 +21,7 @@ class SessionPolicy:
     total_max_calls: int | None = None                   # across all tools
     origin_rules: dict = field(default_factory=dict)     # tool -> frozenset of allowed Origins
     arg_schemas: dict = field(default_factory=dict)      # tool -> {arg_name: type}
+    require_approval: frozenset = frozenset()            # tools paused for a human receipt
 
     def __post_init__(self):
         for tool, ceiling in self.max_calls.items():
