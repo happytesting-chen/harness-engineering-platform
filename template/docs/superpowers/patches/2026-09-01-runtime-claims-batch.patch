@@ -293,30 +293,3 @@ index fff1e30..0298d71 100644
      assert all("named by no requirement" in m for m in msgs), msgs
  
  
---- a/template/governance/permission.py
-+++ b/template/governance/permission.py
-@@ -204,6 +204,24 @@
-     # `Edit governance/runtime_dispatcher.py` returned exit 0 (ALLOW).
-     "governance/runtime_dispatcher.py",
-     "Security-kit/runtime_screen.py",
-+    # The runtime-mvp semantic profile (Task 12 claims batch, 2026-09-01). Each is an
-+    # in-process enforcement module for a deployed application; editing any one disables
-+    # a control for the whole app, exactly the reason the runtime pair above is listed.
-+    "Security-kit/runtime/ingress.py",
-+    "Security-kit/runtime/rules.py",
-+    "Security-kit/runtime/normalization.py",
-+    "Security-kit/runtime/classifier.py",
-+    "Security-kit/runtime/contracts.py",
-+    "Security-kit/runtime/review.py",
-+    "Security-kit/runtime/review_cli.py",
-+    "Security-kit/runtime/adapters.py",
-+    "Security-kit/runtime/session.py",
-+    "Security-kit/runtime/guarded.py",
-+    "Security-kit/runtime/startup.py",
-+    "Security-kit/runtime/audit.py",
-+    "Security-kit/runtime/output.py",
-+    "Security-kit/runtime/host.py",
-+    "Security-kit/runtime/semantic-model.lock.json",
-     "Harness-Best-Practice/observability/audit_hook.py",
-     "Harness-Best-Practice/observability/audit.log",
- )
