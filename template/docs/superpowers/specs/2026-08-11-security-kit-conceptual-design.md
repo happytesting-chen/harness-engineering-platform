@@ -811,7 +811,7 @@ failures. Five invariants over one hand-authored declaration
 
 **The governing constraint: a vacuous check is worse than no check.** A test whose passing
 tells you nothing about the property it names converts an *unknown* into a *false known*.
-This is not a style preference — the defect fixed in `f16525a` on this branch was a sampling
+This is not a style preference — the defect fixed in `62879b3` on this branch was a sampling
 test that passed at 100% while 57% of the matrix was open, and `SECURITY.md` cited it as
 proof. So every invariant ships a **mutation step**: a deliberate edit that must turn the
 build red. An assertion is trusted only after it has been made to fail.

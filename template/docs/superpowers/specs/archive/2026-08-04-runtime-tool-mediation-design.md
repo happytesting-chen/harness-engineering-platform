@@ -39,7 +39,7 @@ dispatcher to the remaining boundaries.
 > unattended-and-nondeterministic trap (§11.1). (g) D2 moved to a **Phase-A** decision:
 > the memory *schema* is Phase A even though A5 is Phase B (§15).
 > **(h) Rev 3's own headline defect claim withdrawn:** `_load_json`'s fail-open was **fixed in
-> `70a12a1`**; re-measured by driving the real hook, all three policy-file states exit 2. Two
+> `cc24f45`**; re-measured by driving the real hook, all three policy-file states exit 2. Two
 > stale line citations corrected with it (§8, §12, §13.4, §14).
 > Full changelog: §16.
 
@@ -832,7 +832,7 @@ skips the gate.**
 > **Rev 4 correction.** Rev 1 credited fail-closed policy loading to `permission.py:171-180`
 > — the **stdin envelope** check, not policy loading. Rev 3 corrected the location but
 > reported the loader as **fail-open**, and told you not to port it. That was true when
-> measured and is **no longer true**: `_load_json` was rewritten in **`70a12a1`**
+> measured and is **no longer true**: `_load_json` was rewritten in **`cc24f45`**
 > ("fix(security): Gate 1a — match protected paths by file identity, fail closed on bad
 > policy") and now lives at `governance/permission.py:76-91`, raising `PolicyError` on
 > unreadable, non-JSON, and non-object files, and on a missing file when `required=True`.
@@ -1317,7 +1317,7 @@ cheap:
   (persistence). Note `PostToolUse`/`Stop` already use `matcher: "*"`
   (`.claude/settings.json:35,49,61`) — only the two **preventive** hooks are narrow.
 - Add `UserPromptSubmit` — the only dev-time attach point for ②.
-- ~~Fix `_load_json`'s fail-open (`permission.py:26-29`).~~ **Done in `70a12a1`** — the loader
+- ~~Fix `_load_json`'s fail-open (`permission.py:26-29`).~~ **Done in `cc24f45`** — the loader
   is now at `:76-91` and raises `PolicyError`; all three policy-file states exit 2, verified by
   driving the real hook. See the corrected §8 box.
 - `kiro/hooks/secret-block.json` is `"type": "askAgent"` — it asks the **LLM to police
@@ -1334,7 +1334,7 @@ cheap:
 Rev 1 omitted this entirely; the tests would have passed locally and gated nothing.
 
 > **Rev 4 note — items 4 and 5 shrank because the work landed.** Rev 3 listed a stale control
-> count and three crosswalk re-tags as pending; both were **committed in `f11a182`** and are
+> count and three crosswalk re-tags as pending; both were **committed in `e8702ab`** and are
 > struck below. What survives is the part still genuinely missing. Ordering and ownership for
 > items 1, 2 and 6 are set by
 > [`2026-08-11-security-kit-build-reconciliation-design.md`](2026-08-11-security-kit-build-reconciliation-design.md)
@@ -1376,7 +1376,7 @@ Rev 1 omitted this entirely; the tests would have passed locally and gated nothi
    `SECURITY.md` has 41 unique `S<n>.<n>` ids and all three sites already say 41:
    `SECURITY-MANIFEST.md:26`, `Security-kit/README.md:24` (rev 3 cited `README.md:342` — wrong
    file and wrong line), `findings.md:9`.
-5. ~~**`owasp-crosswalk.md`** — three honesty fixes.~~ **Done in `f11a182`**; verified against
+5. ~~**`owasp-crosswalk.md`** — three honesty fixes.~~ **Done in `e8702ab`**; verified against
    `HEAD`: ASI01 `[LIB]`+`[GUIDE]` (`:78`), ASI06 `[GAP]` (`:83`), ASI07 a real gap that no
    longer claims N/A on single-agent grounds (`:84`). ASI03 (`:80`) left `[MECH]`+`[GAP]`, still
    honest. **What remains:** add the runtime column when Phase A builds something to put in
@@ -1459,7 +1459,7 @@ Phase A ships into a document that already lies about it, and no reviewer can te
 from old paperwork.
 
 Phase 0 carries **no code fix**. Rev 3 put `_load_json`'s fail-open here; it was fixed in
-`70a12a1` and re-verified by driving the real hook (§8). Two other dev-time fixes from §13
+`cc24f45` and re-verified by driving the real hook (§8). Two other dev-time fixes from §13
 remain genuinely open and are **out of scope for this spec** — the `matcher: '*'` widening and
 `SEC-PHASE-GAP-001` both edit `governance/permission.py` or its policy, which are **protected
 paths**: they reach the tree as a human-reviewed patch, not an agent edit. Runtime Phase A does
@@ -1508,7 +1508,7 @@ retroactively; enforcement policy is not.
 re-measurement contradicted:
 - **`_load_json` is no longer fail-open.** Rev 3's §8 box carried a measured table showing
   malformed JSON → exit 1 (tool proceeds) and a missing file → exit 0 (**ALLOWED**), and told
-  the reader not to port the loader. Fixed in **`70a12a1`**; the loader moved from `:26-29` to
+  the reader not to port the loader. Fixed in **`cc24f45`**; the loader moved from `:26-29` to
   **`:76-91`** and raises `PolicyError`, which CLI mode converts at `:366-369`. Re-measured by
   driving the real hook against a throwaway tree: valid/malformed/missing all **exit 2**. The
   §8 box now explains *convergence* — `permission.py` raises and the CLI boundary converts;
@@ -1552,7 +1552,7 @@ re-measurement contradicted:
   (inventory owns one pytest line; no per-test `init.sh` edit), matrix-row naming
   (`SEC-RUNTIME-GAP-00N` at status `GAP` only — a non-`GAP` row fails inventory **I4**), and
   `active-controls.md` (write only between `BEGIN/END runtime-harden` markers). Items 4 and 5
-  shrank because the work **landed in `f11a182`**.
+  shrank because the work **landed in `e8702ab`**.
 
 ### rev 2 → rev 3
 

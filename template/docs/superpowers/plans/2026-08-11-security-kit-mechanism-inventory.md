@@ -21,7 +21,7 @@
 
 - **The files this plan creates are NOT protected, and that is the plan's own biggest hole.** Measured: `Security-kit/mechanisms.json`, `Security-kit/check_coverage.py`, `Security-kit/control-matrix.md` and `init.sh` appear in neither `BUILTIN_PROTECTED_PATHS` nor `deny-list.json`'s `protected_paths`. After this series, editing the *declaration* is a cheaper way to green a failing build than fixing the mechanism, and Gate 1a allows it. **Task 9 hands the user a patch closing this for the two files that carry the kit's authority over itself — `mechanisms.json` and `check_coverage.py` — and deliberately leaves the other two writable.** `control-matrix.md` must stay writable because `/security-tailor` adds per-project rows to it, and freezing it turns the kit's only Zone-3 drafter into a permanent Gate 1a denial; `init.sh` must stay writable because it is the harness's own entry point, edited constantly by hand. So the hole narrows rather than closes, and Task 9's matrix row says which half remains. The patch cannot be an agent edit — it targets `permission.py` and `deny-list.json`. Task 9 is LAST on purpose: Gate 1a denies a write to a protected path **whether or not the file exists yet** (verified — `_resolve` tolerates a nonexistent target by design, `permission.py::_resolve`), so protecting `check_coverage.py` before Task 7 finishes editing it would block the plan against itself.
 
-- **A vacuous check is worse than no check.** A test whose passing tells you nothing about the property it names converts an unknown into a false known. Every invariant in this plan must be able to FAIL — Task 4's `check_i1`, Task 4b's `check_i5` and Task 7's `check_i3` each ship a mutation step that proves it, three in total. This is not a style preference: the defect fixed in `f16525a` on this branch was exactly a sampling test that passed at 100% while 57% of the matrix was open, and `SECURITY.md` cited it as proof.
+- **A vacuous check is worse than no check.** A test whose passing tells you nothing about the property it names converts an unknown into a false known. Every invariant in this plan must be able to FAIL — Task 4's `check_i1`, Task 4b's `check_i5` and Task 7's `check_i3` each ship a mutation step that proves it, three in total. This is not a style preference: the defect fixed in `62879b3` on this branch was exactly a sampling test that passed at 100% while 57% of the matrix was open, and `SECURITY.md` cited it as proof.
 
 - **What this plan checks is CLAIMS, not conduct — and the difference is measured, not theoretical.** Every invariant here compares a declaration against a document or a file's text. None of them executes a mechanism against a hostile input. The limit has a price tag: an adversarial pass on 2026-08-12 executed `Security-kit/secret_scan.py` against real hook envelopes and found the same covered credential **BLOCKED** through `Write.content`, `Edit.new_string` and `Bash.command` but **ALLOWED (exit 0)** through `MultiEdit.edits[].new_string` and `NotebookEdit.new_source` — two of the five write tools the hook's own matcher claims, since `_collect_text` names top-level fields and neither payload is at the top level — plus every current Anthropic key format missed (`sk-[A-Za-z0-9]{16,}` excludes the hyphen, so matching stops at `sk-ant`, 6 chars, under the floor). `SEC-SECRET-001` declares that mechanism **MECHANICAL**. **I2 would not have caught any of it** — it checks declared cells for coherence, never behaviour. The fix ships separately as `/tmp/secret-scan-fix.patch` (verified: 16/16 envelope verdicts correct, 15 tests pass patched, and the 3 bug-detecting tests fail against the unpatched hook). No task in this plan depends on that patch; it is named here so nobody reads a green `check_status()` as evidence a mechanism works. Rationale and the full four-zone / three-plane framing: `docs/superpowers/specs/2026-08-11-security-kit-conceptual-design.md`.
 
@@ -1109,7 +1109,7 @@ python3 tests/test_mechanisms.py
 
 Expected from the mutated run: **non-zero exit**, with `case_i1_shipped_docs_agree` reporting `only 0 status claims joined to the inventory`. Expected from the restored run: `30 passed, 0 failed`.
 
-If the mutated run PASSES, stop and fix the case before continuing — a green mutant means I1 is decorative, and the plan has reproduced the exact defect `f16525a` fixed earlier on this branch (a sampling test at 100% while 57% of the matrix was open). Measured with this mutation applied to a transcription of this code: `errors == []`, `skipped == 62`, `hits == 0` — the pre-review two-value signature passed all of its assertions.
+If the mutated run PASSES, stop and fix the case before continuing — a green mutant means I1 is decorative, and the plan has reproduced the exact defect `62879b3` fixed earlier on this branch (a sampling test at 100% while 57% of the matrix was open). Measured with this mutation applied to a transcription of this code: `errors == []`, `skipped == 62`, `hits == 0` — the pre-review two-value signature passed all of its assertions.
 
 - [ ] **Step 7: Commit**
 
@@ -2281,7 +2281,7 @@ Write Security-kit/mechanisms.json    -> None      (allowed)
 Write Security-kit/check_coverage.py  -> None      (allowed)
 ```
 
-That is the plan's own biggest hole. Every invariant this plan adds is enforced by `check_coverage.py` reading `mechanisms.json`. Leave both writable and, the first time a mechanism's real status drops below its declared status, **editing the declaration is a cheaper way to green the build than fixing the mechanism** — and the gate permits it. This is the same failure `f16525a` fixed earlier on this branch, one level up: there the *test* was vacuous, here the *inventory the test reads* would be editable by the thing it constrains.
+That is the plan's own biggest hole. Every invariant this plan adds is enforced by `check_coverage.py` reading `mechanisms.json`. Leave both writable and, the first time a mechanism's real status drops below its declared status, **editing the declaration is a cheaper way to green the build than fixing the mechanism** — and the gate permits it. This is the same failure `62879b3` fixed earlier on this branch, one level up: there the *test* was vacuous, here the *inventory the test reads* would be editable by the thing it constrains.
 
 Simulating the patch (`BUILTIN_PROTECTED_PATHS` extended in-process, `check_protected_paths` called directly) gives:
 
@@ -2459,7 +2459,7 @@ mechanisms.json, and Gate 1a protects neither. Measured: both are absent from
 BUILTIN_PROTECTED_PATHS and from deny-list.json protected_paths, and a Write to
 each returns None. So the first time a real status drops below its declared
 status, editing the declaration is cheaper than fixing the mechanism — the same
-shape as the vacuous test f16525a fixed, one level up.
+shape as the vacuous test 62879b3 fixed, one level up.
 
 The fix is /tmp/protect-inventory.patch, verified by simulation: after it both
 files are denied, including ../, absolute and symlink forms, while

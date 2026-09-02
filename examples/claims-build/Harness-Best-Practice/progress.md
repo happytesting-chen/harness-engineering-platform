@@ -80,7 +80,7 @@
 
 ## Next Steps
 
-1. ✅ **phase-03 signed off** (human, 2026-08-04) — evaluation primitive committed to canonical template (`1d64222`), snapshot PROPOSED and accepted.
+1. ✅ **phase-03 signed off** (human, 2026-08-04) — evaluation primitive committed to canonical template (`b5b0cff`), snapshot PROPOSED and accepted.
 2. **Security phase** (next active): install Security-kit via `install.sh --no-security` **on a copy** for the A/B comparison; reconcile Fix #2 (content-trust matrix redundancy). Requires a new phase entry in `feature_list.json` when scoped.
 
 ## Deferred / Backlog (agreed, not done this phase)

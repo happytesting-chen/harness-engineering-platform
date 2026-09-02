@@ -748,7 +748,7 @@ floor. The glob adds coverage; it does not replace the named gates.
 - Extending `check_egress` beyond shell tokens.
 - Back-porting to `examples/claims-agent`.
 - ~~Stale text in the runtime spec §8/§12~~ — **fixed in that spec's rev 4**: `_load_json`'s
-  fail-open was itself repaired in `70a12a1` and re-verified by driving the real hook, so §8's
+  fail-open was itself repaired in `cc24f45` and re-verified by driving the real hook, so §8's
   warning box and §12's line citations were corrected there. Three `kiro/hooks/` defects remain
   out of scope.
 

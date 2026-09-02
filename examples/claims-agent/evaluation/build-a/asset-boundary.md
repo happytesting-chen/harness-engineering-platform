@@ -6,7 +6,7 @@
 
 - Source repository: `https://github.com/YuanSingapore/harness-engineering-platform.git`
 - Source path: `template/`
-- Repository HEAD and latest template commit: `97e349aa1bd61266227ac9e92e3da077bd9268a4` (`2026-07-31T09:06:47+08:00`, `add security steering file + Security Module section in README`).
+- Repository HEAD and latest template commit: `82a9db85cc07db2405873be33137f5b77593e338` (`2026-07-31T09:06:47+08:00`, `add security steering file + Security Module section in README`).
 - Destination: `examples/claims-agent/`; this is an isolated copy, not a symlink or snapshot.
 - Source-worktree caveat: `template/README.md` is modified and `template/.kiro/steering/security-review.md` plus `template/security/` are untracked at capture time. The mechanism/test source paths in the integrity manifest have no source-side Git status entries; hashes below compare the captured source worktree bytes with Build A bytes.
 

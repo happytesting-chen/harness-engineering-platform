@@ -20,7 +20,7 @@
 > spec cited 20. That made `SEC-HOOK-001`, `SEC-CONTENT-001`, all 8 `*-GAP-*` rows and
 > `SEC-RUNTIME-GAP-001` absent from git history, so both this spec and the committed
 > inventory spec cited a tree that did not exist at `HEAD`. Those docs were reviewed and
-> committed as **`f11a182`**, and every citation below was then re-measured against the new
+> committed as **`e8702ab`**, and every citation below was then re-measured against the new
 > `HEAD`: 20 matrix rows, 8 GAP rows, `SEC-HOOK-001` at `control-matrix.md:32`,
 > `SEC-RUNTIME-GAP-001` present, crosswalk `:78` `[LIB]` / `:83` `[GAP]` / `:84` `[GAP]`.
 > The runtime spec remains uncommitted and rev-4-inconsistent (Seam 7) — that is deliberate,
@@ -116,7 +116,7 @@ calls are mediated at runtime — and it stays in scope for runtime Phase A.
 
 ### Seam 3 — runtime §13.5's crosswalk re-tags are already applied
 
-Runtime §13.5 (`:1212-1219`) asks for three honesty fixes. **All three landed in `f11a182`**
+Runtime §13.5 (`:1212-1219`) asks for three honesty fixes. **All three landed in `e8702ab`**
 — re-measured against `HEAD` after that commit:
 
 | Ask | Actual state |
@@ -258,8 +258,8 @@ Each step ends with a command that exits 0. No step depends on a later one.
 
 Its gate is shipped but has never been satisfied: `python3 Security-kit/check_coverage.py`
 → exit **1**, `✗ coverage.json missing — run /security-tailor (fail-closed)`. All 8 plan
-tasks landed (`f7809ec`, `583653f`, `000d134`, `a07d847`, `3d64fac` + wiring `9c9f728`,
-`cfe53de`, `a8375e4`, `f73fd91`). Four gaps remain:
+tasks landed (`9f10f85`, `daa070d`, `0a7e377`, `a63a70a`, `3fe5f5a` + wiring `52678de`,
+`7a1eb24`, `6fd3113`, `56f9a76`). Four gaps remain:
 
 | Gap | Evidence |
 |---|---|
@@ -383,7 +383,7 @@ touches mechanism code.
 >
 > - **The runtime spec's headline defect claim was withdrawn.** Rev 3 said `_load_json` fails
 >   open; re-measuring by driving the real hook showed **exit 2 in all three policy-file
->   states** — it was fixed in `70a12a1`, moving from `:26-29` to `:76-91`. That turned runtime
+>   states** — it was fixed in `cc24f45`, moving from `:26-29` to `:76-91`. That turned runtime
 >   §14's Phase 0 from "docs + one code fix" into **docs only**, and corrected two more stale
 >   line citations (envelope check `:341-350` not `:171-180`; unknown-tool denial `:254` not
 >   `:96`). Logged as rev-4 item (h).
@@ -405,7 +405,7 @@ touches mechanism code.
 | §13.1 | Replace per-test `init.sh` naming with "pytest runner added by the inventory spec; new tests are auto-discovered" | 4 |
 | §13.2 | Defer row naming to the inventory spec; `SEC-RUNTIME-GAP-00N` at `GAP` only | 1 |
 | §13.4 | Delete the 40→41 item (all three sites already say 41); keep `SECURITY.md §10` | 2 |
-| §13.5 | Replace the three re-tag asks with a pointer to the current crosswalk lines `:78`, `:83`, `:84` and a note that they landed in `f11a182` | 3 |
+| §13.5 | Replace the three re-tag asks with a pointer to the current crosswalk lines `:78`, `:83`, `:84` and a note that they landed in `e8702ab` | 3 |
 | §13.6 | State the `BEGIN/END runtime-harden` marker rule for `active-controls.md` | 5 |
 | §10 | Note that `tests/test_*.py` additions need `SECURITY-MANIFEST.md` Tier 1 rows | §3 |
 | §14 | **Assign `/runtime-harden` to a phase.** Specified in §11.3 (path), §11.6 (MAY/MUST-NOT contract) and §11.8 (validator wiring point), but present in **no** §14 phase row — measured 2026-08-11, nothing named `runtime-harden` exists in the repo. Placed as A1's last task: it drafts `policy.json`, so it cannot precede `policy_schema.py` (which fixes what valid means) or `validate_policy.py` (which rejects a bad draft). Requires both host shapes and the validator as its acceptance gate | §4 Step 3 |
@@ -466,5 +466,5 @@ The lesson is not "run `git status`." It is that **`file:line` is not a citation
 tree state is named.** A dirty working tree makes a document's evidence unreproducible for
 every future reader, which is the same defect class as a false status label — and neither
 `check_status()` nor any of I1–I4 can detect it, because all four read the working tree too.
-The fix applied here was to commit the docs (`f11a182`) and re-measure. The fix for next time
+The fix applied here was to commit the docs (`e8702ab`) and re-measure. The fix for next time
 is to state the tree state in the header, which this document now does.

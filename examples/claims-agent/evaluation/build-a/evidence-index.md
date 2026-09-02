@@ -16,7 +16,7 @@
 
 ## Evidence limits
 
-- Capture window: 2026-08-03T01:44:43Z; repository HEAD `97e349aa1bd61266227ac9e92e3da077bd9268a4`.
+- Capture window: 2026-08-03T01:44:43Z; repository HEAD `82a9db85cc07db2405873be33137f5b77593e338`.
 - Policy checks cover named literal examples; they do not prove all syntactic network/LLM/external-action variants are mechanically prevented.
 - Kiro hook execution-path enforcement is specifically withheld because the attempted command is not forwarded.
 - Generated output, environment dumps, secrets, and fixture payloads are not retained here.

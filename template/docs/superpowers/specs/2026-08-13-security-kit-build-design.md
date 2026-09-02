@@ -18,7 +18,7 @@
 > governs the build.
 >
 > **Measurement:** every figure in §2 was **re-measured on 2026-08-14** by reading or executing
-> the cited file on the working tree this revision commits — `HEAD = 223b1f6` (branch
+> the cited file on the working tree this revision commits — `HEAD = 4ef12e5` (branch
 > `docs/readme-front-door`; `git diff HEAD main` was empty at that commit, so it is also `main`'s
 > tree) **plus** the §6.2 items 8–10 work, which lands in the same commit as this document. **Nine
 > figures moved and one was wrong** in the 08-13 revision; all are recorded in §2 rather than
@@ -232,7 +232,7 @@ build, and each ships a **mutation** proving it can fail (§7).
 
 **A vacuous check is worse than no check** — it converts an unknown into a false known. So
 every invariant prints its **skip count**, and a silent skip is itself a defect. The
-precedent is measured: the sampling test fixed in `f16525a` passed at 100% while 57% of the
+precedent is measured: the sampling test fixed in `62879b3` passed at 100% while 57% of the
 matrix was open.
 
 ### 1.7 Zones — what a model may decide
@@ -426,7 +426,7 @@ time.
 ## 2. Measured state — re-measured 2026-08-14
 
 One table, one date. Everything below was read or executed on **the working tree this revision
-lands in** — `223b1f6` plus the §6.2 items 8–10 work (`tests/test_shipped_policy.py`, `init.sh`
+lands in** — `4ef12e5` plus the §6.2 items 8–10 work (`tests/test_shipped_policy.py`, `init.sh`
 block `(g2)`, the denial→stderr channel, the `deny-list.json:21` false-positive fix), all of which
 commit together with this document. Where a figure moved since the 08-13 revision, the old value is
 shown struck so the drift is visible rather than silently overwritten.
@@ -502,7 +502,7 @@ shown struck so the drift is visible rather than silently overwritten.
 ### 2.2 The three defects the conceptual design recorded (D1–D3)
 
 D1 and D2 — the secret scanner's five-tool blind spot and the `sk-` pattern that stopped at
-`sk-ant` — **were fixed in `223b1f6`**, and `tests/test_hooks.py` now carries 15 tests
+`sk-ant` — **were fixed in `4ef12e5`**, and `tests/test_hooks.py` now carries 15 tests
 including the anti-vacuity pair. The conceptual design's "Status of the fix" paragraph
 describing a pending `/tmp/secret-scan-fix.patch` is stale; that text is superseded here.
 
@@ -2895,7 +2895,7 @@ The module states its own boundary at `content_trust.py:20`: it *"does NOT sanit
 reports; the caller decides."* That line is why the register row (§4.5.3) is `SCREEN`/`LIBRARY`
 rather than `GATE` — and why M6 is `[OBS]` in the crosswalk while **A1** is `[MECH]`. The same
 honesty correction was already applied once: an ASI01 over-claim was corrected to `[LIB]`+`[GUIDE]`
-in `f11a182`.
+in `e8702ab`.
 
 Like `SEC-SECRET-001` (§4.5.5), the row needs a **`limits`** field: the field allowlist is
 complete for the fields it names; the marker scan is a pattern set, not a detector.
@@ -3066,8 +3066,8 @@ holds a real product doc.**
 These three are already wired into the product's own entry path: `/init-project` Step 2b invokes
 `/security-tailor` *"now (`Context/` is freshly read)"*, so in an instance they are not a separate
 step a human must remember — which is the correct place for them and the reason removing them from
-5.1a costs nothing. The phase-1 code that made them possible already landed — `f7809ec`, `583653f`,
-`000d134`, `a07d847`, `3d64fac`, wired by `9c9f728`, `cfe53de`, `a8375e4`, `f73fd91`, and hooked
+5.1a costs nothing. The phase-1 code that made them possible already landed — `9f10f85`, `daa070d`,
+`0a7e377`, `a63a70a`, `3fe5f5a`, wired by `52678de`, `7a1eb24`, `6fd3113`, `56f9a76`, and hooked
 into `init.sh` block 5b as check (h).
 
 **Gates.** They differ by tree, and conflating them is what produced the old step's wrong gate line:
@@ -3126,7 +3126,7 @@ distinguish them from the phase names A1/A2, which collide by accident of naming
 `SECURITY.md`, `control-matrix.md` and the crosswalk. If those still overstate what exists, phase
 A ships into a document that already lies about it, and **no reviewer can tell new work from old
 paperwork.** Phase 0 carries no code fix: the one fix an earlier revision placed here
-(`_load_json`'s fail-open) landed in `70a12a1` and was re-verified this session by driving the
+(`_load_json`'s fail-open) landed in `cc24f45` and was re-verified this session by driving the
 real hook (§4.1.4).
 
 **A1 and A2 — the mechanisms — are in phase A, not later.** They are not features bolted onto ⑤;
@@ -3169,7 +3169,7 @@ three sites that cite a count already say 41 — `SECURITY-MANIFEST.md:26`,
 `Security-kit/README.md:24`, `findings.md:9`. The claim that three places said "40" was wrong, and
 the "fix" would have introduced the error it claimed to remove.
 
-Three crosswalk honesty fixes an earlier revision listed as pending **landed in `f11a182`** and
+Three crosswalk honesty fixes an earlier revision listed as pending **landed in `e8702ab`** and
 are verified against `HEAD`: ASI01 `[LIB]`+`[GUIDE]`, ASI06 `[GAP]`, ASI07 a real gap that no
 longer claims N/A on single-agent grounds. ASI03 remains `[MECH]`+`[GAP]` and is still honest.
 
@@ -3913,7 +3913,7 @@ claim, not a check):
 | set `satisfied_by: ["SEC-NOPE-001"]` | I6 fails: *requirement names a control that does not exist* |
 
 And the skip count prints, per §1.6. **I6 over an empty `requirements.json` must report `skipped: 20
-matrix rows` and fail, not pass** — the precedent is `f16525a`, where a sampling test reported 100%
+matrix rows` and fail, not pass** — the precedent is `62879b3`, where a sampling test reported 100%
 against 57% coverage.
 
 ### 8.2 The FINDING record — one shape for every failure

@@ -8,7 +8,7 @@
 ([2026-08-31-runtime-security-semantic-enforcement.original.md](2026-08-31-runtime-security-semantic-enforcement.original.md))
 was drafted against the `security-in-action-demo` fork in a Codex workspace frozen
 **2026-08-21 — one day before this template's runtime enforcement layer shipped**
-(`30d8016`, PR #6). Its architecture decisions survive contact with this tree; its file
+(`099a536`, PR #6). Its architecture decisions survive contact with this tree; its file
 plan and three of its baseline facts do not. This document adopts the former and re-scopes
 the latter. Audited against this repository 2026-08-31.
 

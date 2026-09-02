@@ -12,7 +12,7 @@
 | Field | Value |
 |---|---|
 | Profile | `runtime-mvp` (deployed, in-process) — **not** the `demo` / IDE hook profile |
-| Source revision | signed at `978eac839efef0fcc84a79fb51bb2b78d263f699`; **re-scoped to `8c93f75`** — see the amendment below |
+| Source revision | signed at `978eac839efef0fcc84a79fb51bb2b78d263f699`; **re-scoped to `8c93f75`** (A-1); after the 2026-09-02 history rewrite these commits are `0dc618e` and **`1e5d499`** (A-2) — see the amendments below |
 | Policy digest | `65b90cd9f5d33d869ca50d784fa18d1e05a1710c3a592f74ae8360adc0898567` (sha256 of `deny-list.json` then `mcp-allowlist.json`) |
 | Classifier lock | `Security-kit/runtime/semantic-model.lock.json`, signed `shi_yuan@csa.gov.sg` 2026-08-31 |
 | Classifier artifact | `protectai/deberta-v3-base-prompt-injection-v2` ONNX, sha256 `f0ea7f23…047b228c` |
@@ -41,6 +41,41 @@ decision in §5 carries over unmodified.
 **Scope of this amendment:** the revision label in §1 only. The decision, the conditions,
 the acceptances in §4 and the expiry are untouched — an amendment that altered any of
 those would be a new verdict needing a new signature, not an amendment.
+
+Recorded by the agent; the original signature stands and is not re-applied here.
+
+### Amendment A-2 — re-scope after history rewrite, 2026-09-02
+
+On 2026-09-02 the repository history was rewritten with `git filter-repo` to remove
+presentation decks and editor scratch directories that had been committed by mistake
+(≈51 MB, none of it part of the kit). Rewriting history changes every commit identifier
+after the first affected commit, so the revisions named in §1 and in Amendment A-1 no
+longer exist. Their content does.
+
+| Label | Before rewrite | After rewrite |
+|---|---|---|
+| Signed at | `978eac83` | `0dc618e` |
+| Re-scoped to (A-1) | `8c93f75` | `1e5d499` |
+| Test-runner move named in A-1 | `64b0094` | `09d2856` |
+
+Verified before re-scoping, old tree against new tree:
+
+| C-5 artifact | Status |
+|---|---|
+| `Security-kit/runtime/` (all contents) | **unchanged** — tree object `2e176303` in both histories |
+| `governance/deny-list.json` | **unchanged** |
+| `governance/mcp-allowlist.json` | **unchanged** |
+| `governance/permission.py` | **unchanged** |
+| `Security-kit/runtime/semantic-model.lock.json` | **unchanged** |
+
+Method: sha256 of all 21 scoped files taken on the old `main` before the rewrite and on
+the rewritten `main` after it — byte-identical. Gate on the rewritten tree: 315 passed,
+`./init.sh` at the unchanged 5-error baseline, I1–I6 green. The rewrite removed paths only;
+no file that the verdict judges was touched.
+
+**Scope of this amendment:** the revision labels in §1 and A-1 only. The decision, the
+conditions, the acceptances in §4 and the expiry are untouched. A verdict names a tree,
+and the tree is the same; only the names of the commits that point at it changed.
 
 Recorded by the agent; the original signature stands and is not re-applied here.
 

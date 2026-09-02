@@ -29,11 +29,11 @@ sinks of the *selected* controls. Both proven by labeled benchmarks (confusion m
 >
 > | §  | Artifact | Commit |
 > |---|---|---|
-> | 4.1 | `.claude/commands/security-tailor.md` + `kiro/steering/security-tailor.md` mirror | `583653f` |
-> | 4.2 | `Security-kit/coverage.schema.md` — the `coverage.json` contract | `76a6b55` |
-> | 4.3 | `Security-kit/check_coverage.py` — fail-closed gate | `f7809ec` |
-> | 4.4 | `tests/test_coverage.py` — ground-truth tests | `f7809ec` |
-> | 6.2 | `Security-kit/eval/eval_selection.py` + 3-product labeled corpus + `tests/test_eval_selection.py` | `a07d847`, fixed `3d64fac` |
+> | 4.1 | `.claude/commands/security-tailor.md` + `kiro/steering/security-tailor.md` mirror | `daa070d` |
+> | 4.2 | `Security-kit/coverage.schema.md` — the `coverage.json` contract | `0389dcd` |
+> | 4.3 | `Security-kit/check_coverage.py` — fail-closed gate | `9f10f85` |
+> | 4.4 | `tests/test_coverage.py` — ground-truth tests | `9f10f85` |
+> | 6.2 | `Security-kit/eval/eval_selection.py` + 3-product labeled corpus + `tests/test_eval_selection.py` | `a63a70a`, fixed `3fe5f5a` |
 >
 > Wiring is live: `init.sh:199-209` runs the checker as block 5b(h) and counts a failure as an
 > `ERRORS` increment.

@@ -2,7 +2,7 @@
 
 **Status:** **BLOCKED**  
 **Review scope:** task 2.3 pre-implementation checks only  
-**Evidence capture:** 2026-08-03T01:44:43Z at repository `97e349aa1bd61266227ac9e92e3da077bd9268a4`  
+**Evidence capture:** 2026-08-03T01:44:43Z at repository `82a9db85cc07db2405873be33137f5b77593e338`  
 **Human approval:** **Not requested and not recorded.** Build A implementation remains prohibited.
 
 ## Decision
@@ -28,7 +28,7 @@ The filled harness is not ready for the mandatory human checkpoint. Claims imple
 ## `governance/permission.py` drift reconciliation
 
 Template SHA-256 is `f4d107ffabd23f721b32d1a5deee50c365ab3d86dce03e055ef1d3e836b0159d`; Build A SHA-256 is `c74844926776d3a7f3a75882439f5c30c11d86f10e78f212c56d27191722e555`. The exact difference is confined to CLI-hook handling: Build A adds 39 net lines that (1) map Claude names `Bash`, `Write`, `Edit`, `MultiEdit`, and `NotebookEdit` to internal allowlist names; (2) force empty, malformed, and non-object payloads to exit 2; (3) coerce non-object `tool_input` to `{}`; and (4) centralize denials through `_block()`.
-Repository evidence identifies the baseline precisely but not an author/source for the divergent bytes: HEAD and the current template contain the `f4d...` implementation; Git history shows only the tracked template introduction commit `4fe65062f13fb4e12ae477d1b2c5d0918ca0f3fb`; the Build A file is untracked; and repository search finds the added fail-closed text only in this Build A copy. Therefore the historical provenance of the added code is **unknown from repository evidence**. It is not a later tracked template update.
+Repository evidence identifies the baseline precisely but not an author/source for the divergent bytes: HEAD and the current template contain the `f4d...` implementation; Git history shows only the tracked template introduction commit `9b69c958125f60ea6f83a50d552759ee9d2a94f4`; the Build A file is untracked; and repository search finds the added fail-closed text only in this Build A copy. Therefore the historical provenance of the added code is **unknown from repository evidence**. It is not a later tracked template update.
 
 The functional motivation is observable but does not authorize the change. The template CLI exits 0 on empty input, may exit 1 on malformed JSON, and does not normalize Claude PascalCase names; Build A changes those behaviors. That may repair Claude-hook behavior, but it is still a project-copy modification to a file that declares “Do NOT modify this file per project.” It therefore violates Requirement 1.2’s preserve-generic-mechanisms condition until a human resolves it through an attributable generic-template decision or exact restoration. Task 2.3 neither accepts nor overwrites the difference and made **no change** to either permission file. See G-BA-004.
 

@@ -14,7 +14,7 @@ Copied from the spec (`docs/superpowers/specs/2026-08-13-security-kit-build-desi
 
 - **Zero external dependencies for mechanism code.** Python stdlib + bash only. `pytest` may run a test file but must never be required for one to pass.
 - **Fail closed.** A missing or malformed policy/register/spine yields an ERROR, never an empty pass. `_load_register` raising is a build failure, not a skip.
-- **A vacuous check is worse than no check** (spec §1.6). Every invariant returns `(errors, messages, skips)` and **prints its skip count**. A silent skip is itself the defect. Precedent: commit `f16525a`, where a sampling test reported 100% while 57% of the matrix was unmeasured.
+- **A vacuous check is worse than no check** (spec §1.6). Every invariant returns `(errors, messages, skips)` and **prints its skip count**. A silent skip is itself the defect. Precedent: commit `62879b3`, where a sampling test reported 100% while 57% of the matrix was unmeasured.
 - **Every rule ships a mutation** (spec §7.1). Mutation procedure: run the checker, confirm exit 0 → break the property → confirm exit non-zero *with the expected message* → revert → confirm exit 0 again.
 - **`status` is derived, not chosen** (spec §4.5.4). `check_status()` recomputes it from `(decides, attaches_at, can_deny)` and errors on disagreement, so the register cannot flatter itself.
 - **`can_deny` is tri-valued:** `true`, `false`, or the string `"n/a"`. `null` is deliberately **never** used — "the key is missing" (an authoring error) must stay distinguishable from "the question does not apply" (a fact).
@@ -1109,7 +1109,7 @@ def check_status() -> tuple:
 
     Prints one line per invariant INCLUDING its skip count, because a check that
     silently skipped everything and a check that passed everything are otherwise
-    the same output (spec §1.6; precedent f16525a).
+    the same output (spec §1.6; precedent 62879b3).
     """
     try:
         register = _load_register(MECHANISMS_PATH)
@@ -2224,7 +2224,7 @@ def case_i6_requires_a_residual_for_a_gap():
 
 def case_i6_over_an_empty_spine_fails_loudly():
     """An empty spine must FAIL, naming every uncovered row. The precedent is
-    f16525a: a sampling test reported 100% while 57% of the matrix was unmeasured."""
+    62879b3: a sampling test reported 100% while 57% of the matrix was unmeasured."""
     errors, msgs, _ = cc.check_i6({"requirements": []}, _matrix())
     assert errors == 11, f"expected 11 uncovered non-GAP rows, got {errors}"
     assert all("named by no requirement" in m for m in msgs), msgs
@@ -2525,7 +2525,7 @@ that stops the spine becoming a comfort object.
 
 An empty spine fails with one error per uncovered row rather than reporting a
 skip: same verdict, and it cannot be misread as 'nothing to check'. The precedent
-is f16525a, where a sampling test reported 100% while 57% of the matrix was
+is 62879b3, where a sampling test reported 100% while 57% of the matrix was
 unmeasured. An unlabelled matrix row does skip here — I4 already errors on it, and
 double-counting inflates the total."
 ```

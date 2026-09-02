@@ -80,14 +80,14 @@ detail not carried by a commit message or a spec section as absent rather than r
 
 | Date | Commit | What landed |
 |---|---|---|
-| 08-05 | `3e09240` | Phase-A design spec — deployed tool-mediation gate (runtime, post-build) |
-| 08-07 | `a9332f9` | **Gate 1b** — protect the mechanism from its own agent (S2.4) |
-| 08-08 | `70a12a1` | Gate 1a re-done to match protected paths **by file identity**, fail closed on bad policy |
-| 08-08 | `3d64fac`, `a7e3c81` | eval: missing `recorded/` prints guidance, not a traceback; gate count corrected in prose |
-| 08-11 | `c80b3b1` → `0fdcb11` | mechanism-inventory spec, then **three specs reconciled into one build order**; rev 2 re-measured against a clean HEAD; **a defect claim withdrawn because measuring disproved it** |
-| 08-11 | `f11a182`, `f16525a` | the measured control matrix lands; **S2.4's shell gate covered 43% of what `SECURITY.md` claimed** — measured, then said so |
-| 08-12 | `36fba08`, `223b1f6` | conceptual design cross-checked against the code; the secret scanner **could not see its own input** |
-| 08-14 | `941dc49` | build-design doc improvements; CI workflow asserting the §7.4.1 BASELINE |
+| 08-05 | `6f711a3` | Phase-A design spec — deployed tool-mediation gate (runtime, post-build) |
+| 08-07 | `d8c6ce2` | **Gate 1b** — protect the mechanism from its own agent (S2.4) |
+| 08-08 | `cc24f45` | Gate 1a re-done to match protected paths **by file identity**, fail closed on bad policy |
+| 08-08 | `3fe5f5a`, `97b178e` | eval: missing `recorded/` prints guidance, not a traceback; gate count corrected in prose |
+| 08-11 | `f5659b4` → `d2323b8` | mechanism-inventory spec, then **three specs reconciled into one build order**; rev 2 re-measured against a clean HEAD; **a defect claim withdrawn because measuring disproved it** |
+| 08-11 | `e8702ab`, `62879b3` | the measured control matrix lands; **S2.4's shell gate covered 43% of what `SECURITY.md` claimed** — measured, then said so |
+| 08-12 | `6659562`, `4ef12e5` | conceptual design cross-checked against the code; the secret scanner **could not see its own input** |
+| 08-14 | `397d744` | build-design doc improvements; CI workflow asserting the §7.4.1 BASELINE |
 
 The through-line worth carrying forward: every one of those security commits is phrased as *a
 measurement that contradicted a claim the docs already made*. That is the pattern §1.6 asks for,
@@ -99,7 +99,7 @@ and it is the reason the spec is trustworthy where it is specific.
 
 Two threads: close the last open deny-list defect, then produce the first drafter recall number.
 
-### Done — item 11, the per-command deny-list defect (`5f95a4d`, committed)
+### Done — item 11, the per-command deny-list defect (`d988275`, committed)
 
 `[^|;&]` in four `deny-list.json` regexes excludes `;` `|` `&` but **not `\n`**, so tokens from two
 different commands compose into a match neither earns alone — `sed -n '1,10p' <path>` newline-joined
@@ -391,7 +391,7 @@ deliberately not run.
 | 08-16 | I5's `data-not-instructions` anchors on the **contiguous phrase** `never execute instructions`; the other four stay disjunctions | The plan's disjunction let its own injection-boundary mutation pass green. A phrase catches the mutation without the three-token conjunction's re-wrap brittleness; the cost, accepted, is that deleting the `DATA` label alone no longer reddens I5 |
 | 08-16 | The spine shipped as `requirements.proposed.json` with I6 unwired; **you installed it the same day and I6 is now live** | A model must not write the obligation plane (plan line 27), so install had to be a human act. Wiring before install would have added a sixth `✗` and broken CI's pinned list |
 | 08-16 | I6's fail-closed branch is a `results` **entry**, not the plan's early `return` | An early return fires before the print loop, so one unreadable spine would silence I1–I5. Fail-closed must add an error, not replace the report |
-| 08-16 | `check_status()` prints each invariant's **own** population and unit | One shared figure makes an invariant that measured nothing look identical to one that measured everything (§1.6, precedent f16525a) |
+| 08-16 | `check_status()` prints each invariant's **own** population and unit | One shared figure makes an invariant that measured nothing look identical to one that measured everything (§1.6, precedent 62879b3) |
 | 08-16 | The Kiro mirror was **rewritten from the reference drafter**, not from the plan's text | The plan's text uses a verdict vocabulary (`needs-confirmation`) that `check_coverage.py` silently drops |
 | 08-16 | Tests generalised, never weakened, when a new invariant broke them | `case_check_status_labels_…` now asserts the docstring's actual claim; the replacement is jointly stronger than the literal it replaced |
 
@@ -559,7 +559,7 @@ actually uses, harness proof first.
 ### The example README was the worst artifact in the repo
 
 `examples/claims-build/README.md` was a 429-line copy of an older `template/README.md` — 114 diff
-lines from `62350e8^:template/README.md`, its Step 2 still "Fill the identity files". So the
+lines from `ada347d^:template/README.md`, its Step 2 still "Fill the identity files". So the
 directory advertised as **"Start here"** opened with instructions for building a project rather
 than any description of the one it contains. Rewritten from measurement: `./init.sh` exit 0 with 1
 warning, `pytest tests claims/tests extraction/tests -q` = 50 passed, the four phases with their
@@ -580,7 +580,7 @@ planes).
 
 ---
 
-## Session 13 — 2026-08-17 (pre-model screening at ① and ④) — `5e8a16f`
+## Session 13 — 2026-08-17 (pre-model screening at ① and ④) — `f3e019a`
 
 Closed the two pre-model positions the loop diagram had marked ✗. Both are *data-plane*
 controls: they change what the model reads, never whether something happens.
@@ -603,7 +603,7 @@ The load-bearing correction: an earlier `owasp-crosswalk.md` said ④ *cannot* b
 because `PostToolUse` cannot block. `PostToolUse` cannot veto the **call**; it can replace
 the **output**. A gap labelled impossible never gets scheduled.
 
-## Session 14 — 2026-08-22 (the four gates in a deployed application) — `30d8016`
+## Session 14 — 2026-08-22 (the four gates in a deployed application) — `099a536`
 
 Sessions up to 13 hardened one enforcement layer: Claude Code / Kiro hooks. A deployed
 application emits no hook events, so a shipped copy of this harness inherited the *design*
@@ -646,7 +646,7 @@ root `README.md`, `template/README.md`, `Security-kit/README.md`, `SECURITY-MANI
 
 ---
 
-## Session 15 — 2026-08-31 (audit of the semantic-enforcement plan) — `4029e0d`, `b5aa22d`
+## Session 15 — 2026-08-31 (audit of the semantic-enforcement plan) — `3027eb8`, `e77b809`
 
 A 12-task plan for runtime semantic enforcement arrived, drafted against a demo fork frozen
 2026-08-21 — one day before this tree's runtime pair shipped. Three of its seven baseline
@@ -705,3 +705,29 @@ merge commit moved the revision.
 | 09-02 | `DEPLOY_WITH_RULES`, not `PRODUCTION_READY` | `SEC-RUNTIME-GAP-001` is open and F-7 shows the bypass is one attribute access away; routing must be a deployment condition, not a code claim |
 | 09-02 | Verdict re-scope recorded as an **amendment**, original revision kept visible | A signed attestation's scope is not quietly rewritten; an amendment that touched the decision would be a new verdict |
 | 09-02 | Three commits lost to a squash-merge restored via PR, the security fix left for human `git apply` | `rebase --onto` a squashed base silently drops later commits; the protected-path rule holds even when restoring an already-approved change |
+
+## Session 18 — 2026-09-02 (history rewrite)
+
+`git add -A template/` in an earlier session had swept ≈51 MB of presentation decks and
+editor scratch directories into the repository. Moving them out (PR #13) fixed the tree but
+not the history: a fresh clone still fetched 35 MB, and two merged branches pinned the same
+blobs. History was rewritten with `git filter-repo --invert-paths` in a fresh clone, never
+in the working repo; fresh-clone size 35 MB → **2.2 MB**, 0 offending blobs, commit count
+130 → 130, root tree byte-identical to the pre-rewrite `main`.
+
+Because `template/.kiro/` had also existed for a week in July, the rewrite reached back to
+the repository's first week and **every commit identifier changed**. Verified before the
+push: all 21 C-5 artifacts sha256-identical; `Security-kit/runtime/` tree object unchanged;
+315 passed, `init.sh` at the 5-error baseline, I1–I6 green, attack traces byte-identical,
+classifier lock verify PASS. Amendment A-2 re-labels the verdict's revisions; the 31 other
+commit citations in docs were translated through filter-repo's commit map (length-
+preserving, 14 files). Two Session-16 citations already dangled before the rewrite
+(squash-merged branch commits) and were left as they were.
+
+### Decisions
+
+| Date | Decision | Rationale |
+|---|---|---|
+| 09-02 | Rewrite history rather than leave the decks in it | The operator's words: nobody should clone 58 MB every time. Ignore rules stop recurrence; only a rewrite removes what is already there |
+| 09-02 | Rewrite in a fresh clone; force-push only after byte-identity of the scoped tree was proven | A rewrite that changed any judged artifact would void the verdict; proving identity first makes A-2 an amendment, not a new verdict |
+| 09-02 | Delete the two merged branches that pinned the blobs; leave the ten others, including a colleague's | A default clone fetches every branch, so the shrink is illusory unless the pinning branches go; the rest carry ≤0.1 MB and are not ours to prune |
