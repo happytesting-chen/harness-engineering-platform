@@ -1,0 +1,343 @@
+<title>Four Gates</title>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;600&family=IBM+Plex+Sans:wght@400;500;600&family=IBM+Plex+Serif:wght@500;600&display=swap">
+<style>
+:root{
+  --ground:#EDEFEE; --surface:#F6F7F6; --sunk:#E3E7E4;
+  --ink:#161A18; --muted:#5C6763; --faint:#8A938E; --rule:#CBD2CE;
+  --enforced:#14594B; --partial:#8A6410; --gap:#9E3B2B;
+  --enforced-wash:#14594B14; --partial-wash:#8A641014; --gap-wash:#9E3B2B14;
+  --serif:"IBM Plex Serif",Georgia,serif;
+  --sans:"IBM Plex Sans",system-ui,sans-serif;
+  --mono:"IBM Plex Mono",ui-monospace,Menlo,monospace;
+}
+@media (prefers-color-scheme:dark){
+  :root:not([data-theme="light"]){
+    --ground:#111412; --surface:#181C1A; --sunk:#0C0F0D;
+    --ink:#E4E9E6; --muted:#8F9A94; --faint:#6B7671; --rule:#2A312D;
+    --enforced:#4FBFA4; --partial:#D9A441; --gap:#E0705C;
+    --enforced-wash:#4FBFA41F; --partial-wash:#D9A4411F; --gap-wash:#E0705C1F;
+  }
+}
+:root[data-theme="dark"]{
+  --ground:#111412; --surface:#181C1A; --sunk:#0C0F0D;
+  --ink:#E4E9E6; --muted:#8F9A94; --faint:#6B7671; --rule:#2A312D;
+  --enforced:#4FBFA4; --partial:#D9A441; --gap:#E0705C;
+  --enforced-wash:#4FBFA41F; --partial-wash:#D9A4411F; --gap-wash:#E0705C1F;
+}
+*{box-sizing:border-box}
+body{margin:0;background:var(--ground);color:var(--ink);font-family:var(--sans);
+  font-size:16.5px;line-height:1.62;-webkit-font-smoothing:antialiased}
+.wrap{max-width:74ch;margin:0 auto;padding:0 24px}
+h1,h2,h3{font-family:var(--serif);font-weight:600;text-wrap:balance;line-height:1.16;margin:0}
+a{color:var(--enforced)}
+.mono{font-family:var(--mono);font-variant-numeric:tabular-nums}
+
+/* ---- masthead ---- */
+header{border-bottom:1px solid var(--rule);padding:clamp(48px,8vw,92px) 0 clamp(36px,6vw,60px)}
+.eyebrow{font-family:var(--mono);font-size:11.5px;letter-spacing:.16em;text-transform:uppercase;
+  color:var(--muted);display:flex;gap:14px;flex-wrap:wrap;align-items:center;margin-bottom:26px}
+.eyebrow s{text-decoration:none;color:var(--faint)}
+h1{font-size:clamp(33px,5.6vw,54px);letter-spacing:-.02em;max-width:19ch}
+h1 em{font-style:normal;color:var(--enforced)}
+.deck{margin-top:24px;font-size:clamp(17px,2vw,20px);color:var(--muted);max-width:58ch;line-height:1.55}
+.stats{display:flex;flex-wrap:wrap;gap:0;margin-top:40px;border:1px solid var(--rule);
+  border-radius:3px;overflow:hidden;background:var(--surface)}
+.stat{flex:1 1 120px;padding:15px 18px;border-right:1px solid var(--rule)}
+.stat:last-child{border-right:none}
+.stat b{display:block;font-family:var(--mono);font-size:23px;font-weight:600;
+  font-variant-numeric:tabular-nums;letter-spacing:-.02em}
+.stat span{display:block;font-size:12px;color:var(--muted);margin-top:3px;line-height:1.35}
+
+section{padding:clamp(44px,7vw,76px) 0;border-bottom:1px solid var(--rule)}
+.orient{display:grid;grid-template-columns:repeat(3,1fr);gap:1px;background:var(--rule);
+  border:1px solid var(--rule);border-radius:3px;overflow:hidden;margin-top:30px}
+@media(max-width:760px){.orient{grid-template-columns:1fr}}
+.ob{background:var(--surface);padding:19px 21px}
+.ob .t{font-family:var(--mono);font-size:10.5px;letter-spacing:.14em;text-transform:uppercase;color:var(--faint)}
+.ob b{display:block;font-family:var(--serif);font-size:17.5px;font-weight:600;margin:7px 0 7px}
+.ob p{margin:0;font-size:14.5px;color:var(--muted)}
+.kicker{font-family:var(--mono);font-size:11.5px;letter-spacing:.16em;text-transform:uppercase;
+  color:var(--faint);margin-bottom:14px}
+h2{font-size:clamp(24px,3.4vw,31px);letter-spacing:-.015em;max-width:24ch}
+section > .wrap > p{margin:20px 0 0;max-width:64ch}
+p.lead{font-size:17.5px;color:var(--ink)}
+
+/* ---- gate trace: the signature ---- */
+.trace{margin-top:36px;display:grid;grid-template-columns:auto 1fr;gap:0 20px}
+.node{display:contents}
+.marker{position:relative;display:flex;flex-direction:column;align-items:center;width:34px}
+.dot{width:30px;height:30px;border-radius:50%;border:1.5px solid var(--rule);background:var(--surface);
+  display:grid;place-items:center;font-family:var(--mono);font-size:14px;font-weight:600;flex:none;z-index:1}
+.dot.on{border-color:var(--enforced);color:var(--enforced);background:var(--enforced-wash)}
+.dot.off{border-style:dashed;color:var(--faint)}
+.stem{flex:1;width:1.5px;background:var(--rule);min-height:16px}
+.node:last-child .stem{display:none}
+.body{padding-bottom:22px;min-width:0}
+.body h3{font-size:17px;font-family:var(--sans);font-weight:600;letter-spacing:-.005em}
+.body .what{font-size:14.5px;color:var(--muted);margin-top:5px;max-width:56ch}
+.layers{display:flex;flex-wrap:wrap;gap:7px;margin-top:11px}
+.chip{font-family:var(--mono);font-size:11.5px;padding:4px 9px;border-radius:2px;
+  border:1px solid var(--rule);color:var(--muted);background:var(--surface);white-space:nowrap}
+.chip.on{border-color:color-mix(in srgb,var(--enforced) 42%,transparent);
+  color:var(--enforced);background:var(--enforced-wash)}
+.chip.new{border-color:color-mix(in srgb,var(--partial) 45%,transparent);
+  color:var(--partial);background:var(--partial-wash)}
+.llm{font-family:var(--mono);font-size:12.5px;color:var(--faint);padding:2px 0 22px}
+
+/* ---- can / cannot ---- */
+.split{display:grid;grid-template-columns:1fr 1fr;gap:26px;margin-top:34px}
+@media(max-width:720px){.split{grid-template-columns:1fr}}
+.col h3{font-family:var(--mono);font-size:11.5px;letter-spacing:.14em;text-transform:uppercase;
+  font-weight:600;padding-bottom:9px;border-bottom:1.5px solid;margin-bottom:4px}
+.col.does h3{color:var(--enforced);border-color:var(--enforced)}
+.col.doesnt h3{color:var(--gap);border-color:var(--gap)}
+.col ul{list-style:none;margin:0;padding:0}
+.col li{padding:13px 0;border-bottom:1px solid var(--rule);font-size:15px;line-height:1.5}
+.col li:last-child{border-bottom:none}
+.col li b{display:block;font-weight:600;margin-bottom:2px}
+.col li span{color:var(--muted);font-size:14px}
+
+/* ---- build principles ---- */
+.principles{margin-top:30px;display:grid;gap:1px;background:var(--rule);
+  border:1px solid var(--rule);border-radius:3px;overflow:hidden}
+.pr{background:var(--surface);padding:20px 22px}
+.pr b{font-family:var(--serif);font-size:17.5px;font-weight:600;display:block;margin-bottom:6px}
+.pr p{margin:0;font-size:14.5px;color:var(--muted);max-width:60ch}
+.pr code{font-family:var(--mono);font-size:13px;color:var(--ink);background:var(--sunk);
+  padding:1px 5px;border-radius:2px}
+
+/* ---- verdict ---- */
+.verdict{margin-top:32px;border:1px solid var(--rule);border-radius:3px;background:var(--surface);
+  border-left:3px solid var(--partial);padding:24px 26px}
+.verdict .tag{font-family:var(--mono);font-size:12px;font-weight:600;letter-spacing:.1em;
+  color:var(--partial);text-transform:uppercase}
+.verdict h3{font-family:var(--serif);font-size:21px;margin:9px 0 12px}
+.verdict p{margin:0 0 12px;font-size:15px;color:var(--muted);max-width:62ch}
+.verdict p:last-child{margin-bottom:0}
+.conds{list-style:none;margin:14px 0 0;padding:0;display:grid;gap:8px}
+.conds li{display:grid;grid-template-columns:34px 1fr;gap:10px;font-size:14.5px;align-items:start}
+.conds .c{font-family:var(--mono);font-size:12px;color:var(--partial);font-weight:600;padding-top:2px}
+
+footer{padding:44px 0 60px;color:var(--faint);font-size:13.5px}
+footer .mono{color:var(--muted)}
+footer a{color:var(--enforced)}
+@media(prefers-reduced-motion:reduce){*{animation:none!important;transition:none!important}}
+</style>
+
+<header>
+  <div class="wrap">
+    <div class="eyebrow"><span>Runtime security for AI agents</span><s>/</s><span>Capability brief</span></div>
+    <h1>An agent security layer that publishes <em>what it cannot do</em>.</h1>
+    <p class="deck">Four enforcement points wrapped around a deployed agent — screening what it
+      reads, refusing what it shouldn't run, and bounding what it does over a whole session.
+      Everything below is measured against a committed test suite, including the parts that
+      do not work.</p>
+    <div class="stats">
+      <div class="stat"><b>315</b><span>tests, all passing</span></div>
+      <div class="stat"><b>13/13</b><span>attack cases resisted</span></div>
+      <div class="stat"><b>14/16</b><span>injections detected</span></div>
+      <div class="stat"><b>2</b><span>known misses, named</span></div>
+    </div>
+  </div>
+</header>
+
+<section>
+  <div class="wrap">
+    <div class="kicker">In short</div>
+    <h2>A library your agent calls, that decides what it is allowed to read and do.</h2>
+    <p class="lead">It is not a proxy, a gateway or a hosted service — nothing leaves your
+      infrastructure and no traffic is routed anywhere. It is Python that runs inside your own
+      application, between your agent and its tools.</p>
+    <div class="orient">
+      <div class="ob"><div class="t">What you integrate</div><b>One entry point</b>
+        <p>Your agent calls the gate instead of calling tools directly. Every tool has to go
+          through it — that routing is the integration, and the part a review checks.</p></div>
+      <div class="ob"><div class="t">What it needs</div><b>Standard library, one local model</b>
+        <p>No cloud dependency, no API key, no telemetry. A small classifier runs locally,
+          pinned by cryptographic digest.</p></div>
+      <div class="ob"><div class="t">What you get</div><b>Refusals and evidence</b>
+        <p>Hostile input withheld, unsafe actions refused before they run, and a tamper-evident
+          record of every decision.</p></div>
+    </div>
+  </div>
+</section>
+
+<section>
+  <div class="wrap">
+    <div class="kicker">The problem</div>
+    <h2>An AI agent never acts. It asks — and today, nothing independent answers.</h2>
+    <p class="lead">Everything an agent does begins as a request: <em>send this email</em>,
+      <em>run this command</em>, <em>read that file</em>. Security is whoever answers that
+      request. In most deployments the answer is: whatever the model emitted, happens.</p>
+    <p>That matters because an attacker doesn't need to breach the agent. They only need to get
+      text in front of it — a poisoned document, a booby-trapped page, a planted database row.
+      The agent reads it with the same trust it gives your own instructions.</p>
+    <p>Guidance inside the model — system prompts, skills, careful instructions — improves
+      judgement but shares a channel with the attack. Whatever persuades the model also
+      disables the instruction. Enforcement has to sit outside the model, where nothing in the
+      conversation can argue with it.</p>
+  </div>
+</section>
+
+<section>
+  <div class="wrap">
+    <div class="kicker">The mechanism</div>
+    <h2>Five positions in an agent's loop. Four now carry a control.</h2>
+    <p>Each control exists twice — once as an IDE hook while your team builds, once as an
+      in-process call inside the product you ship — reading one shared policy, so a rule change
+      moves both at once.</p>
+
+    <div class="trace">
+      <div class="node">
+        <div class="marker"><div class="dot on">①</div><div class="stem"></div></div>
+        <div class="body">
+          <h3>Input, before the model reads it</h3>
+          <p class="what">Deterministic markers first; a pinned local classifier judges only what
+            the rules left unresolved. Anything not affirmatively cleared is withheld and
+            quarantined — it never reaches the context window.</p>
+          <div class="layers"><span class="chip on">rule engine</span><span class="chip on">local classifier</span><span class="chip on">quarantine + human release</span></div>
+        </div>
+      </div>
+
+      <div class="node">
+        <div class="marker"><div class="dot off">◦</div><div class="stem"></div></div>
+        <div class="body"><p class="llm">the model reasons and <em>proposes</em> — it runs nothing</p></div>
+      </div>
+
+      <div class="node">
+        <div class="marker"><div class="dot on">②</div><div class="stem"></div></div>
+        <div class="body">
+          <h3>The request, before anything runs</h3>
+          <p class="what">The only position where an action can still be refused, because the
+            side effect hasn't happened yet. Tool allowlist, blocked-command patterns, outbound
+            destination check, human phase sign-off — plus argument shape and where this turn's
+            content came from.</p>
+          <div class="layers"><span class="chip on">allowlist</span><span class="chip on">command patterns</span><span class="chip on">egress default-deny</span><span class="chip on">origin rules</span><span class="chip on">approval tier</span></div>
+        </div>
+      </div>
+
+      <div class="node">
+        <div class="marker"><div class="dot off">③</div><div class="stem"></div></div>
+        <div class="body">
+          <h3>The tool executes</h3>
+          <p class="what">Past the point of prevention, by definition. No layer claims otherwise.</p>
+        </div>
+      </div>
+
+      <div class="node">
+        <div class="marker"><div class="dot on">④</div><div class="stem"></div></div>
+        <div class="body">
+          <h3>Output, before the model reads it</h3>
+          <p class="what">The attacker's usual way in. A tool result carrying instruction-shaped
+            text is replaced before it enters context — the call is not undone, but its influence
+            on the model is removed. On by default; there is no off switch.</p>
+          <div class="layers"><span class="chip on">substitution</span><span class="chip on">shape-preserving</span></div>
+        </div>
+      </div>
+
+      <div class="node">
+        <div class="marker"><div class="dot on">⑤</div></div>
+        <div class="body">
+          <h3>The sequence — the whole session</h3>
+          <p class="what">Twenty individually-legal refunds used to pass identically, because every
+            check judged one call in isolation. Per-tool and total session budgets now bound the
+            run, and they hold under concurrent calls.</p>
+          <div class="layers"><span class="chip new">new — first control at this position</span></div>
+        </div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<section>
+  <div class="wrap">
+    <div class="kicker">Capability, plainly</div>
+    <h2>What it does, and what it does not.</h2>
+    <div class="split">
+      <div class="col does">
+        <h3>Does</h3>
+        <ul>
+          <li><b>Withholds hostile input</b><span>Rules plus a pinned local classifier. Nothing enters context unless both clear it.</span></li>
+          <li><b>Refuses actions before they happen</b><span>A denied call means the tool was never invoked — proven by counting calls, not reading messages.</span></li>
+          <li><b>Replaces poisoned tool output</b><span>Per call, including results a subagent returns.</span></li>
+          <li><b>Bounds a whole session</b><span>Per-tool and total budgets, correct under concurrency.</span></li>
+          <li><b>Tracks where content came from</b><span>A turn touched by external content cannot reach a tool reserved for direct user requests.</span></li>
+          <li><b>Puts a human in the loop, safely</b><span>Quarantined text is reviewed on an inert surface; release is a single-use receipt bound to one exact digest.</span></li>
+          <li><b>Refuses to start when misconfigured</b><span>An unsupported capability or an unverified classifier is a startup failure, not a warning.</span></li>
+          <li><b>Leaves tamper-evident evidence</b><span>Hash-chained records; editing one breaks verification at that point.</span></li>
+        </ul>
+      </div>
+      <div class="col doesnt">
+        <h3>Does not</h3>
+        <ul>
+          <li><b>Force your application to use it</b><span>The single most important limit. Nothing can make a codebase route its calls through the gate — that stays an architecture decision, verified by review.</span></li>
+          <li><b>Catch every paraphrase</b><span>Two measured misses, both attacks that impersonate ordinary workflow. The classifier was confidently wrong on both; the action gate is what stops them.</span></li>
+          <li><b>Bound the review queue</b><span>Fail-closed screening means false positives queue for a human. No cap ships; your deployment sets one.</span></li>
+          <li><b>Cover multi-agent systems</b><span>Delegation and inter-agent messaging are disabled, not secured.</span></li>
+          <li><b>Read binary documents</b><span>UTF-8 text only. PDFs and images are refused, not parsed.</span></li>
+          <li><b>Remember across sessions</b><span>No persistent memory. Budgets bound one run.</span></li>
+          <li><b>Confine the operating system</b><span>This is an application-layer control. Sandboxing is a separate concern.</span></li>
+        </ul>
+      </div>
+    </div>
+  </div>
+</section>
+
+<section>
+  <div class="wrap">
+    <div class="kicker">How it is built</div>
+    <h2>Five construction rules, each one enforced by a test.</h2>
+    <div class="principles">
+      <div class="pr"><b>Deterministic first, model second</b>
+        <p>Pattern rules run on every item in microseconds. The classifier is consulted only on
+          what the rules left unresolved — and it can withhold content, never authorise an
+          action. No model decides an enforcement verdict.</p></div>
+      <div class="pr"><b>Every failure is a refusal</b>
+        <p>Classifier timeout, crash, malformed reply, low confidence, unreadable policy,
+          oversized input — thirteen distinct failure shapes, all tested, all landing on
+          <code>withhold</code>. There is no path from a broken component to an allow.</p></div>
+      <div class="pr"><b>One owner per rule</b>
+        <p>Detection patterns live in exactly one file; every adapter imports them. Tests scan
+          module source to prove no second copy exists — a duplicated rule is a rule that drifts.</p></div>
+      <div class="pr"><b>Composition, never reimplementation</b>
+        <p>The session layer wraps the existing action gate rather than rebuilding it. Adding a
+          control cannot weaken one that already works.</p></div>
+      <div class="pr"><b>Side effects are the oracle</b>
+        <p>Tests assert <code>calls == 0</code> after a denial — the tool genuinely never ran. A
+          test that only inspects a return value passes whether the control worked or not.</p></div>
+    </div>
+  </div>
+</section>
+
+<section>
+  <div class="wrap">
+    <div class="kicker">Release status</div>
+    <h2>Signed as deployable — under five conditions, with an expiry.</h2>
+    <div class="verdict">
+      <div class="tag">Deploy with rules</div>
+      <h3>Not certified unconditionally, on purpose.</h3>
+      <p>A stronger verdict was available and was not taken. Nothing in a library can force an
+        application to route its tool calls through the gate, so that guarantee is carried by a
+        condition on the deployment rather than a claim in the code.</p>
+      <ul class="conds">
+        <li><span class="c">C-1</span><span>Every tool call reaches its function through the gate — confirmed by architecture review with a recorded walkthrough.</span></li>
+        <li><span class="c">C-2</span><span>Production mode with a verified classifier lock, evidenced by a captured startup report.</span></li>
+        <li><span class="c">C-3</span><span>A review-queue bound is stated, or unbounded load is accepted in writing with a named owner.</span></li>
+        <li><span class="c">C-4</span><span>An independent security review — not the authors — completes the checklist.</span></li>
+        <li><span class="c">C-5</span><span>The pinned artifacts do not change; continuous integration checks this every build.</span></li>
+      </ul>
+      <p style="margin-top:16px">The verdict expires on a fixed date, or the moment any pinned
+        artifact changes. Evidence has a shelf life: every figure was measured against one tree,
+        and a verdict that outlives its measurements is an assertion, not a finding.</p>
+    </div>
+  </div>
+</section>
+
+<footer>
+  <div class="wrap">
+    <p style="margin:0 0 8px">Every figure on this page is reproducible from the repository — the
+      test count, the attack results, the detection rate and both known misses.</p>
+    <p class="mono" style="margin:0;font-size:12.5px">315 tests · 18 runtime suites · 16 modules ·
+      2,388 lines · standard library only, apart from the classifier process</p>
+  </div>
+</footer>

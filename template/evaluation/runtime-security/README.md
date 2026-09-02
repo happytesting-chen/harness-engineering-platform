@@ -32,6 +32,11 @@ No case passes because a component said it blocked something.
 classifier lock or `Security-kit/runtime/` and the verdict lapses — into nothing, not into a
 stronger claim. Re-signature requires re-running the evidence.
 
-The rendered client-facing summaries of this material are the *Four Gates* and *Evidence
-Ledger* pages; this directory is their source of truth, and they must be re-checked whenever
-a figure here moves.
+## Rendered pages
+
+[`pages/four-gates.html`](pages/four-gates.html) (the capability brief) and
+[`pages/evidence-ledger.html`](pages/evidence-ledger.html) (the measured record, explained)
+are self-contained HTML renderings of this directory for an external reader. **This
+directory is their source of truth.** Every figure on them was taken from the files above
+at one revision; when a number here moves, the page is stale until it is re-checked. They
+sit in their own subfolder so rendered views are never mistaken for evidence.
