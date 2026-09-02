@@ -166,11 +166,15 @@ def test_structural_keys_are_not_scanned():
 
 # --- modes and failure handling -------------------------------------------------
 
-def test_warn_mode_reports_without_substituting():
+def test_warn_env_var_is_ignored():
+    # RESULT_SCREEN_MODE=warn was removed 2026-08-31: hooks inherit the host process
+    # environment and ~/.zshrc is not a protected path, so the env var was a quiet,
+    # persistent off-switch on the one pre-model control that covers agent runtime.
+    # This test pins the removal: the variable being set must change nothing.
     code, out, err = _run(POISON, env_extra={"RESULT_SCREEN_MODE": "warn"})
     assert code == 0
-    assert out.strip() == "", "warn mode must not alter the output"
-    assert "marker" in err
+    assert out.strip() != "", "output must still be substituted with the env var set"
+    assert "withheld" in err
 
 
 def test_malformed_payload_fails_open():

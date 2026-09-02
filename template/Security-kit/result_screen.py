@@ -54,12 +54,16 @@ Four decisions worth arguing with:
     reviewer who disagrees should make `_fail_open` emit a substitution; nothing else
     moves. The fail-open path always announces itself on stderr.
 
-Set `RESULT_SCREEN_MODE=warn` to report on stderr without substituting. That switch
-is an operator env var on purpose: an in-band bypass phrase would be a bypass an
-attacker could paste into the content being screened.
+THERE IS NO WARN MODE. `prompt_screen.py` carries `PROMPT_SCREEN_MODE=warn` because its
+false positive locks a human out of their own prompt; this screen's false positive
+withholds one tool output, shape-preserved and announced on stderr — recoverable. An
+earlier revision carried `RESULT_SCREEN_MODE=warn`; it was removed 2026-08-31 because
+hooks inherit the host process environment and `~/.zshrc` is not a protected path, so
+one unprotected shell-profile line silenced the only pre-model control that covers
+agent runtime, from the next session on. `runtime_screen.py` point 4 states the same
+doctrine for the deployed profile.
 """
 import json
-import os
 import sys
 from pathlib import Path
 
@@ -214,12 +218,6 @@ def main():
     tool = data.get("tool_name") or "unknown"
     markers, replacement = screen(data["tool_response"], tool)
     if not markers:
-        sys.exit(0)
-
-    if os.environ.get("RESULT_SCREEN_MODE", "block").strip().lower() == "warn":
-        print(f"result-screen: {len(markers)} marker(s) matched in {tool} output, "
-              f"allowed (RESULT_SCREEN_MODE=warn)", file=sys.stderr)
-        _audit(tool, markers, "ALLOWED")
         sys.exit(0)
 
     print(f"result-screen: {tool} output withheld -- instruction-shaped text matched "
