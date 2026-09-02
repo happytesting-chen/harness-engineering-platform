@@ -731,3 +731,49 @@ preserving, 14 files). Two Session-16 citations already dangled before the rewri
 | 09-02 | Rewrite history rather than leave the decks in it | The operator's words: nobody should clone 58 MB every time. Ignore rules stop recurrence; only a rewrite removes what is already there |
 | 09-02 | Rewrite in a fresh clone; force-push only after byte-identity of the scoped tree was proven | A rewrite that changed any judged artifact would void the verdict; proving identity first makes A-2 an amendment, not a new verdict |
 | 09-02 | Delete the two merged branches that pinned the blobs; leave the ten others, including a colleague's | A default clone fetches every branch, so the shrink is illusory unless the pinning branches go; the rest carry ≤0.1 MB and are not ours to prune |
+
+## Session 19 — 2026-09-02 (bring your own classifier)
+
+**Question answered first: does the current tree run and protect?** Yes, measured on a
+fresh clone: 315 passed, 5-error baseline, I1–I6 green, 13/13 RESISTANT, and a live
+production-mode host with the real pinned classifier: paraphrased injection quarantined by
+the classifier alone; the known miss (`atk-010` shape) admitted, then `send_email` **denied
+by the origin rule with zero side effects**. Benchmark re-run reproduced the committed
+result on every field but latency. Three boundaries observed and recorded: the classifier
+is not shipped and the lock is machine-local; output redaction covers five credential
+shapes plus declared values; tool arguments are egress-checked, not secret-scanned.
+
+**Built: `Security-kit/eval/bootstrap_classifier.py`** (stdlib, 20 tests, TDD) so another
+machine can rebuild the same classifier proven the same way — venv from the ==pinned lock;
+model and tokenizer fetched from a **pinned revision** and verified by SHA-256 and size
+before anything runs; the tracked wrapper installed only if its body hashes to the recorded
+digest; the committed benchmark re-run and compared on every summary figure and **all 24
+per-case verdicts**; an UNSIGNED lock, signed by a human in a separate step that re-hashes
+and runs `--verify`. Refuses a root git would track. TLS verification is never disabled
+(`--ca-bundle`, `SSL_CERT_FILE`, macOS keychain roots added). Nothing under
+`Security-kit/runtime/` changed (C-5 holds).
+
+End to end on the fresh clone: first run stopped on the corporate TLS-inspecting proxy
+(fail-closed, then fixed by trusting the keychain, not by disabling verification); second
+run stopped because Hugging Face's root `tokenizer.json` differs from the benchmarked one
+(same 128k tokens, 32,428 scores differ at 1e-15, truncation metadata set) — the
+benchmarked file is `onnx/tokenizer.json`, now pinned. Third run: 18 s, 738 MB reused
+from the verified cache, benchmark 14/16 · 12/16 · 3/8 · 0 unresolved, all cases equal;
+`sign` verified; production host started from the local lock and denied the
+tainted send. Re-signing over an existing lock is refused.
+
+**Found in passing, not fixed:** the CI log for `main` says `pytest absent` — the full
+suite has never run on GitHub, only the 21 files `init.sh` names; the README sentence
+claiming otherwise is corrected. And the runtime lock verifies the wrapper and the model
+but **not `tokenizer.json`**, which the wrapper loads from beside the model and which
+determines tokenization — a candidate for the C-4 review (it lives under
+`Security-kit/runtime/`, so any fix is a human patch and a new verdict).
+
+### Decisions
+
+| Date | Decision | Rationale |
+|---|---|---|
+| 09-02 | Bootstrap locally rather than make lock paths portable or ship the model | Portable paths change the verifier under `Security-kit/runtime/` and void the verdict; 700 MB in git is the incident just reversed; a hosted classifier is F-4 |
+| 09-02 | Compare per-case verdicts, not just summary counts | Two swapped verdicts can leave every count unchanged; the tokenizer episode showed how a "same" artifact can differ |
+| 09-02 | Signing is a separate command that re-hashes | A bootstrap that signs on the human's behalf is not human-signed; drift between bootstrap and sign must stop the signature |
+| 09-02 | Trust the OS keychain; never offer `--insecure` | The corporate proxy is a fact of the deployment; unverified download of a classifier is a supply-chain hole no flag should open |

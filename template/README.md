@@ -272,11 +272,14 @@ Three of those lines are easy to misread:
   ([Step 5b](#step-5b--tailor-the-security-controls-security-tailor)).
 
 `init.sh` names its test files individually and runs them without `pytest` — that is what
-keeps the health check dependency-free. Re-measured 2026-09-02: **36 test files exist (18 in
-`tests/`, 18 in `tests/runtime/`) and `init.sh` names 21 of them.** The 15 unreached are
-`test_mechanisms.py`, `test_requirements.py`, `test_result_screening.py`, and 12 of the 18
-runtime suites — only the six register-proof suites in `tests/runtime/` are named. All 36 run
-under the CI pytest step. The gap is stated as `SEC-PROOF-GAP-001` in
+keeps the health check dependency-free. Re-measured 2026-09-02: **37 test files exist (19 in
+`tests/`, 18 in `tests/runtime/`) and `init.sh` names 21 of them.** The 16 unreached are
+`test_mechanisms.py`, `test_requirements.py`, `test_result_screening.py`,
+`test_bootstrap_classifier.py`, and 12 of the 18 runtime suites — only the six
+register-proof suites in `tests/runtime/` are named. The CI workflow runs all 37 under
+pytest **only if pytest is installed on the runner**; the CI log for `main` at `e02dbba`
+reports `pytest absent`, so on GitHub only the 21 named files have actually run
+(recorded in `progress.md`, Session 19). The gap is stated as `SEC-PROOF-GAP-001` in
 `Security-kit/control-matrix.md` rather than left implied.
 
 #### What you have when this goes green — and what you don't
@@ -287,7 +290,7 @@ Worth being blunt, because the next step depends on it:
 |---|---|
 | A gate that blocks disallowed tool calls before they run, wired and proven **in this IDE session** | **Any product code.** Not a line — the template ships no `src/`, no domain package, no entrypoint |
 | The same four gates available in process for the app you deploy (`governance/runtime_dispatcher.py`, `Security-kit/runtime_screen.py`) | Them being *called*. They are libraries — your app has to route through them, and nothing here checks that it did (S1.6, `SEC-RUNTIME-GAP-001`) |
-| 36 test suites green (315 tests), an append-only audit log, an evaluation baseline | Any test of *your* behaviour — those suites test the harness |
+| 37 test suites green (335 tests), an append-only audit log, an evaluation baseline | Any test of *your* behaviour — those suites test the harness |
 | A phase plan your agent must follow one phase at a time | A running application. `python3 demo/demo.py` runs a *scripted mock*, not your agent |
 | A signed applicability decision over the 20 OWASP LLM/Agentic risks | Domain controls — `/security-tailor` leaves every Verification cell for you |
 
@@ -525,6 +528,37 @@ Contract, evidence and verdict: [`Context/runtime-security-profile.md`](Context/
 · [`evaluation/runtime-security/`](evaluation/runtime-security/). Measured: 13/13 attack
 cases resisted on side-effect oracles; detection 14/16 with two named misses; **routing is
 still opt-in** (`SEC-RUNTIME-GAP-001`).
+
+#### Bring your own classifier — the model is not in the repo
+
+The classifier is deliberately not shipped: 700 MB, and a hosted one is a startup error.
+The signed lock in `Security-kit/runtime/` names artifacts by **absolute path on the
+operator's machine**, so on any other machine `production=True` refuses to start until
+you pin your own. That is fail-closed behaviour, not a defect. Rebuild the same
+classifier, proven the same way:
+
+```bash
+python3 Security-kit/eval/bootstrap_classifier.py bootstrap        # venv · verified download · benchmark · UNSIGNED lock
+python3 Security-kit/eval/bootstrap_classifier.py sign --approved-by you@example.org
+```
+
+`bootstrap` stops at the first thing it cannot prove: a venv from the ==pinned
+`requirements.lock.txt`; the model and tokenizer fetched from the source in
+`Security-kit/eval/classifier-source.json` and checked by SHA-256 **and** size before
+anything runs (a mismatch deletes the file); the tracked wrapper installed only if its body
+hashes to the digest recorded beside the benchmark; the committed benchmark re-run locally
+and compared with the committed result on every summary figure **and every per-case
+verdict**. Only then does it write `semantic-model.lock.unsigned.json` under
+`.classifier-candidates/` at the repo root (git-ignored — it refuses a root git would track).
+`sign` is a separate, deliberate step: it re-hashes the artifacts, fills the approval fields,
+and runs `--verify` on the result. Point `classifier_lock_path` at **your** signed lock; the
+shipped lock stays as the verdict's evidence. TLS verification is never disabled: on a
+network that inspects TLS, pass `--ca-bundle your-ca.pem` or set `SSL_CERT_FILE`
+(on macOS the keychain's roots are added automatically).
+
+Your lock is yours. The signed verdict in `evaluation/runtime-security/` covers the
+operator's deployment; a second deployment gets the same evidence path and the same
+measured behaviour, and signs its own lock — and, if it wants one, its own verdict.
 
 ### Observability
 
@@ -798,7 +832,7 @@ my-agent/
 │       ├── audit.py       ← [MECHANISM] append-only audit log               [never edit]
 │       └── audit_hook.py  ← [MECHANISM] PostToolUse audit adapter           [never edit]
 │
-├── tests/                 ← VERIFICATION (36 suites, 315 tests; all stdlib, pytest optional)
+├── tests/                 ← VERIFICATION (37 suites, 335 tests; all stdlib, pytest optional)
 │   ├── fixtures.json          ·  ground-truth gate cases                    [EXTEND]
 │   ├── test_fixtures.py       ·  data-driven gate runner
 │   ├── test_e2e.py            ·  end-to-end enforcement proof

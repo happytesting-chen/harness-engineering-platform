@@ -49,6 +49,15 @@ Enabling any of these is a new source or sink and requires a separately approved
 
 ## Not established by this work
 
+- **Portability of the classifier itself.** The model is not in the repository and the
+  signed lock names artifacts by absolute path on the operator's machine, so on another
+  machine `production=True` refuses to start (measured: "classifier lock invalid …
+  executable_path … is not a regular file"). `Security-kit/eval/bootstrap_classifier.py`
+  rebuilds the classifier locally — digest-verified download, the committed benchmark
+  re-run and compared per case, an unsigned lock a human signs. What it establishes is
+  *same artifacts, same measured behaviour on this machine*; it does not extend this
+  verdict to that machine. Each deployment signs its own lock.
+
 No verdict from this evidence covers: model-weight robustness, operating-system
 confinement or sandboxing, the disabled capabilities above, deployments without the
 required read-only control plane, or resistance to attack classes outside the 13-case
