@@ -31,3 +31,6 @@ __pycache__/
 # Tool caches inside force-included trees
 **/.pytest_cache/
 **/__pycache__/
+
+# Operator-local working material (decks, scratch). Kept on disk, never shipped.
+_local/
