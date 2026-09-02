@@ -179,24 +179,6 @@ def test_model_surface_exposes_no_control_objects():
             assert isinstance(message["content"], str)
 
 
-if __name__ == "__main__":
-    try:
-        import pytest
-        raise SystemExit(pytest.main([__file__, "-q"]))
-    except ImportError:
-        failures = 0
-        tests = [(n, f) for n, f in sorted(globals().items())
-                 if n.startswith("test_") and callable(f)]
-        for name, fn in tests:
-            try:
-                fn()
-                print(f"PASS {name}")
-            except AssertionError as exc:
-                failures += 1
-                print(f"FAIL {name}: {exc}")
-        print(f"Results: {len(tests) - failures} passed, {failures} failed")
-        raise SystemExit(1 if failures else 0)
-
 
 # ---------------------------------------------------------------------------
 # Review findings F-4 and F-1, 2026-09-01. Both were "the profile describes a
@@ -308,3 +290,22 @@ def test_release_taints_the_turn_for_external_content():
         except PermissionError:
             pass
         assert email.calls == [], "the origin-gated sink must not have fired"
+
+
+if __name__ == "__main__":
+    try:
+        import pytest
+        raise SystemExit(pytest.main([__file__, "-q"]))
+    except ImportError:
+        failures = 0
+        tests = [(n, f) for n, f in sorted(globals().items())
+                 if n.startswith("test_") and callable(f)]
+        for name, fn in tests:
+            try:
+                fn()
+                print(f"PASS {name}")
+            except AssertionError as exc:
+                failures += 1
+                print(f"FAIL {name}: {exc}")
+        print(f"Results: {len(tests) - failures} passed, {failures} failed")
+        raise SystemExit(1 if failures else 0)
