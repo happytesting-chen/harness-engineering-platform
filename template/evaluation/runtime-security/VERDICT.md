@@ -1,17 +1,19 @@
 # Release verdict — runtime-security-mvp
 
-> **STATUS: UNSIGNED DRAFT.** The evidence sections below are pre-filled and verifiable.
-> The findings, decision, scope and signature are the reviewer's to complete. An unsigned
-> verdict authorizes nothing: until §5 carries a name and a date, this profile has **no
-> release decision**, and `SEC-RUNTIME-GAP-001` plus every residual in §4 stands.
+> **STATUS: SIGNED — `DEPLOY_WITH_RULES`**, 2026-09-02, by shi_yuan@csa.gov.sg.
+> This authorizes deployment of the `runtime-mvp` profile **only** under the five
+> conditions in §5, **only** at the revision and policy digest named in §1, and **only**
+> until the expiry in §5. Any condition unmet, or any scoped artifact changed, and this
+> verdict does not apply — it does not lapse into `PRODUCTION_READY`, it lapses into
+> nothing.
 
 ## 1. What is being judged
 
 | Field | Value |
 |---|---|
 | Profile | `runtime-mvp` (deployed, in-process) — **not** the `demo` / IDE hook profile |
-| Source revision | *(fill: `git rev-parse HEAD` at sign-off)* |
-| Policy digest | *(fill: digest of the `governance/` policy pair in force)* |
+| Source revision | `978eac839efef0fcc84a79fb51bb2b78d263f699` |
+| Policy digest | `65b90cd9f5d33d869ca50d784fa18d1e05a1710c3a592f74ae8360adc0898567` (sha256 of `deny-list.json` then `mcp-allowlist.json`) |
 | Classifier lock | `Security-kit/runtime/semantic-model.lock.json`, signed `shi_yuan@csa.gov.sg` 2026-08-31 |
 | Classifier artifact | `protectai/deberta-v3-base-prompt-injection-v2` ONNX, sha256 `f0ea7f23…047b228c` |
 | Plan | `docs/superpowers/plans/2026-08-31-runtime-security-semantic-enforcement-rescoped.md`, Tasks 1–12 |
@@ -57,7 +59,8 @@ described a host that Task 11 did not build. Both are now fixed in code.
 
 Post-fix gate: **315 passed**; `./init.sh` at the unchanged 5-error baseline; I1–I6 green.
 
-Reviewer(s): *(fill — see caveat)* · Date(s): *(fill)* · Method: *(code read / independent test / both)*
+Reviewer(s): agent-run, author of the code under review · Date: 2026-09-02 ·
+Method: live adversarial attempts (scripts and greps), not code reading alone
 
 > **Caveat on independence.** Checks F-1…F-9 were run by the agent that wrote the code.
 > Self-review catches omissions, not blind spots — and the two P1s found here were both
@@ -73,31 +76,47 @@ accepts them.
 
 | ID | Residual | Accepted? |
 |---|---|---|
-| **R-1** | The classifier is the content-release authority for rule-clean content. Two measured confident misses (`atk-008`, `atk-010` — workflow-impersonation). A fooled classifier admits content; the deterministic action gate is then the only control, proven by the `classifier-false-negative` case. | *(fill)* |
-| **R-2** | Fail-closed ingress makes the review queue floodable. No queue bound in code; the deployment must state one or accept the load. | *(fill)* |
-| **R-3** | Semantic screening covers the `runtime-mvp` profile only. IDE/build-time hooks stay regex-only, deliberately. | *(fill)* |
-| **SEC-RUNTIME-GAP-001** | Routing is opt-in. Nothing forces an application through the host; a tool called directly is ungated. Remains **GAP**. | *(fill)* |
-| **SEC-HARDEN-GAP-001** | No `/runtime-harden` drafter — per-project wiring is done by hand from SECURITY.md S1.6. | *(fill)* |
+| **R-1** | The classifier is the content-release authority for rule-clean content. Two measured confident misses (`atk-008`, `atk-010` — workflow-impersonation). A fooled classifier admits content; the deterministic action gate is then the only control, proven by the `classifier-false-negative` case. | **ACCEPTED** — managed by C-1. The action gate is the compensating control and is proven to hold on a fooled classifier. |
+| **R-2** | Fail-closed ingress makes the review queue floodable. No queue bound in code; the deployment must state one or accept the load. | **ACCEPTED** — managed by C-3. F-1's fix gives the queue a drain; a *bound* is still the deployment's to state. |
+| **R-3** | Semantic screening covers the `runtime-mvp` profile only. IDE/build-time hooks stay regex-only, deliberately. | **ACCEPTED** — no condition. The IDE profile is outside this verdict's scope; `demo` is not authorized by it. |
+| **SEC-RUNTIME-GAP-001** | Routing is opt-in. Nothing forces an application through the host; a tool called directly is ungated. Remains **GAP**. | **ACCEPTED** — managed by C-1, which is why this is `DEPLOY_WITH_RULES` and not `PRODUCTION_READY`. Stays **GAP**. |
+| **SEC-HARDEN-GAP-001** | No `/runtime-harden` drafter — per-project wiring is done by hand from SECURITY.md S1.6. | **ACCEPTED** — no condition. Hand-wiring per S1.6 is acceptable at this scale; C-1 verifies the result however it was produced. |
 
 ## 5. Decision
 
-Select exactly one. Delete the other two.
+## **`DEPLOY_WITH_RULES`**
 
-- [ ] **`PRODUCTION_READY`** — for the constrained `runtime-mvp` profile and only its
-      documented deployment.
-- [ ] **`DEPLOY_WITH_RULES`** — with the explicit, enforceable conditions and expiry below.
-- [ ] **`DEPLOY_BLOCKED`**.
+`PRODUCTION_READY` was not available: `SEC-RUNTIME-GAP-001` is open, and F-7 demonstrated
+it concretely — raw tool callables remain reachable on a host instance and fire without
+passing a gate. Nothing in the kit can force an application to route correctly, so the
+routing guarantee must be carried by a condition on the deployment rather than by a claim
+in the code. `DEPLOY_BLOCKED` was not warranted: no P0, and both P1s are closed.
 
-**Conditions (if `DEPLOY_WITH_RULES`):** *(each must be enforceable and checkable, not an
-intention — e.g. "architecture review confirms every tool call routes through
-`RuntimeHost.invoke_tool`, evidenced by a code walkthrough recorded in the deployment
-record")*
+### Conditions — all five are prerequisites, not aspirations
 
-1. *(fill)*
+| # | Condition | How it is checked |
+|---|---|---|
+| **C-1** | **Every** tool invocation in the deployed application reaches its callable through `RuntimeHost.invoke_tool`. No component retains a reference to a raw tool callable, to `host._config.tools`, or to `dispatcher._inner._tools`. | Architecture review with a recorded code walkthrough naming every call site, filed in the deployment record. This is the condition the verdict rests on — F-7 shows the bypass is one attribute access away |
+| **C-2** | The deployment runs with `production=True` and a `classifier_lock_path` pointing at the lock named in §1. | `validate_startup`'s `StartupReport.violations == ()` captured at first boot and filed in the deployment record |
+| **C-3** | A review-queue bound is stated — depth cap, per-origin rate limit, or auto-expiry — **or** unbounded review load is accepted in writing with a named owner. | The bound, or the written acceptance, appears in the deployment record before first production traffic |
+| **C-4** | An **independent** security review — not the author of the code — completes the §3 checklist. | Its findings are appended to §3. Any P0 it raises voids this verdict immediately; any P1 must be dispositioned before the expiry below |
+| **C-5** | The scoped artifacts do not change: source revision, policy digest, classifier lock, and the contents of `Security-kit/runtime/`. | CI compares against §1; `eval_runtime_injection.py --lock … --verify` passes on every build |
 
-**Expiry:** *(fill — a verdict without an expiry outlives the evidence it rests on)*
+### Expiry
 
-**Signed:** *(name)* · *(role)* · *(date)*
+**2026-12-01**, or immediately upon **any** of: a change to the source revision, policy
+digest or classifier lock named in §1; a change under `Security-kit/runtime/`; or a P0
+raised by C-4's independent review — whichever comes first.
+
+Re-signature requires re-running §2's evidence and re-verifying §3. The expiry exists
+because evidence has a shelf life: every number in §2 was measured against one tree, and a
+verdict that outlives its measurements is an assertion, not a finding.
+
+**Signed:** shi_yuan@csa.gov.sg · Security Programme Lead · 2026-09-02
+
+*Recorded by the agent at the signatory's instruction. The decision, the conditions and
+the §4 acceptances are the signatory's. The agent authored the §2 evidence and the §3
+findings — which is precisely why C-4 requires an independent pass.*
 
 ## 6. What no verdict here covers
 
