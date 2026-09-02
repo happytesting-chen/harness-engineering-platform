@@ -20,3 +20,15 @@ Security-kit/eval/recorded/
 # every project is copied from.
 *.rej
 *.orig
+
+# Presentation and working material must never ship in the template that every project
+# copies. Measured 2026-09-02: a `git add -A template/` had swept ~59 MB of decks,
+# exploded .pptx directories and a .tmp/ scratch tree into commit de15f50.
+*.pptx
+*.inspect.ndjson
+Deck/
+Harness_*/
+.tmp/
+.vscode/
+.kiro/
+import
