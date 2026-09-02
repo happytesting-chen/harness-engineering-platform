@@ -76,7 +76,7 @@ jobs:
 
       - name: full suite under pytest, when pytest is available
         working-directory: template
-        # init.sh now names all 9 test files (spec §4.4), so every proof — including
+        # init.sh names 21 of the 36 test files (SEC-PROOF-GAP-001), so most proofs — including
         # tests/test_protected_paths.py, the only proof of S2.4 — already ran in the step
         # above, with no pytest and no pip install. This step is a second opinion, not the
         # only execution path: pytest collects test FUNCTIONS individually, so it catches a
@@ -97,5 +97,5 @@ jobs:
             echo "::error::full suite FAILED under pytest (pytest tests/)"
             exit 1
           else
-            echo "pytest absent; the per-file checks in init.sh above still ran all 9 test files"
+            echo "pytest absent; the per-file checks in init.sh above ran the 21 files it names — 15 (incl. 12 runtime suites) run only here"
           fi

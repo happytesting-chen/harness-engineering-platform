@@ -67,6 +67,13 @@ the oracle**. Keeping the expected value out of the decision path is what makes
 the accuracy number mean something. (In this repo, the claims fixtures' `expected`
 block is exactly such an oracle: asserted in tests, never passed to `decide()`.)
 
+## Runtime security evidence
+
+[`runtime-security/`](runtime-security/) holds the measured record for the deployed
+`runtime-mvp` profile: attack traces and their replay, the classifier benchmark and
+selection record, every stated limitation, and the signed release verdict. Its own README
+is the index. Same oracle rule as everything here — scored on observable side effects.
+
 ## Snapshot
 
 `--snapshot DIR` fills `SNAPSHOT.template.md` and writes `DIR/SNAPSHOT.md` — a

@@ -272,12 +272,12 @@ Three of those lines are easy to misread:
   ([Step 5b](#step-5b--tailor-the-security-controls-security-tailor)).
 
 `init.sh` names its test files individually and runs them without `pytest` — that is what
-keeps the health check dependency-free. Re-measured 2026-08-22: **18 test files exist and
-`init.sh` names 15 of them**; the same three as before — `test_mechanisms.py`,
-`test_requirements.py` and `test_result_screening.py` — run only under the CI pytest step.
-Of the 15 named, **10 report the file's absence and 5 do not**, so for those 5 a deleted
-test removes its check without changing the build's verdict. Both halves are stated as
-`SEC-PROOF-GAP-001` in `Security-kit/control-matrix.md` rather than left implied.
+keeps the health check dependency-free. Re-measured 2026-09-02: **36 test files exist (18 in
+`tests/`, 18 in `tests/runtime/`) and `init.sh` names 21 of them.** The 15 unreached are
+`test_mechanisms.py`, `test_requirements.py`, `test_result_screening.py`, and 12 of the 18
+runtime suites — only the six register-proof suites in `tests/runtime/` are named. All 36 run
+under the CI pytest step. The gap is stated as `SEC-PROOF-GAP-001` in
+`Security-kit/control-matrix.md` rather than left implied.
 
 #### What you have when this goes green — and what you don't
 
@@ -287,7 +287,7 @@ Worth being blunt, because the next step depends on it:
 |---|---|
 | A gate that blocks disallowed tool calls before they run, wired and proven **in this IDE session** | **Any product code.** Not a line — the template ships no `src/`, no domain package, no entrypoint |
 | The same four gates available in process for the app you deploy (`governance/runtime_dispatcher.py`, `Security-kit/runtime_screen.py`) | Them being *called*. They are libraries — your app has to route through them, and nothing here checks that it did (S1.6, `SEC-RUNTIME-GAP-001`) |
-| 18 test suites green, an append-only audit log, an evaluation baseline | Any test of *your* behaviour — those 18 suites test the harness |
+| 36 test suites green (315 tests), an append-only audit log, an evaluation baseline | Any test of *your* behaviour — those suites test the harness |
 | A phase plan your agent must follow one phase at a time | A running application. `python3 demo/demo.py` runs a *scripted mock*, not your agent |
 | A signed applicability decision over the 20 OWASP LLM/Agentic risks | Domain controls — `/security-tailor` leaves every Verification cell for you |
 
@@ -499,6 +499,32 @@ Four properties worth knowing:
 Full walkthrough: [`Security-kit/SECURITY.md`](Security-kit/SECURITY.md) S1.6. Proofs:
 `tests/test_runtime_dispatcher.py` (20 tests) and `tests/test_runtime_screen.py` (17), both
 run by `./init.sh`.
+
+#### The semantic tier — `Security-kit/runtime/`
+
+The two modules above are the **regex tier**: the same 24 markers the hooks use, in
+process. The `runtime-mvp` profile adds a second tier on top, in `Security-kit/runtime/`
+(16 modules, stdlib only apart from the classifier subprocess). A deployed application
+constructs one `RuntimeHost` and routes everything through its four methods:
+
+| Method | Position | What it adds over the regex tier |
+|---|---|---|
+| `submit_prompt()` | ① | normalization (zero-width, bidi, encoded spans) → rules → a **pinned local classifier** on whatever the rules left unresolved. `unresolved + data` is the only ALLOW; every failure withholds |
+| `invoke_tool()` | ② ③ ④ | the same four gates via `RuntimeDispatcher`, **composed** with per-tool and total session ceilings (position ⑤ — the first control there), origin rules (a turn tainted by external content cannot reach a user-only tool), argument schema, and an optional `REQUIRE_APPROVAL` tier |
+| `deliver_tool_result()` | ④ | tool output through the same ingress; withheld text never enters context |
+| `finish()` | output | the whole response buffered and redacted before one release |
+
+Withheld content is quarantined by digest and released only through
+`release_quarantined()` with a single-use `ContentReleaseReceipt`; an
+`ActionApprovalReceipt` un-pauses a call but never converts a deny. Startup refuses a
+misconfiguration — memory, delegation or streaming enabled, an unpinned classifier in
+production, a writable control root — rather than degrading. Every decision lands in a
+hash-chained audit record.
+
+Contract, evidence and verdict: [`Context/runtime-security-profile.md`](Context/runtime-security-profile.md)
+· [`evaluation/runtime-security/`](evaluation/runtime-security/). Measured: 13/13 attack
+cases resisted on side-effect oracles; detection 14/16 with two named misses; **routing is
+still opt-in** (`SEC-RUNTIME-GAP-001`).
 
 ### Observability
 
@@ -752,7 +778,14 @@ my-agent/
 │   ├── content_trust.py    ← [MECHANISM] shared marker list (data plane)    [never edit]
 │   ├── prompt_screen.py    ← [MECHANISM] ① UserPromptSubmit screen          [never edit]
 │   ├── result_screen.py    ← [MECHANISM] ④ PostToolUse result screen        [never edit]
-│   ├── runtime_screen.py   ← [MECHANISM] ①④ for a DEPLOYED app (no hooks)  [never edit]
+│   ├── runtime_screen.py   ← [MECHANISM] ①④ for a DEPLOYED app, regex tier   [never edit]
+│   └── runtime/            ← [MECHANISM] the runtime-mvp semantic tier (16 modules) [never edit]
+│       ├── host.py         ·  the owned loop — the one entry point a deployed app calls
+│       ├── ingress.py      ·  ①④ decision table: rules + classifier → ALLOW | REQUIRE_REVIEW
+│       ├── guarded.py, session.py · ⑤ session ceilings, origin rules, schema — composed around ②
+│       ├── review.py       ·  content-release and action-approval receipts (typed, keyed)
+│       ├── classifier.py   ·  pinned local classifier protocol; semantic-model.lock.json
+│       └── audit.py, output.py, startup.py · hash-chained evidence, buffered output, refuse-to-start
 │   ├── secret_scan.py      ← [MECHANISM] secret-block hook adapter          [never edit]
 │   └── eval/               ·  labelled corpus + scorer; asi01_walkthrough.py
 │
@@ -765,7 +798,7 @@ my-agent/
 │       ├── audit.py       ← [MECHANISM] append-only audit log               [never edit]
 │       └── audit_hook.py  ← [MECHANISM] PostToolUse audit adapter           [never edit]
 │
-├── tests/                 ← VERIFICATION (18 suites; all stdlib, pytest optional)
+├── tests/                 ← VERIFICATION (36 suites, 315 tests; all stdlib, pytest optional)
 │   ├── fixtures.json          ·  ground-truth gate cases                    [EXTEND]
 │   ├── test_fixtures.py       ·  data-driven gate runner
 │   ├── test_e2e.py            ·  end-to-end enforcement proof
@@ -784,7 +817,9 @@ my-agent/
 │   ├── test_steady_state.py   ·  availability + no self-promotion via the worklog
 │   ├── test_egress.py         ·  Gate 3: exact host match + structured destinations
 │   ├── test_runtime_dispatcher.py· ②③④ in process; `calls == 0` proves prevention
-│   └── test_runtime_screen.py ·  ①④ in process; ① fails closed on unscannable input
+│   ├── test_runtime_screen.py ·  ①④ in process; ① fails closed on unscannable input
+│   └── runtime/           ·  18 suites for the semantic tier — ingress table, receipts,
+│                             ceilings under concurrency, attack replay, claims truthfulness
 │
 ├── Context/               ← [POLICY] PROJECT AI-dev assets                   [FILL stubs]
 │   ├── README.md           ·  what belongs here
@@ -795,6 +830,7 @@ my-agent/
 │   ├── harness.py · demo.py · fake_model.py   (zero-dependency LLM mock)
 │
 ├── evaluation/            ← MEASUREMENT — the third proof after tests/ and demo/
+│   ├── runtime-security/  ·  attack traces, replay, classifier selection, limitations, VERDICT.md
 │   ├── eval.py            ·  accuracy / cost / reproducibility metrics (run by init.sh)
 │   ├── SNAPSHOT.template.md ·  filled by `eval.py --snapshot DIR` for sign-off
 │   └── README.md

@@ -43,6 +43,43 @@ These exist only for security. A no-security build deletes them.
 | `tests/test_injection_corpus.py` | Detection recall/precision against the labelled corpus | LLM01, ASI01 |
 | `tests/test_shipped_policy.py` | The policy files as shipped, not as fixtured | LLM03, ASI04 |
 | `tests/test_steady_state.py` | Phase-gate escalation attempts all DENY | ASI09 |
+| `Security-kit/runtime/semantic-model.lock.json` | Human-signed classifier pin (artifact digests, corpus digest, confidence floor) | LLM01 |
+| `Security-kit/runtime/semantic-model.schema.json` | Lock-file schema (documentation of the contract) | LLM01 |
+| `Security-kit/eval/runtime_injection/`, `Security-kit/eval/eval_runtime_injection.py` | Labelled corpus + benchmark/verify runner | LLM01 |
+| `Security-kit/runtime/__init__.py` | runtime-mvp semantic tier — package exports | all |
+| `Security-kit/runtime/adapters.py` | runtime-mvp semantic tier — runtime-mvp entry points (①/④ in process) | LLM01, ASI01 |
+| `Security-kit/runtime/attack_driver.py` | runtime-mvp semantic tier — 13-class attack matrix + deterministic replay (evaluation tooling) | all |
+| `Security-kit/runtime/audit.py` | runtime-mvp semantic tier — hash-chained, closed-schema evidence | ASI09/10 |
+| `Security-kit/runtime/classifier.py` | runtime-mvp semantic tier — pinned local classifier protocol + lock verification | LLM01 |
+| `Security-kit/runtime/contracts.py` | runtime-mvp semantic tier — closed enums, frozen types, typed receipts | all |
+| `Security-kit/runtime/guarded.py` | runtime-mvp semantic tier — ⑤ ceilings, origin rules, schema — composed around ② | LLM06, ASI02/08 |
+| `Security-kit/runtime/host.py` | runtime-mvp semantic tier — the owned single-agent loop | all |
+| `Security-kit/runtime/ingress.py` | runtime-mvp semantic tier — the binding ALLOW/REQUIRE_REVIEW decision table | LLM01, ASI01 |
+| `Security-kit/runtime/normalization.py` | runtime-mvp semantic tier — NFKC, zero-width/bidi stripping-as-signal, bounded chunking | LLM01 |
+| `Security-kit/runtime/output.py` | runtime-mvp semantic tier — buffered final-output redaction | LLM02, LLM07 |
+| `Security-kit/runtime/review.py` | runtime-mvp semantic tier — content-release and action-approval receipts, domain-separated keys | ASI09 |
+| `Security-kit/runtime/review_cli.py` | runtime-mvp semantic tier — inert reviewer surface | ASI09 |
+| `Security-kit/runtime/rules.py` | runtime-mvp semantic tier — adapter over content_trust.scan_text — never returns data | LLM01 |
+| `Security-kit/runtime/session.py` | runtime-mvp semantic tier — reserve/commit/rollback session state | ASI08 |
+| `Security-kit/runtime/startup.py` | runtime-mvp semantic tier — refuse-to-start invariants | ASI08 |
+| `tests/runtime/test_action_receipts.py` | approval never converts DENY; exact digest; single-use | ASI09 |
+| `tests/runtime/test_audit.py` | chain detects tampering AT the doctored record | ASI10 |
+| `tests/runtime/test_claims_truthfulness.py` | docs cannot drift ahead of code | all |
+| `tests/runtime/test_classifier.py` | 13 failure shapes → UNRESOLVED; lock drift refuses | LLM01 |
+| `tests/runtime/test_content_receipts.py` | type/key/context separation | ASI09 |
+| `tests/runtime/test_contracts.py` | closed enums, frozen types | all |
+| `tests/runtime/test_design_contract.py` | profile vocabulary pinned | all |
+| `tests/runtime/test_guarded.py` | ceilings under thread + asyncio races; inner gate still fires | ASI08 |
+| `tests/runtime/test_host.py` | startup-gated loop; nothing unapproved enters context | all |
+| `tests/runtime/test_ingress.py` | the decision table, row by row; classifier.calls == 0 on rule hit | LLM01 |
+| `tests/runtime/test_ingress_adapters.py` | malformed → review, never pass | LLM01 |
+| `tests/runtime/test_normalization.py` | deterministic; reject-never-truncate | LLM01 |
+| `tests/runtime/test_output.py` | zero bytes before screening; no echoed match | LLM02 |
+| `tests/runtime/test_replay.py` | 13/13 RESISTANT; fooled classifier still RESISTANT | all |
+| `tests/runtime/test_review_cli.py` | ANSI/markup neutralized; no content in receipt | ASI09 |
+| `tests/runtime/test_rules.py` | never returns data; owns no pattern | LLM01 |
+| `tests/runtime/test_source_sink_paths.py` | every profile row, scored on side effects | all |
+| `tests/runtime/test_startup.py` | every disabled capability is a StartupError | ASI08 |
 | `kiro/steering/security.md`, `kiro/steering/security-review.md` | Kiro security guidance/workflow | all |
 | `kiro/hooks/*` | Kiro enforcement hooks | LLM06 |
 | `Security-kit/check_coverage.py` | Coverage gate (init.sh block 5b) | all |
@@ -60,7 +97,7 @@ These exist only for security. A no-security build deletes them.
 | `tests/test_mechanisms.py` | I1–I5 invariant tests + the matrix census | all |
 | `tests/test_requirements.py` | I6 invariant tests, both directions | all |
 
-> Note on `install.sh`: `TIER1` deletes whole **directories** — `governance`, `Security-kit`, `tests` among them — so every path above that sits inside one of those needs **no** explicit `TIER1` entry. That covers all of `Security-kit/` (`check_coverage.py`, `coverage.json`, `coverage.schema.md`, `active-controls.md`, `eval/`, `mechanisms.json`, `requirements.json`, the three screen modules), all of `governance/` (`runtime_dispatcher.py` included), and every `tests/test_*.py` listed here. Only `.claude/commands/security-tailor.md`, `kiro/steering/security-tailor.md` and `kiro/steering/active-controls.md` require explicit entries: `kiro/steering/` is not one of the deleted directories.
+> Note on `install.sh`: `TIER1` deletes whole **directories** — `governance`, `Security-kit`, `tests` among them — so every path above that sits inside one of those needs **no** explicit `TIER1` entry. That covers all of `Security-kit/` (`check_coverage.py`, `coverage.json`, `coverage.schema.md`, `active-controls.md`, `eval/`, `mechanisms.json`, `requirements.json`, the three screen modules), all of `governance/` (`runtime_dispatcher.py` included), the whole `Security-kit/runtime/` package, and every `tests/test_*.py` and `tests/runtime/test_*.py` listed here. Only `.claude/commands/security-tailor.md`, `kiro/steering/security-tailor.md` and `kiro/steering/active-controls.md` require explicit entries: `kiro/steering/` is not one of the deleted directories.
 >
 > Consequence worth stating: adding a security module under `governance/` or `Security-kit/` needs a row **here** but no `install.sh` edit. The manifest is the only place that would notice it missing.
 

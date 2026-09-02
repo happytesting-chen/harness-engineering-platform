@@ -27,3 +27,7 @@ __pycache__/
 .pytest_cache/
 *.log
 .DS_Store
+
+# Tool caches inside force-included trees
+**/.pytest_cache/
+**/__pycache__/

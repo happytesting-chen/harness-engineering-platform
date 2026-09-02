@@ -1,6 +1,6 @@
 <svg xmlns="http://www.w3.org/2000/svg" width="1100" height="470" viewBox="0 0 1100 470" role="img" aria-labelledby="t d">
-  <title id="t">Where this harness sits in the SDLC: inside Development, after Design and Plan, before Pre-deployment</title>
-  <desc id="d">Five SDLC stages run left to right: Requirements, Design and Plan, Development (expanded and highlighted), Pre-deployment review, and Deploy and Operate. Inside Development: copy the template, fill Context/, then a phase loop of build, verify and human sign-off, producing evidence. Design and Plan feeds product and architecture docs into Context/. Development hands the audit log, evaluation snapshot and control coverage out to Pre-deployment review.</desc>
+  <title id="t">Where the build-time harness sits in the SDLC: inside Development, before Pre-deployment</title>
+  <desc id="d">Five SDLC stages run left to right: Requirements, Design and Plan, Development (expanded and highlighted), Pre-deployment review, and Deploy and Operate. Inside Development: copy the template, fill Context and policy files, then run a phase loop of build, verify and human sign-off. Matched Bash and write or edit calls pass four shared permission checks; all tool results are pattern-screened and audit-captured. Design and Plan supplies product, architecture and threat-model inputs. Development hands audit records, generated evaluation snapshots and control coverage to Pre-deployment review. The build-time layer complements the separately depicted runtime host.</desc>
 
   <rect width="1100" height="470" fill="#ffffff"/>
 
@@ -30,7 +30,7 @@
     .hand  { stroke: #0969da; stroke-width: 2; fill: none; }
   </style>
 
-  <text class="h" x="20" y="30">This is a build-time harness. It runs inside Development — after the design is settled, before anything ships.</text>
+  <text class="h" x="20" y="30">The build-time layer runs inside Development, using design and threat-model inputs before deployment.</text>
 
   <!-- stage ribbon -->
   <rect class="stage" x="20" y="56" width="150" height="48" rx="4"/>
@@ -42,7 +42,7 @@
 
   <rect class="active" x="344" y="56" width="412" height="48" rx="4"/>
   <text class="sta" x="550" y="79" text-anchor="middle">Development</text>
-  <text class="s" x="550" y="95" text-anchor="middle">← this repo</text>
+  <text class="s" x="550" y="95" text-anchor="middle">← build-time harness</text>
 
   <rect class="stage" x="768" y="56" width="150" height="48" rx="4"/>
   <text class="st" x="843" y="80" text-anchor="middle">Pre-deployment</text>
@@ -89,13 +89,13 @@
   <line class="flow" x1="528" y1="218" x2="542" y2="218" marker-end="url(#a)"/>
   <line class="flow" x1="726" y1="218" x2="740" y2="218" marker-end="url(#a)"/>
 
-  <!-- loop back arrow -->
-  <path class="loop" d="M 636 248 L 636 266 L 453 266 L 453 250" marker-end="url(#a)" stroke="#1a7f37"/>
-  <text class="s" x="545" y="281" text-anchor="middle" fill="#1a7f37">phase fails verification → stays active, never self-promoted</text>
+  <!-- failed verification stays inside the phase loop -->
+  <path class="loop" d="M 700 248 L 700 270 L 572 270 L 572 252" marker-end="url(#a)" stroke="#1a7f37"/>
+  <text class="s" x="636" y="283" text-anchor="middle" fill="#1a7f37">verification fails → phase stays active; WIP = 1</text>
 
-  <text class="s" x="220" y="300">Every tool call in this box passes the four gates. WIP = 1, and the agent cannot mark its own work done.</text>
-  <text class="s" x="220" y="317">What it is <tspan font-weight="700">not</tspan>: a runtime guardrail for a deployed agent, or a replacement for</text>
-  <text class="s" x="220" y="333">pre-deployment review — it is what makes that review evidence-based.</text>
+  <text class="s" x="220" y="300">Matched Bash and write/edit calls pass four shared permission checks; other tool calls do not.</text>
+  <text class="s" x="220" y="317">All tool results are pattern-screened and audit-captured through PostToolUse.</text>
+  <text class="s" x="220" y="333">This build-time layer complements the runtime host and pre-deployment review.</text>
 
   <!-- handoff arrows -->
   <path class="hand" d="M 257 104 L 257 140 L 453 140 L 453 184" marker-end="url(#ab)"/>
@@ -106,8 +106,8 @@
 
   <path class="hand" d="M 850 248 L 1020 248 L 1020 374 L 884 374" marker-end="url(#ab)"/>
   <text class="ann" x="700" y="378">OUT to Pre-deployment review</text>
-  <text class="s" x="700" y="395">audit.log — every tool call and verdict</text>
-  <text class="s" x="700" y="410">evaluation SNAPSHOT.md — measured, not asserted</text>
+  <text class="s" x="700" y="395">audit.log — completions plus gated denials</text>
+  <text class="s" x="700" y="410">generated SNAPSHOT.md — measured, not asserted</text>
   <text class="s" x="700" y="426">control-matrix.md — coverage per trust boundary</text>
   <text class="s" x="700" y="446" font-weight="700" fill="#0969da">This out-arrow is why a security reviewer cares.</text>
 </svg>

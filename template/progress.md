@@ -643,3 +643,65 @@ root `README.md`, `template/README.md`, `Security-kit/README.md`, `SECURITY-MANI
 | 08-22 | Wiring stays **opt-in**, and is documented as the residual (`SEC-RUNTIME-GAP-001`, S1.6) rather than claimed as closed | Nothing in a library can force an application to call it. Writing "runtime enforcement: mechanical" would be the same class of error as the old "④ cannot be closed" |
 | 08-22 | The doc sweep covered pre-existing staleness, not just this diff | Three files were already wrong from Session 13 and this change made them *more* wrong. Fixing only the new sentences would have left the file self-contradictory |
 | 08-22 | `mechanisms.json` and `requirements.json` left **unedited**; replacement text lives in the commit message | The claims register is human-owned at merge time. A model-written register is the exact inversion the plane split exists to prevent |
+
+---
+
+## Session 15 — 2026-08-31 (audit of the semantic-enforcement plan) — `4029e0d`, `b5aa22d`
+
+A 12-task plan for runtime semantic enforcement arrived, drafted against a demo fork frozen
+2026-08-21 — one day before this tree's runtime pair shipped. Three of its seven baseline
+facts were stale (it thought no runtime package existed). Re-scoped rather than rejected:
+AD-1..6 adopted; **AD-7** added (the action plane composes around `RuntimeDispatcher`,
+never re-implements it); **AD-8** added (the local classifier is a declared exception to
+stdlib-only). Two residuals the plan left unstated were written down: **R-1** the classifier
+*is* the content-release authority; **R-2** fail-closed ingress makes the review queue
+floodable. A self-audit of the re-scope found eight amendments, all applied — the P1 was that
+Tasks 8–9 as written forced large protected-path edits, contradicting the plan's own §5.
+
+Also this session: `RESULT_SCREEN_MODE=warn` removed from `result_screen.py` (patch,
+human-applied) — hooks inherit the host environment and `~/.zshrc` is unprotected, so one
+shell-profile line silently disabled gate ④.
+
+## Session 16 — 2026-08-31 → 09-01 (the twelve-task build) — `bce2253` … `f73230a`
+
+Lifecycle activated by the operator before Task 1. TDD throughout, one commit per task,
+full gate after each. Sixteen modules in `Security-kit/runtime/`; 146 tests in 18 suites.
+The cornerstone result: `classifier-false-negative` is RESISTANT because the action gate
+denied — detection can be fooled, authority cannot. Attack matrix 13/13, replay
+byte-identical. Classifier candidate benchmarked and **human-signed** (AD-8's formal
+acceptance): rule-only 12/16 → combined 14/16; two confident misses (atk-008, atk-010,
+workflow-impersonation) recorded with confidences and compensating controls.
+
+Process notes worth keeping: the anti-drift source-scan tests caught their own author's
+docstrings three tasks running (a docstring naming the compile call); a partial write from a
+crashed script silently doubled a list once — caught by an explicit count assertion.
+
+## Session 17 — 2026-09-01 → 09-02 (review, claims batch, verdict)
+
+Six review checks run as **live attempts**, not readings. No P0; two P1s, one root cause —
+the Task-1 profile described a host Task 11 didn't build: **F-1** no receipt-redemption
+path (fail-closed ingress had no drain); **F-4** the host accepted any classifier and
+skipped lock verification. Both fixed; profile corrected for F-2/F-5/F-6; F-7 demonstrated
+`SEC-RUNTIME-GAP-001` concretely (raw callables reachable on the host instance).
+
+Claims batch authored as a verified patch and human-applied: six MECHANICAL runtime rows,
+five requirements, I1–I6 green. Protected paths 12 → 28 with shell parity — the closed
+ratio **rose** 54% → 60% because the added paths carry full coverage. First attempt bundled
+the two and broke the shell census; split, re-measured in a scratch copy against the real
+tests, re-issued.
+
+**Verdict signed `DEPLOY_WITH_RULES`** (shi_yuan@csa.gov.sg, 2026-09-02): five conditions,
+expiry 2026-12-01, all residuals explicitly accepted, re-scoped by amendment A-1 after the
+merge commit moved the revision.
+
+### Decisions
+
+| Date | Decision | Rationale |
+|---|---|---|
+| 08-31 | Re-scope the inbound plan instead of rejecting or adopting it | Its architecture survived contact with this tree; its file plan and three baseline facts did not. AD-7 keeps one action gate |
+| 08-31 | Remove `RESULT_SCREEN_MODE=warn`, keep `PROMPT_SCREEN_MODE=warn` | ④ covers agent runtime and its FP is recoverable; ① fires on human turns and its FP locks a human out |
+| 09-01 | Classifier candidate accepted with two named misses | Both confidently wrong (0.89/0.95): threshold tuning cannot fix a confident miss without flooding review; the action gate is the compensating control, proven |
+| 09-01 | Protected-path additions with **shell parity** (Option B) | Structured-only protection measured 36% closed and broke the two-family gap shape; parity measured 60% and kept it |
+| 09-02 | `DEPLOY_WITH_RULES`, not `PRODUCTION_READY` | `SEC-RUNTIME-GAP-001` is open and F-7 shows the bypass is one attribute access away; routing must be a deployment condition, not a code claim |
+| 09-02 | Verdict re-scope recorded as an **amendment**, original revision kept visible | A signed attestation's scope is not quietly rewritten; an amendment that touched the decision would be a new verdict |
+| 09-02 | Three commits lost to a squash-merge restored via PR, the security fix left for human `git apply` | `rebase --onto` a squashed base silently drops later commits; the protected-path rule holds even when restoring an already-approved change |
