@@ -276,6 +276,29 @@ Registering a tool means adding it to `governance/mcp-allowlist.json`. An unregi
 tool denies with `<name> not in allowlist` — that is Gate ② working, not a bug. That file
 is a protected path, so registering a tool is a **human** edit (S2.1, S5.2).
 
+#### Above the regex tier: `Security-kit/runtime/` (the runtime-mvp profile)
+
+`runtime_dispatcher.py` and `runtime_screen.py` are the regex tier — the hooks' markers, in
+process. The `runtime/` package (16 modules) adds what a per-call regex gate cannot have,
+without touching the owners it composes around:
+
+- **Semantic ingress** — `ingress.py`: normalization → rules → a pinned local classifier on
+  rule-unresolved text. The rule layer never returns `data`; every classifier failure lands on
+  `REQUIRE_REVIEW`. Withheld content is quarantined by digest.
+- **Position ⑤** — `session.py` + `guarded.py`: per-tool and total ceilings, correct under
+  concurrency, plus origin rules and argument schema, all wrapping `RuntimeDispatcher.execute()`.
+  No gate predicate is re-implemented (source-scan tests pin this).
+- **Separated review authority** — `review.py`: `ContentReleaseReceipt` and
+  `ActionApprovalReceipt` differ by type *and* by derived key; neither converts a deny.
+- **Refuse-to-start** — `startup.py`; **buffered output** — `output.py`; **hash-chained
+  evidence** — `audit.py`; the owned loop — `host.py`.
+
+All 16 modules and the signed `semantic-model.lock.json` are in `BUILTIN_PROTECTED_PATHS`.
+Proof: 18 suites in `tests/runtime/`; evidence and the signed `DEPLOY_WITH_RULES` verdict in
+[`evaluation/runtime-security/`](../evaluation/runtime-security/). Residuals R-1..R-3 and
+`SEC-RUNTIME-GAP-001` (routing is opt-in) are stated in
+[`Context/runtime-security-profile.md`](../Context/runtime-security-profile.md).
+
 ### The tailoring path (build-time, human-reviewed)
 
 The two paths meet at a **file**, not at a function call. The model writes it once; the
@@ -321,7 +344,7 @@ a test proves that path.
 | Tool coverage | the `matcher` in `.claude/settings.json` | **Gap.** It lists five tools; anything outside it (`WebFetch`, MCP writes, subagent spawns, scheduled jobs) reaches no gate. Gate ①a *would* judge an MCP write carrying a `path`, but the matcher never invokes it |
 | Prompt-entry gate (①) | `Security-kit/prompt_screen.py` via UserPromptSubmit | **Mechanical.** Wired in `.claude/settings.json`, exit 2 erases the prompt, proven by `tests/test_prompt_screen.py`. It is a protected path. **Enforcement is exact; detection is not** — fires once per human turn only, and a paraphrase outside the markers passes |
 | Result screen (④) | `Security-kit/result_screen.py` via PostToolUse | **Mechanical.** Replaces the tool output via `updatedToolOutput` before the model reads it, shape-preserving so the runtime cannot discard the substitution. Fires per tool call, matcher `*`. Proven by `tests/test_result_screen.py`. It does **not** undo the call — ③ has already happened |
-| Runtime enforcement (deployed app) | `governance/runtime_dispatcher.py`, `Security-kit/runtime_screen.py` | **Mechanical when called, and calling it is opt-in.** All four gate positions exist in process, importing the *same* `permission.py` and the same policy JSON as the hooks; proven by `tests/test_runtime_dispatcher.py` and `tests/test_runtime_screen.py`. **The residual is the wiring:** nothing checks that your application routed through them (`SEC-RUNTIME-GAP-001`, SECURITY.md S1.6) |
+| Runtime enforcement (deployed app) | `governance/runtime_dispatcher.py`, `Security-kit/runtime_screen.py` (regex tier); `Security-kit/runtime/` — 16 modules, semantic tier, 146 tests | **Mechanical when called, and calling it is opt-in.** All four gate positions exist in process, importing the *same* `permission.py` and the same policy JSON as the hooks; proven by `tests/test_runtime_dispatcher.py` and `tests/test_runtime_screen.py`. **The residual is the wiring:** nothing checks that your application routed through them (`SEC-RUNTIME-GAP-001`, SECURITY.md S1.6) |
 
 Two boundaries worth stating plainly:
 

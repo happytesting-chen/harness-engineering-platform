@@ -1,0 +1,127 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1100" height="650" viewBox="0 0 1100 650" role="img" aria-labelledby="title description">
+  <title id="title">Runtime security flow for a tool-using AI product</title>
+  <desc id="description">User prompts and external content enter through a combined rule and semantic ingress guard. Allowed content reaches model context; uncertain or unsafe content goes to human review and can return only with a signed release receipt. Model-proposed actions pass deterministic policy, origin, schema, session-budget and approval checks before a registered tool can execute. Tool results return through ingress screening. Final output is buffered and redacted before release. Decisions produce hash-chained audit evidence. Application routing through the host is required.</desc>
+
+  <rect width="1100" height="650" fill="#ffffff"/>
+
+  <defs>
+    <marker id="arrow" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse">
+      <path d="M 0 0 L 10 5 L 0 10 z" fill="#57606a"/>
+    </marker>
+    <marker id="arrow-blue" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse">
+      <path d="M 0 0 L 10 5 L 0 10 z" fill="#0969da"/>
+    </marker>
+    <marker id="arrow-red" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse">
+      <path d="M 0 0 L 10 5 L 0 10 z" fill="#cf222e"/>
+    </marker>
+  </defs>
+
+  <style>
+    text { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Helvetica, Arial, sans-serif; fill: #1f2328; }
+    .title { font-size: 18px; font-weight: 700; }
+    .subtitle { font-size: 12px; fill: #57606a; }
+    .heading { font-size: 13px; font-weight: 700; }
+    .body { font-size: 11px; fill: #57606a; }
+    .small { font-size: 10px; fill: #57606a; }
+    .mono { font-size: 10.5px; font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace; fill: #57606a; }
+    .source { fill: #f6f8fa; stroke: #57606a; stroke-width: 1.2; }
+    .guard { fill: #ddf4ff; stroke: #0969da; stroke-width: 1.6; }
+    .model { fill: #f6f8fa; stroke: #8250df; stroke-width: 1.6; }
+    .tool { fill: #dafbe1; stroke: #1a7f37; stroke-width: 1.6; }
+    .review { fill: #fff8c5; stroke: #9a6700; stroke-width: 1.4; }
+    .deny { fill: #ffebe9; stroke: #cf222e; stroke-width: 1.4; }
+    .audit { fill: #f6f8fa; stroke: #8c959f; stroke-width: 1.2; stroke-dasharray: 5 4; }
+    .boundary { fill: none; stroke: #0969da; stroke-width: 1.2; stroke-dasharray: 7 5; }
+    .flow { fill: none; stroke: #57606a; stroke-width: 1.6; marker-end: url(#arrow); }
+    .flow-blue { fill: none; stroke: #0969da; stroke-width: 1.6; marker-end: url(#arrow-blue); }
+    .flow-red { fill: none; stroke: #cf222e; stroke-width: 1.4; marker-end: url(#arrow-red); }
+    .evidence { fill: none; stroke: #8c959f; stroke-width: 1.1; stroke-dasharray: 4 3; marker-end: url(#arrow); }
+  </style>
+
+  <text class="title" x="20" y="30">Runtime safety for a tool-using AI product</text>
+  <text class="subtitle" x="20" y="50">The model proposes. Deterministic mechanisms decide what enters context, which actions execute, and what leaves the system.</text>
+
+  <rect class="boundary" x="180" y="70" width="740" height="470" rx="10"/>
+  <text class="small" x="195" y="91" fill="#0969da">RUNTIME HOST — application routing through this boundary is required</text>
+
+  <rect class="source" x="20" y="130" width="135" height="60" rx="5"/>
+  <text class="heading" x="87" y="154" text-anchor="middle">User prompt</text>
+  <text class="body" x="87" y="173" text-anchor="middle">USER_DIRECT</text>
+
+  <rect class="source" x="20" y="260" width="135" height="70" rx="5"/>
+  <text class="heading" x="87" y="284" text-anchor="middle">External content</text>
+  <text class="body" x="87" y="303" text-anchor="middle">document · record</text>
+  <text class="body" x="87" y="318" text-anchor="middle">tool result</text>
+
+  <rect class="guard" x="215" y="165" width="180" height="110" rx="6"/>
+  <text class="heading" x="305" y="190" text-anchor="middle">ON_INGRESS</text>
+  <text class="body" x="305" y="211" text-anchor="middle">normalize and chunk</text>
+  <text class="body" x="305" y="229" text-anchor="middle">deterministic rules</text>
+  <text class="body" x="305" y="247" text-anchor="middle">semantic classifier</text>
+  <text class="mono" x="305" y="265" text-anchor="middle">ALLOW | REQUIRE_REVIEW</text>
+
+  <line class="flow" x1="155" y1="160" x2="211" y2="195"/>
+  <line class="flow" x1="155" y1="295" x2="211" y2="245"/>
+
+  <rect class="review" x="215" y="315" width="180" height="90" rx="6"/>
+  <text class="heading" x="305" y="341" text-anchor="middle">Human review</text>
+  <text class="body" x="305" y="362" text-anchor="middle">quarantined by digest</text>
+  <text class="body" x="305" y="380" text-anchor="middle">expiring · single-use</text>
+  <text class="mono" x="305" y="397" text-anchor="middle">ContentReleaseReceipt</text>
+  <path class="flow-red" d="M 305 275 L 305 311"/>
+
+  <rect class="model" x="450" y="165" width="155" height="110" rx="6"/>
+  <text class="heading" x="527" y="192" text-anchor="middle">Model context</text>
+  <text class="body" x="527" y="215" text-anchor="middle">allowed text only</text>
+  <text class="body" x="527" y="233" text-anchor="middle">origin labels retained</text>
+  <text class="body" x="527" y="251" text-anchor="middle">model proposes;</text>
+  <text class="body" x="527" y="267" text-anchor="middle">it does not authorize</text>
+
+  <line class="flow-blue" x1="395" y1="210" x2="446" y2="210"/>
+  <path class="flow-blue" d="M 395 360 L 420 360 L 420 245 L 446 245"/>
+  <text class="small" x="402" y="198">allow</text>
+  <text class="small" x="400" y="347">signed release</text>
+
+  <rect class="guard" x="660" y="145" width="210" height="150" rx="6"/>
+  <text class="heading" x="765" y="170" text-anchor="middle">ON_ACTION</text>
+  <text class="body" x="765" y="193" text-anchor="middle">registered tool + policy</text>
+  <text class="body" x="765" y="211" text-anchor="middle">argument schema + origin</text>
+  <text class="body" x="765" y="229" text-anchor="middle">session and per-tool ceilings</text>
+  <text class="body" x="765" y="247" text-anchor="middle">optional human approval</text>
+  <text class="mono" x="765" y="272" text-anchor="middle">ALLOW | DENY</text>
+  <line class="flow" x1="605" y1="220" x2="656" y2="220"/>
+
+  <rect class="deny" x="685" y="335" width="160" height="64" rx="5"/>
+  <text class="heading" x="765" y="361" text-anchor="middle">Denied</text>
+  <text class="body" x="765" y="382" text-anchor="middle">tool call count remains 0</text>
+  <path class="flow-red" d="M 735 295 L 735 331"/>
+
+  <rect class="tool" x="945" y="165" width="135" height="110" rx="6"/>
+  <text class="heading" x="1012" y="191" text-anchor="middle">Registered tool</text>
+  <text class="body" x="1012" y="214" text-anchor="middle">side effect occurs</text>
+  <text class="body" x="1012" y="232" text-anchor="middle">only after allow</text>
+  <text class="body" x="1012" y="255" text-anchor="middle">result is untrusted</text>
+  <line class="flow-blue" x1="870" y1="220" x2="941" y2="220"/>
+
+  <path class="flow" d="M 1012 275 L 1012 455 L 120 455 L 120 334"/>
+  <text class="small" x="660" y="448">tool result returns through ON_INGRESS before model context</text>
+
+  <rect class="guard" x="450" y="330" width="155" height="90" rx="6"/>
+  <text class="heading" x="527" y="355" text-anchor="middle">Final output</text>
+  <text class="body" x="527" y="377" text-anchor="middle">buffer entire response</text>
+  <text class="body" x="527" y="395" text-anchor="middle">redact known secrets</text>
+  <text class="body" x="527" y="411" text-anchor="middle">release in one write</text>
+  <path class="flow" d="M 527 275 L 527 326"/>
+
+  <rect class="source" x="450" y="475" width="155" height="50" rx="5"/>
+  <text class="heading" x="527" y="506" text-anchor="middle">User</text>
+  <line class="flow-blue" x1="527" y1="420" x2="527" y2="471"/>
+
+  <rect class="audit" x="180" y="570" width="740" height="60" rx="6"/>
+  <text class="heading" x="550" y="594" text-anchor="middle">Evidence plane</text>
+  <text class="body" x="550" y="614" text-anchor="middle">closed-schema events · policy and classifier digests · review references · hash-chained audit records</text>
+
+  <path class="evidence" d="M 305 405 L 305 566"/>
+  <path class="evidence" d="M 765 399 L 765 566"/>
+  <path class="evidence" d="M 605 385 L 640 385 L 640 566"/>
+</svg>
