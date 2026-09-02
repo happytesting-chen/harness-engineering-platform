@@ -12,11 +12,37 @@
 | Field | Value |
 |---|---|
 | Profile | `runtime-mvp` (deployed, in-process) — **not** the `demo` / IDE hook profile |
-| Source revision | `978eac839efef0fcc84a79fb51bb2b78d263f699` |
+| Source revision | signed at `978eac839efef0fcc84a79fb51bb2b78d263f699`; **re-scoped to `8c93f75`** — see the amendment below |
 | Policy digest | `65b90cd9f5d33d869ca50d784fa18d1e05a1710c3a592f74ae8360adc0898567` (sha256 of `deny-list.json` then `mcp-allowlist.json`) |
 | Classifier lock | `Security-kit/runtime/semantic-model.lock.json`, signed `shi_yuan@csa.gov.sg` 2026-08-31 |
 | Classifier artifact | `protectai/deberta-v3-base-prompt-injection-v2` ONNX, sha256 `f0ea7f23…047b228c` |
 | Plan | `docs/superpowers/plans/2026-08-31-runtime-security-semantic-enforcement-rescoped.md`, Tasks 1–12 |
+
+### Amendment A-1 — re-scope to the merge commit, 2026-09-02
+
+The revision this verdict was signed at could not be its own merge commit: a verdict names
+the tree it judges, and committing the verdict changes that tree. Two commits landed after
+signing — the verdict document itself, and `64b0094`, which moved a standalone test runner
+in `tests/runtime/test_host.py`. Neither is a C-5 artifact.
+
+Verified before re-scoping, `978eac83` against `8c93f75`:
+
+| C-5 artifact | Status |
+|---|---|
+| `Security-kit/runtime/` (all contents) | **unchanged** |
+| `governance/deny-list.json` | **unchanged** |
+| `governance/mcp-allowlist.json` | **unchanged** |
+| `Security-kit/runtime/semantic-model.lock.json` | **unchanged** |
+
+Complete diff between the two revisions: `VERDICT.md` and `tests/runtime/test_host.py`.
+Nothing the verdict judges moved, so §2's evidence still describes this tree and the
+decision in §5 carries over unmodified.
+
+**Scope of this amendment:** the revision label in §1 only. The decision, the conditions,
+the acceptances in §4 and the expiry are untouched — an amendment that altered any of
+those would be a new verdict needing a new signature, not an amendment.
+
+Recorded by the agent; the original signature stands and is not re-applied here.
 
 ## 2. Evidence (measured, reproducible)
 
