@@ -142,7 +142,7 @@ def case_i6_over_an_empty_spine_fails_loudly():
     """An empty spine must FAIL, naming every uncovered row. The precedent is
     f16525a: a sampling test reported 100% while 57% of the matrix was unmeasured."""
     errors, msgs, _ = cc.check_i6({"requirements": []}, _matrix())
-    assert errors == 13, f"expected 13 uncovered non-GAP rows, got {errors}"
+    assert errors == 19, f"expected 19 uncovered non-GAP rows, got {errors}"
     assert all("named by no requirement" in m for m in msgs), msgs
 
 

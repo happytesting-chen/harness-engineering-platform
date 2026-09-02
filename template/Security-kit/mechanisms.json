@@ -1,6 +1,6 @@
 {
   "schema": 1,
-  "generated_note": "HAND-WRITTEN. Humans own this file (spec §3.2). A drafter may PROPOSE a row in its report; it must not write this path — a model-written claims register is the artefact the build trusts, authored by the thing being audited.",
+  "generated_note": "HAND-WRITTEN. Humans own this file (spec \u00a73.2). A drafter may PROPOSE a row in its report; it must not write this path \u2014 a model-written claims register is the artefact the build trusts, authored by the thing being audited.",
   "mechanisms": [
     {
       "id": "SEC-SELF-001",
@@ -11,7 +11,7 @@
       "proof": "python3 tests/test_protected_paths.py",
       "status": "MECHANICAL",
       "portable_to_runtime": true,
-      "limits": "covers the five tools in the PreToolUse matcher only (SEC-COVER-GAP-001). Strong on structured write targets (file identity, not spelling); the shell is a separate pattern-matching mechanism with measured partial coverage - 68 of 140 verb/path cells open, in exactly two shapes, pinned by test_the_open_set_has_exactly_two_shapes. The 10 built-in paths include both pre-model screens as of 2026-08-17; before that an Edit to Security-kit/result_screen.py was ALLOW, and blanking it fails OPEN (exit 0, empty stdout = no replacement), so each screen is independently sufficient to disable a control"
+      "limits": "covers the five tools in the PreToolUse matcher only (SEC-COVER-GAP-001). Strong on structured write targets (file identity, not spelling); the shell is a separate pattern-matching mechanism with measured partial coverage - 158 of 392 verb/path cells open, in exactly two shapes, pinned by test_the_open_set_has_exactly_two_shapes. The 28 built-in paths include both pre-model screens as of 2026-08-17 and the 15 runtime-mvp modules plus the signed classifier lock as of 2026-09-01; before that an Edit to Security-kit/result_screen.py was ALLOW, and blanking it fails OPEN (exit 0, empty stdout = no replacement), so each screen is independently sufficient to disable a control"
     },
     {
       "id": "SEC-CMD-001",
@@ -74,7 +74,7 @@
       "proof": "python3 tests/test_prompt_screen.py",
       "status": "MECHANICAL",
       "portable_to_runtime": true,
-      "limits": "the same regex marker list as content_trust.py; a paraphrase defeats it. Enforcement is exact, coverage is best-effort — see SEC-PROMPT-GAP-001"
+      "limits": "the same regex marker list as content_trust.py; a paraphrase defeats it. Enforcement is exact, coverage is best-effort \u2014 see SEC-PROMPT-GAP-001"
     },
     {
       "id": "SEC-RESULT-001",
@@ -85,7 +85,7 @@
       "proof": "python3 tests/test_result_screen.py",
       "status": "MECHANICAL",
       "portable_to_runtime": true,
-      "limits": "withholds the tool OUTPUT, never the tool call — the side effect at ③ has already happened when this runs. Coverage is the same marker list as SEC-PROMPT-001, so a paraphrase defeats it (SEC-PROMPT-GAP-001). The substitution must preserve the tool's output shape or the runtime discards it and sends the ORIGINAL poisoned output with only a log line; tests/test_result_screen.py pins that"
+      "limits": "withholds the tool OUTPUT, never the tool call \u2014 the side effect at \u2462 has already happened when this runs. Coverage is the same marker list as SEC-PROMPT-001, so a paraphrase defeats it (SEC-PROMPT-GAP-001). The substitution must preserve the tool's output shape or the runtime discards it and sends the ORIGINAL poisoned output with only a log line; tests/test_result_screen.py pins that"
     },
     {
       "id": "SEC-HOOK-001",
@@ -121,11 +121,77 @@
       "id": "SEC-COVERAGE-001",
       "category": "CHECKER",
       "decides": "Security-kit/check_coverage.py::check",
-      "attaches_at": "init.sh block 5b — python3 Security-kit/check_coverage.py",
+      "attaches_at": "init.sh block 5b \u2014 python3 Security-kit/check_coverage.py",
       "can_deny": "n/a",
       "proof": "python3 tests/test_coverage.py",
       "status": "MECHANICAL",
       "portable_to_runtime": false
+    },
+    {
+      "id": "SEC-INGRESS-001",
+      "category": "GATE",
+      "decides": "Security-kit/runtime/ingress.py::evaluate_ingress",
+      "attaches_at": "in-process: runtime-mvp host, prompt and tool-result ingress",
+      "can_deny": true,
+      "proof": "python3 tests/runtime/test_ingress.py",
+      "status": "MECHANICAL",
+      "portable_to_runtime": true,
+      "limits": "Binding \u2460/\u2463 for the deployed profile: rule hit or any semantic non-`data` withholds to REQUIRE_REVIEW; `unresolved`+`data` is the only ALLOW. Detection is patterns + one encoder, so a confident classifier miss admits content (R-1) \u2014 the action gate is then the authority. Reached only if the application routes through the host (SEC-RUNTIME-GAP-001)."
+    },
+    {
+      "id": "SEC-SESSION-001",
+      "category": "GATE",
+      "decides": "Security-kit/runtime/session.py::reserve",
+      "attaches_at": "in-process: GuardedDispatcher.execute reserve/commit/rollback",
+      "can_deny": true,
+      "proof": "python3 tests/runtime/test_guarded.py",
+      "status": "MECHANICAL",
+      "portable_to_runtime": true,
+      "limits": "The first control at position \u2464 (the sequence): per-tool and total session ceilings, concurrency-safe. Composes around the action gate; owns no gate predicate. Bounds one session only \u2014 cross-session memory is a disabled capability. Opt-in routing per SEC-RUNTIME-GAP-001."
+    },
+    {
+      "id": "SEC-CONTENT-RECEIPT-001",
+      "category": "GATE",
+      "decides": "Security-kit/runtime/review.py::verify_content",
+      "attaches_at": "in-process: ingress receipt redemption",
+      "can_deny": true,
+      "proof": "python3 tests/runtime/test_content_receipts.py",
+      "status": "MECHANICAL",
+      "portable_to_runtime": true,
+      "limits": "Releases exactly one content digest, once, under the policy in force at review. Type/key/context separated from action approval \u2014 a content receipt cannot authorize an action (TypeError). Authority is only as sound as the reviewer; the receipt records who and when, not that they looked."
+    },
+    {
+      "id": "SEC-ACTION-RECEIPT-001",
+      "category": "GATE",
+      "decides": "Security-kit/runtime/review.py::verify_action",
+      "attaches_at": "in-process: GuardedDispatcher REQUIRE_APPROVAL tier",
+      "can_deny": true,
+      "proof": "python3 tests/runtime/test_action_receipts.py",
+      "status": "MECHANICAL",
+      "portable_to_runtime": true,
+      "limits": "Un-pauses a REQUIRE_APPROVAL action; never converts DENY \u2014 the inner gates still run after approval (test-pinned). Binds the exact action digest, expires, single-use. Same reviewer-attestation residual as SEC-CONTENT-RECEIPT-001."
+    },
+    {
+      "id": "SEC-STARTUP-001",
+      "category": "GATE",
+      "decides": "Security-kit/runtime/startup.py::validate_startup",
+      "attaches_at": "in-process: RuntimeHost construction, before any wiring",
+      "can_deny": true,
+      "proof": "python3 tests/runtime/test_startup.py",
+      "status": "MECHANICAL",
+      "portable_to_runtime": true,
+      "limits": "An unsupported capability (memory, delegation, streaming), a registry/policy mismatch, a missing key, an unbounded audit, a writable production control root or a drifted classifier lock is a StartupError, not a warning. Checks configuration, not the OS confinement around it."
+    },
+    {
+      "id": "SEC-OUTPUT-001",
+      "category": "GATE",
+      "decides": "Security-kit/runtime/output.py::screen_output",
+      "attaches_at": "in-process: buffered final-output release",
+      "can_deny": true,
+      "proof": "python3 tests/runtime/test_output.py",
+      "status": "MECHANICAL",
+      "portable_to_runtime": true,
+      "limits": "Buffers the whole final response, redacts credential shapes (owner: secret_scan._PATTERNS, not copied here), known secret values and protected fragments, then releases \u2014 no byte leaves before screening. Redaction is pattern-and-value based; an unlisted secret shape passes."
     }
   ]
 }

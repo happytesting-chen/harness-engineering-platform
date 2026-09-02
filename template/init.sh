@@ -267,6 +267,30 @@ if [ -d "governance" ]; then
         echo "  ⚠ no runtime screen — a deployed agent has no screen at ① or ④"
         WARNINGS=$((WARNINGS + 1))
     fi
+    # (d.5) runtime-mvp semantic profile — the deployed-profile ingress, action-plane,
+    # receipt, startup and output controls (Security-kit/runtime/). Each proof file is
+    # named here so I3 (proof reachability) can join the register rows added in the
+    # Task 12 claims batch. Absent = WARNING, like (d.4): a build that does not adopt the
+    # semantic profile does not carry these files.
+    for rt in \
+        tests/runtime/test_ingress.py \
+        tests/runtime/test_guarded.py \
+        tests/runtime/test_content_receipts.py \
+        tests/runtime/test_action_receipts.py \
+        tests/runtime/test_startup.py \
+        tests/runtime/test_output.py; do
+        if [ -f "$rt" ]; then
+            if python3 "$rt" >/dev/null 2>&1; then
+                echo "  ✓ runtime-mvp tests passed ($rt)"
+            else
+                echo "  ✗ runtime-mvp tests FAILED ($rt)"
+                ERRORS=$((ERRORS + 1))
+            fi
+        else
+            echo "  ⚠ no $rt — runtime-mvp semantic profile not adopted"
+            WARNINGS=$((WARNINGS + 1))
+        fi
+    done
     # (e) hook-path integrity: every hook script wired in settings.json must resolve on
     # disk. A missing path makes python3 exit 2 — indistinguishable from a real policy
     # BLOCK — so a wrong path silently fail-closes EVERY tool. This check catches that

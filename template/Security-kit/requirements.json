@@ -1,5 +1,5 @@
 {
-  "generated_note": "PROPOSED — NOT YET THE SPINE. This file was drafted by a model and is deliberately NOT named requirements.json, because humans own that path at merge time, the same freeze as mechanisms.json and for the same reason (spec §8.1 rule 4): a component that can write its own obligations has no obligations. Review every row, then `git mv requirements.proposed.json requirements.json` and uncomment the I6 line in check_coverage.py's check_status(). Nothing reads this path; check_coverage.py looks only at requirements.json.",
+  "generated_note": "PROPOSED \u2014 NOT YET THE SPINE. This file was drafted by a model and is deliberately NOT named requirements.json, because humans own that path at merge time, the same freeze as mechanisms.json and for the same reason (spec \u00a78.1 rule 4): a component that can write its own obligations has no obligations. Review every row, then `git mv requirements.proposed.json requirements.json` and uncomment the I6 line in check_coverage.py's check_status(). Nothing reads this path; check_coverage.py looks only at requirements.json.",
   "requirements": [
     {
       "id": "SEC-REQ-001",
@@ -41,7 +41,7 @@
         "SEC-PHASE-001",
         "SEC-PHASE-GAP-001"
       ],
-      "residual": "SEC-PHASE-GAP-001: the requirement is now met against intent as well as accident — the unlock reads signed_off_phases from the protected allowlist, so the agent cannot produce it (three measured self-promotion edits now DENY, tests/test_steady_state.py). Residual: \"signed off\" means a human typed a phase id, not that the phase's verification was re-run at unlock time. An unexamined sign-off unlocks the tool and the gate cannot tell."
+      "residual": "SEC-PHASE-GAP-001: the requirement is now met against intent as well as accident \u2014 the unlock reads signed_off_phases from the protected allowlist, so the agent cannot produce it (three measured self-promotion edits now DENY, tests/test_steady_state.py). Residual: \"signed off\" means a human typed a phase id, not that the phase's verification was re-run at unlock time. An unexamined sign-off unlocks the tool and the gate cannot tell."
     },
     {
       "id": "SEC-REQ-005",
@@ -95,7 +95,7 @@
         "SEC-RESULT-001",
         "SEC-RESULT-GAP-001"
       ],
-      "residual": "SEC-RESULT-001 closes the enforcement half at ④: a tool result matching the marker list is replaced before the model reads it. Measured 10 of 12 corpus attacks caught for 2 of 12 legitimate cases withheld (tests/test_injection_corpus.py). SEC-CONTENT-001's screen_record is still UNWIRED — no ingestion path calls it — though the marker list it owns is now enforced at both ① and ④. SEC-RESULT-GAP-001 records what remains: the call has already run, so a read that was itself the harm is not undone, and a paraphrase outside the marker list passes. The requirement is met for known phrasings arriving as tool output, and unmet in general. The earlier residual here said position ④ could not be closed with a hook; that was false."
+      "residual": "SEC-RESULT-001 closes the enforcement half at \u2463: a tool result matching the marker list is replaced before the model reads it. Measured 10 of 12 corpus attacks caught for 2 of 12 legitimate cases withheld (tests/test_injection_corpus.py). SEC-CONTENT-001's screen_record is still UNWIRED \u2014 no ingestion path calls it \u2014 though the marker list it owns is now enforced at both \u2460 and \u2463. SEC-RESULT-GAP-001 records what remains: the call has already run, so a read that was itself the harm is not undone, and a paraphrase outside the marker list passes. The requirement is met for known phrasings arriving as tool output, and unmet in general. The earlier residual here said position \u2463 could not be closed with a hook; that was false."
     },
     {
       "id": "SEC-REQ-010",
@@ -126,7 +126,59 @@
         "SEC-PROMPT-001",
         "SEC-PROMPT-GAP-001"
       ],
-      "residual": "SEC-PROMPT-001 enforces exactly — exit 2 erases the prompt — but only over the shipped regex marker list, and it is the operator's to downgrade with PROMPT_SCREEN_MODE=warn. SEC-PROMPT-GAP-001 records the coverage half: a paraphrase passes. The requirement is met for known phrasings and unmet in general."
+      "residual": "SEC-PROMPT-001 enforces exactly \u2014 exit 2 erases the prompt \u2014 but only over the shipped regex marker list, and it is the operator's to downgrade with PROMPT_SCREEN_MODE=warn. SEC-PROMPT-GAP-001 records the coverage half: a paraphrase passes. The requirement is met for known phrasings and unmet in general."
+    },
+    {
+      "id": "SEC-REQ-013",
+      "risk": "pre-context injection (deployed)",
+      "requirement": "In the deployed profile, prompt and tool-result text is withheld from model context unless both the rule and semantic layers clear it.",
+      "severity": "critical",
+      "satisfied_by": [
+        "SEC-INGRESS-001",
+        "SEC-RUNTIME-GAP-001"
+      ],
+      "residual": "Detection is bounded (R-1); routing is opt-in (SEC-RUNTIME-GAP-001)."
+    },
+    {
+      "id": "SEC-REQ-014",
+      "risk": "unbounded sequence",
+      "requirement": "A session cannot exceed its per-tool or total action budget, even under concurrent calls.",
+      "severity": "high",
+      "satisfied_by": [
+        "SEC-SESSION-001"
+      ],
+      "residual": "Bounds one session; cross-session memory is disabled by design."
+    },
+    {
+      "id": "SEC-REQ-015",
+      "risk": "review authority confusion",
+      "requirement": "A content release cannot authorize an action, and an action approval cannot release content or convert a deterministic deny.",
+      "severity": "critical",
+      "satisfied_by": [
+        "SEC-CONTENT-RECEIPT-001",
+        "SEC-ACTION-RECEIPT-001"
+      ],
+      "residual": "Sign-off is a human attestation; the receipt records who and when."
+    },
+    {
+      "id": "SEC-REQ-016",
+      "risk": "silent weakening at startup",
+      "requirement": "A deployment weaker than the runtime-mvp profile claims refuses to start rather than degrading.",
+      "severity": "high",
+      "satisfied_by": [
+        "SEC-STARTUP-001"
+      ],
+      "residual": "Validates configuration, not OS-level confinement."
+    },
+    {
+      "id": "SEC-REQ-017",
+      "risk": "final-output disclosure",
+      "requirement": "No final-output byte reaches the user before deterministic redaction of secrets and protected fragments completes.",
+      "severity": "high",
+      "satisfied_by": [
+        "SEC-OUTPUT-001"
+      ],
+      "residual": "Redaction is pattern/value based; an unlisted secret shape passes."
     }
   ]
 }

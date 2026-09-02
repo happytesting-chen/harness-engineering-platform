@@ -26,7 +26,7 @@ def case_matrix_parses_into_rows():
         f"parse_matrix_rows and parse_matrix disagree: "
         f"{set(rows) ^ set(flat)}"
     )
-    assert len(rows) == 24, f"expected 24 matrix rows, got {len(rows)}"
+    assert len(rows) == 30, f"expected 30 matrix rows, got {len(rows)}"
 
 
 def case_every_matrix_row_has_a_status_token():
@@ -158,8 +158,8 @@ def case_register_row_count_is_pinned():
     """
     reg = cc._load_register(cc.MECHANISMS_PATH)
     ids = [m["id"] for m in reg["mechanisms"]]
-    assert len(ids) == 12, f"expected 12 rows, got {len(ids)}: {ids}"
-    assert len(set(ids)) == 12, f"duplicate ids: {ids}"
+    assert len(ids) == 18, f"expected 18 rows, got {len(ids)}: {ids}"
+    assert len(set(ids)) == 18, f"duplicate ids: {ids}"
 
 
 def case_i2_passes_on_the_shipped_register():
