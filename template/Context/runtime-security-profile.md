@@ -35,15 +35,20 @@ only to a deployment that starts through the runtime host's startup validation.
 
 ## Capabilities disabled in the MVP
 
-Each of these is a **startup error** when enabled — the runtime refuses to start rather
-than degrading to warning-only operation:
+Corrected 2026-09-01 after review (findings F-4, F-5, F-6): these are disabled, but they
+are **not all enforced in the same place**, and the earlier wording claimed every one was a
+startup error. Where a prohibition is enforced matters more than that it is written down.
 
-- persistent memory: disabled
-- delegation: disabled (no inter-agent messaging, no subagent spawning)
-- arbitrary binary extraction (PDF/image/archive): disabled — UTF-8 text ingress only
-- additional hosts / multi-host operation: disabled
-- streaming output: disabled — final output is buffered until screening completes
-- remote or hosted classifiers: disabled — the classifier is a pinned local process
+In one line, for the record and for the contract test that pins this vocabulary — **persistent memory: disabled**, **delegation: disabled**, streaming output disabled, remote classifiers disabled, binary ingress disabled.
+
+| Capability | Status | Enforced where |
+|---|---|---|
+| persistent memory | disabled | **startup error** — `validate_startup` |
+| delegation (inter-agent messaging, subagent spawning) | disabled | **startup error** — `validate_startup` |
+| streaming output | disabled | **startup error** — `validate_startup` |
+| remote or hosted classifiers | disabled | **startup error in production** — the host requires `classifier_lock_path` and verifies the signed artifact digests. Outside production a stub is permitted; that is the `demo` profile |
+| arbitrary binary extraction (PDF/image/archive) | disabled | **contract layer, per envelope** — `ContentEnvelope` rejects any `media_type` but `text/plain`. Not a startup check, because the constraint is per-item, not per-run |
+| additional hosts / multi-host operation | out of scope | **not enforced.** A library cannot stop a caller constructing two hosts. The MVP is specified for one; nothing mechanically prevents otherwise, and the earlier claim of a startup error was wrong |
 
 Enabling any of them is a new source/sink and requires a later separately approved plan.
 
@@ -53,8 +58,8 @@ Enabling any of them is a new source/sink and requires a later separately approv
 |---|---|---|
 | User prompt | `ON_INGRESS` (USER_DIRECT) | model context, then tools |
 | Tool result / document text | `ON_INGRESS` (EXTERNAL_CONTENT) | model context, then tools |
-| Structured record | field allowlist, then `ON_INGRESS` per text field | model context |
-| Review decision | receipt verifier | context release or action approval |
+| Structured record | field allowlist, then `ON_INGRESS` per text field | model context — via `adapters.ingress_structured_record`, called by the application; the host exposes no method for it (F-2) |
+| Review decision | receipt verifier | context release, via `RuntimeHost.release_quarantined` (F-1, added 2026-09-01) |
 | Model tool proposal | `ON_ACTION` | registered tool side effect |
 | Model final response | buffered output screen | user |
 

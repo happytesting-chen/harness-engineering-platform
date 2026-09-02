@@ -20,7 +20,7 @@
 
 | Check | Result | Command |
 |---|---|---|
-| Test suite | **309 passed** (18 runtime suites) | `python3 -m pytest tests -q` |
+| Test suite | **315 passed** (18 runtime suites; 309 + 6 added by the F-1/F-4 fixes) | `python3 -m pytest tests -q` |
 | Attack matrix | **13/13 RESISTANT** on side-effect oracles | `python3 Security-kit/runtime/attack_driver.py --output /tmp/t.jsonl` |
 | Replay determinism | traces byte-identical on re-run | `python3 -m pytest tests/runtime/test_replay.py -q` |
 | Classifier lock | PASS against artifacts + corpus digest | `eval_runtime_injection.py --lock … --verify` |
@@ -39,11 +39,32 @@ checklist), `limitations.md` (every disabled/untested capability), `attack-trace
 > `verification-summary.md` §"What a reviewer must check". Record every finding, including
 > those judged acceptable — a finding omitted is a finding unmanaged.
 
-| # | Severity | Finding | Disposition |
-|---|---|---|---|
-| | | *(none recorded yet)* | |
+Six checks were run on 2026-09-01 as live attempts (adversarial scripts and greps), not
+as readings. **No P0.** Two P1s, both the same root cause: the profile written in Task 1
+described a host that Task 11 did not build. Both are now fixed in code.
 
-Reviewer(s): *(fill)* · Date(s): *(fill)* · Method: *(code read / independent test / both)*
+| # | Sev | Finding | Disposition |
+|---|---|---|---|
+| F-1 | P1 | Profile claimed quarantined content was releasable by receipt, but the host had **no redemption path** — `receipts=` was never passed. Fail-closed ingress had no drain: the first false positive stranded the session. | **FIXED** — `RuntimeHost.issue_release_receipt` + `release_quarantined`; 3 tests, incl. single-use and that release does not launder origin |
+| F-2 | P2 | Profile listed "Structured record" as a source→sink row with no host method. | **ACCEPTED** — profile corrected to name `adapters.ingress_structured_record` as the application's call |
+| F-3 | — | Receipt authority: 12 crossing attempts (type both ways, replay, policy/rule/classifier drift, expiry, digest, origin, stripped signature, tamper, forged key) all refused; valid control passes. | No finding |
+| F-4 | P1 | The host accepted **any** classifier object and explicitly skipped lock verification (`semantic_enabled=False`). A remote/hosted classifier — or a stub always answering `data` — started successfully, while the profile claimed that was disabled. | **FIXED** — production requires `classifier_lock_path` and verifies artifact digests; 3 tests, incl. digest drift |
+| F-5 | P3 | Profile forbade multi-host; two hosts construct fine, and a library cannot prevent it. | **ACCEPTED** — profile corrected to "out of scope, not enforced" |
+| F-6 | P3 | Profile said binary ingress is a startup error; it is enforced at the **contract** layer per envelope. | **ACCEPTED** — profile corrected; enforcement is real, the location was misstated |
+| F-7 | P3 | Raw tool callables reachable via `host._config.tools` and `_dispatcher._inner._tools` — both fired, bypassing every gate. | **ACCEPTED** — this is `SEC-RUNTIME-GAP-001`, now concretely demonstrated. An application can do this to itself; the model cannot (string-only surface, tested) |
+| F-8 | — | Output: exactly one `transport.send`, inside `BufferedSender.release`. Three credential shapes redacted, none echoed in text or `repr`. | No finding |
+| F-9 | — | 12/12 documented claims backed by their cited test, each asserting the specific property. | No finding |
+
+Post-fix gate: **315 passed**; `./init.sh` at the unchanged 5-error baseline; I1–I6 green.
+
+Reviewer(s): *(fill — see caveat)* · Date(s): *(fill)* · Method: *(code read / independent test / both)*
+
+> **Caveat on independence.** Checks F-1…F-9 were run by the agent that wrote the code.
+> Self-review catches omissions, not blind spots — and the two P1s found here were both
+> the author's own Task-1-vs-Task-11 mismatch, which is precisely the kind of error
+> self-review is worst at finding systematically. Plan Task 12 step 7 calls for an
+> **independent** security review. Signing without one is a decision to accept
+> author-run verification, and the verdict should say so.
 
 ## 4. Residuals carried into the decision
 

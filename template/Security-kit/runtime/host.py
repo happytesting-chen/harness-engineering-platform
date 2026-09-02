@@ -25,11 +25,11 @@ from dataclasses import dataclass, field
 
 from .adapters import ingress_tool_result, ingress_user_prompt
 from .audit import AuditPolicy, AuditRecorder
-from .contracts import IngressOutcome, Origin
+from .contracts import ContentEnvelope, IngressOutcome, Origin
 from .guarded import GuardedDispatcher
 from .ingress import IngressPolicy, QuarantineStore
 from .output import BufferedSender, OutputPolicy, screen_output
-from .review import NonceStore, ReceiptVerifier
+from .review import NonceStore, ReceiptVerifier, issue_content_receipt
 from .session import SessionPolicy, SessionState
 from .startup import RuntimeConfig, StartupReport, validate_startup
 
@@ -60,6 +60,11 @@ class HostConfig:
     )
     policy_sha256: str = "0" * 64
     classifier_sha256: str = "0" * 64
+    # F-4 (review, 2026-09-01): in production the classifier must be the PINNED local
+    # one. Before this the host passed semantic_enabled=False and skipped lock
+    # verification entirely, so a remote/hosted classifier — or a stub that always
+    # answers `data` — started happily while the profile claimed that was disabled.
+    classifier_lock_path: object = None
     control_root: object = "."
     production: bool = False
     memory_enabled: bool = False
@@ -89,8 +94,12 @@ class RuntimeHost:
             receipt_key=config.receipt_key,
             audit_failure_policy=config.audit_policy.failure_policy,
             audit_max_bytes=config.audit_policy.max_bytes,
-            semantic_enabled=False,   # the classifier instance arrives lock-verified
-            classifier_lock_path=None,
+            # Production asserts the profile's claim: semantic enforcement requires the
+            # human-signed lock, and startup verifies its artifact digests. Outside
+            # production a stub classifier is allowed — that is the demo profile, and
+            # it is why `production` is the flag rather than a silent default.
+            semantic_enabled=config.production,
+            classifier_lock_path=config.classifier_lock_path,
         ))
         self._config = config
         self._classifier = config.classifier
@@ -173,6 +182,55 @@ class RuntimeHost:
             return HostResult(outcome=outcome.outcome)
         self.messages.append({"role": "tool", "content": outcome.notice})
         return HostResult(outcome=outcome.outcome, notice=outcome.notice)
+
+    def issue_release_receipt(self, quarantine_id: str, *, reviewer_id: str,
+                              now: int, ttl_seconds: int = 300):
+        """Mint a release receipt for one quarantined digest.
+
+        In a real deployment a HUMAN does this out of band, through
+        `runtime/review_cli.py`, against a host-owned quarantine store — the reviewer
+        reads the neutralized text and confirms the digest. This method exists so the
+        loop is completable in-process and testable end to end; it does not make the
+        decision, it only signs the one the reviewer already made.
+        """
+        from .review_cli import build_review_request
+        request = build_review_request(
+            self.quarantine, quarantine_id, reviewer_id=reviewer_id,
+            policy_sha256=self._config.policy_sha256,
+            rule_version=self._ingress_policy.rules.version,
+            classifier_sha256=self._config.classifier_sha256,
+            ttl_seconds=ttl_seconds,
+        )
+        return issue_content_receipt(request, self._config.receipt_key, now=now)
+
+    def release_quarantined(self, receipt, quarantine_id: str, *, now: int = 0) -> HostResult:
+        """F-1 (review, 2026-09-01). Redeem a receipt and admit the exact digest.
+
+        Before this the host had no redemption path at all: `evaluate_ingress` accepts
+        `receipts=` and nothing ever passed one, so fail-closed ingress had no drain and
+        the first false positive stranded the session.
+
+        Releasing does NOT launder origin — the record's own origin is re-applied to the
+        turn, so an origin-gated sink stays shut on released EXTERNAL_CONTENT.
+        """
+        record = self.quarantine.get(quarantine_id)
+        envelope = ContentEnvelope(
+            content_id=record.content_id, text=record.text,
+            origin=Origin(record.origin), source=record.source,
+            media_type="text/plain", raw_sha256=record.raw_sha256,
+        )
+        if not self._verifier.verify_content(receipt, envelope, now=now):
+            self._record("REVIEW_RELEASE", content_sha256=record.raw_sha256,
+                         decision="DENY", receipt_ref=getattr(receipt, "nonce", None))
+            raise PermissionError(
+                "release receipt invalid — wrong digest, expired, replayed, or issued "
+                "under a different policy/rule/classifier context"
+            )
+        self._record("REVIEW_RELEASE", content_sha256=record.raw_sha256,
+                     decision="ALLOW", receipt_ref=getattr(receipt, "nonce", None))
+        self.messages.append({"role": "tool", "content": record.text})
+        self._origins.add(Origin(record.origin))
+        return HostResult(outcome=IngressOutcome.ALLOW)
 
     def invoke_tool(self, name: str, args: dict | None = None, *, approval=None, now: int = 0):
         from .review import action_sha256
