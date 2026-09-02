@@ -32,3 +32,6 @@ Harness_*/
 .vscode/
 .kiro/
 import
+
+# Local classifier artifacts (700 MB) — bootstrap_classifier.py refuses a root git would track
+.classifier-candidates/

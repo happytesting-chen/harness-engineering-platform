@@ -21,6 +21,7 @@ revision. Nothing here is a claim without a command that reproduces it.
 | `classifier-candidates/*.result.json` | Immutable benchmark output per candidate | `python3 Security-kit/eval/eval_runtime_injection.py --candidate-manifest …` |
 | `candidate-manifests/*.json` | The exact artifacts each benchmark measured | — |
 | `requirements.lock.txt` | The pinned venv for the classifier process (the one non-stdlib dependency) | — |
+| *(not here)* the classifier | 700 MB, deliberately not shipped; the lock's paths are operator-local | `python3 Security-kit/eval/bootstrap_classifier.py bootstrap` rebuilds it from `Security-kit/eval/classifier-source.json`, verified by digest, then re-runs this benchmark and compares every case |
 
 ## Two rules that govern all of it
 

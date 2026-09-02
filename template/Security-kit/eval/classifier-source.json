@@ -1,0 +1,52 @@
+{
+  "schema_version": 1,
+  "candidate": "candidate-01-protectai-deberta-v3-base-prompt-injection-v2-onnx",
+  "source": {
+    "provider": "huggingface",
+    "repo": "protectai/deberta-v3-base-prompt-injection-v2",
+    "revision": "e6535ca4ce3ba852083e75ec585d7c8aeb4be4c5",
+    "base_url": "https://huggingface.co/protectai/deberta-v3-base-prompt-injection-v2/resolve/e6535ca4ce3ba852083e75ec585d7c8aeb4be4c5/",
+    "note": "Pinned to the last content commit (2024-05-28); later commits touch README only. Both files come from the onnx/ folder: the repo's root tokenizer.json is the same vocabulary re-serialised (32k scores differ in the 15th decimal, truncation metadata set) and has a different digest; the benchmark was measured with onnx/tokenizer.json."
+  },
+  "files": [
+    {
+      "remote": "onnx/model.onnx",
+      "local": "candidate-01/model.onnx",
+      "sha256": "f0ea7f239f765aedbde7c9e163a7cb38a79c5b8853d3f76db5152172047b228c",
+      "size": 738563188
+    },
+    {
+      "remote": "onnx/tokenizer.json",
+      "local": "candidate-01/tokenizer.json",
+      "sha256": "752fe5f0d5678ad563e1bd2ecc1ddf7a3ba7e2024d0ac1dba1a72975e26dff2f",
+      "size": 8648886
+    }
+  ],
+  "wrapper": {
+    "tracked": "Security-kit/eval/classifier_wrapper.py",
+    "body_sha256": "2973c25aec16c51a442df337c018ffc415242a2d268037f2c5d6b2ed4e9c9230",
+    "note": "line 1 is the shebang and is rewritten to the local venv interpreter; lines 2+ must hash to body_sha256"
+  },
+  "environment": {
+    "requirements_lock": "evaluation/runtime-security/requirements.lock.txt",
+    "python_min": [
+      3,
+      10
+    ],
+    "measured_with": "Python 3.14.4, onnxruntime 1.29.0, tokenizers 0.23.1, numpy 2.5.2"
+  },
+  "classifier": {
+    "confidence_floor": 0.75,
+    "timeout_ms": 30000,
+    "protocol_version": 1
+  },
+  "reference_result": "evaluation/runtime-security/classifier-candidates/candidate-01-protectai-deberta-v3-base-prompt-injection-v2-onnx.result.json",
+  "compare_fields": [
+    "attacks_caught_combined",
+    "attacks_total",
+    "attacks_caught_rule_only",
+    "legitimate_withheld_combined",
+    "legitimate_total",
+    "semantic_unresolved"
+  ]
+}
