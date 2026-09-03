@@ -818,3 +818,28 @@ act. Gate otherwise: 338 passed, `init.sh` at the 5-error baseline, I1–I6 gree
 | 09-03 | Keep the 24-case result file; add the 40-case results beside it under new names | Results are immutable evidence; the verdict cites the old file and its figures remain true for the corpus it names |
 | 09-03 | Recommend 600/120 for deployment, gated on the resident-process classifier | It recovers both dilution misses at the cost of one more structured false positive; without a resident process the latency is not deployable |
 | 09-03 | Leave the workflow-impersonation misses to a deterministic rule | Four cases now, all confidently `data` at every window — the classifier will not learn this from a threshold |
+
+## Session 21 — 2026-09-03 (CI runs the whole suite; relock merged)
+
+The signed lock was re-signed for the 40-case corpus by the operator (patch applied, PR #16)
+and `main` is fully green for the first time since the corpus expansion: **339 → 340 passed**.
+
+CI had a truth gap, found while merging PR #14: the workflow's pytest step was non-fatal when
+pytest was absent, and pytest was absent on **every** run — so the 17 test files `init.sh`
+does not name (incl. 13 runtime suites) had never executed on GitHub, while the README said
+"all run under the CI pytest step". Fixed: the workflow installs a pinned `pytest==9.1.1`
+(a CI tool; AGENTS.md:8 binds mechanism code, not the runner) and the full-suite step is
+fatal. The one test needing the operator's 700 MB classifier artifacts was split: the
+corpus-digest half of C-5 now runs everywhere (it is the half a corpus edit breaks, and it
+did on 2026-09-03 with only the operator's machine noticing); the artifact half skips with a
+printed reason where the files are absent, under pytest and under the stdlib runner alike.
+The workflow's stale citation (spec §4.4:1778-1786, now a passage about the coverage stamp)
+was replaced with the section that actually expects `pytest tests/ -q` (§6.1, line 462).
+
+### Decisions
+
+| Date | Decision | Rationale |
+|---|---|---|
+| 09-03 | Install pytest on the CI runner rather than keep the non-fatal step | "Zero external deps" is a property of the kit, not of the machine that tests it; a gate its own log shows never ran is not a gate |
+| 09-03 | Split the lock test instead of skipping it whole | The corpus digest needs no artifacts and is exactly what drifted today; skipping it too would have hidden the one failure CI could have caught |
+| 09-03 | Skip prints its reason under both runners | A silent skip is the failure mode SEC-PROOF-GAP-001 describes; the stdlib runner has no skip concept, so it prints and passes |
