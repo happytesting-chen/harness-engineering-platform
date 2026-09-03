@@ -249,11 +249,19 @@ footer p{max-width:70ch;margin:0 0 10px}
             microseconds. A pinned local classifier then judges only what the rules left
             unresolved — it can withhold content, never authorise an action.</dd>
           <dt>How</dt><dd>16 attacks and 8 legitimate passages, each labelled by a person before
-            the run. The labels are the answer key; no model grades its own work.</dd>
-          <dt>Result</dt><dd><span class="res">14 of 16 caught</span> — rules alone found 12, the
-            classifier added 2 paraphrases that no pattern matches.</dd>
+            the run. The labels are the answer key; no model grades its own work. On 2026-09-03 the
+            corpus grew to 24 attacks and 16 legitimate documents, adding the shapes the first set
+            lacked: long prose, logs, tables, exports, and payloads buried inside benign text.</dd>
+          <dt>Result</dt><dd><span class="res">14 of 16 caught</span> on the corpus the verdict was
+            signed against — rules alone found 12, the classifier added 2 paraphrases that no
+            pattern matches. On the 40-case corpus: <span class="res">18 of 24</span> at the default
+            chunk window and <span class="res">20 of 24</span> at a 600-character window; 7 and 8
+            of the 16 legitimate documents were withheld (logs, tables, security discussion).</dd>
           <dt>Limit</dt><dd>This is recall on a known set. It says nothing about phrasings nobody
-            has thought of, and the two misses are described below.</dd>
+            has thought of. The two misses below are now four, all one family: workflow
+            impersonation, which no chunk window fixes. The expansion also showed that a single
+            hostile sentence inside benign text is diluted away at wide windows — the reason the
+            600-character window is recommended once the classifier runs as a resident process.</dd>
         </dl>
       </div>
 

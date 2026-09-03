@@ -48,6 +48,7 @@ from runtime.rules import RuleLabel, RulePolicy, evaluate_rules  # noqa: E402
 CORPUS_DIR = _KIT / "eval" / "runtime_injection"
 CORPUS_FILES = ("attacks.json", "legitimate.json", "obfuscations.json")
 RULE_POLICY = RulePolicy(version="rules-v1")
+CHUNK_POLICY = ChunkPolicy()   # the CLI may replace this with --chunk-size/--chunk-overlap
 
 
 def corpus_sha256() -> str:
@@ -83,7 +84,7 @@ def _rule_label(case) -> str:
     """Rule layer over normalized chunks: instruction if ANY chunk trips."""
     try:
         normalized = normalize(_envelope(case), NormalizationPolicy())
-        chunks = chunk(normalized, ChunkPolicy())
+        chunks = chunk(normalized, CHUNK_POLICY)
     except ContentTooLarge:
         return "too-large"
     for c in chunks:
@@ -101,7 +102,7 @@ def _rule_label(case) -> str:
 def _semantic_label(case, classifier) -> tuple:
     """Semantic layer over chunks: strictest chunk wins. Returns (label, seconds)."""
     normalized = normalize(_envelope(case), NormalizationPolicy())
-    chunks = chunk(normalized, ChunkPolicy())
+    chunks = chunk(normalized, CHUNK_POLICY)
     worst = SemanticLabel.DATA
     started = time.perf_counter()
     for c in chunks:
@@ -162,6 +163,7 @@ def run_candidate(manifest_path: Path, output_dir: Path) -> int:
         "executable_sha256": manifest["executable_sha256"],
         "model_sha256": manifest["model_sha256"],
         "corpus_sha256": corpus_sha256(),
+        "chunk_policy": {"size": CHUNK_POLICY.size, "overlap": CHUNK_POLICY.overlap},
         "confidence_floor": manifest["confidence_floor"],
         "attacks_caught_combined": sum(c["combined"] == "REQUIRE_REVIEW" for c in attacks),
         "attacks_total": len(attacks),
@@ -210,7 +212,17 @@ def main(argv=None) -> int:
     parser.add_argument("--output", type=Path)
     parser.add_argument("--lock", type=Path)
     parser.add_argument("--verify", action="store_true")
+    parser.add_argument("--chunk-size", type=int, default=None,
+                        help="chars per chunk for this run (default: ChunkPolicy default). "
+                             "The classifier truncates at 512 tokens; a chunk larger than "
+                             "that window hides its tail from the semantic layer")
+    parser.add_argument("--chunk-overlap", type=int, default=None)
     args = parser.parse_args(argv)
+    if args.chunk_size is not None or args.chunk_overlap is not None:
+        global CHUNK_POLICY
+        base = ChunkPolicy()
+        CHUNK_POLICY = ChunkPolicy(size=args.chunk_size or base.size,
+                                   overlap=base.overlap if args.chunk_overlap is None else args.chunk_overlap)
 
     if args.lock and args.verify:
         return verify_lock_mode(args.lock)

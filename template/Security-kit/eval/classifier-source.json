@@ -40,7 +40,7 @@
     "timeout_ms": 30000,
     "protocol_version": 1
   },
-  "reference_result": "evaluation/runtime-security/classifier-candidates/candidate-01-protectai-deberta-v3-base-prompt-injection-v2-onnx.result.json",
+  "reference_result": "evaluation/runtime-security/classifier-candidates/candidate-01-protectai-deberta-v3-base-prompt-injection-v2-onnx.corpus40.result.json",
   "compare_fields": [
     "attacks_caught_combined",
     "attacks_total",
@@ -48,5 +48,6 @@
     "legitimate_withheld_combined",
     "legitimate_total",
     "semantic_unresolved"
-  ]
+  ],
+  "reference_note": "40-case corpus (expanded 2026-09-03) at the eval's default chunk policy \u2014 the instrument the bootstrap reproduces. The 24-case result stays beside it as the verdict's evidence; the chunk600 result is the deployment recommendation's evidence."
 }

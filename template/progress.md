@@ -777,3 +777,44 @@ determines tokenization — a candidate for the C-4 review (it lives under
 | 09-02 | Compare per-case verdicts, not just summary counts | Two swapped verdicts can leave every count unchanged; the tokenizer episode showed how a "same" artifact can differ |
 | 09-02 | Signing is a separate command that re-hashes | A bootstrap that signs on the human's behalf is not human-signed; drift between bootstrap and sign must stop the signature |
 | 09-02 | Trust the OS keychain; never offer `--insecure` | The corporate proxy is a fact of the deployment; unverified download of a classifier is a supply-chain hole no flag should open |
+
+## Session 20 — 2026-09-03 (corpus expansion: what the classifier actually sees)
+
+The 24-case benchmark corpus had no legitimate document over 165 characters, nothing
+tabular, and no attack buried in benign text. Sixteen cases added (`leg-009..016`,
+`atk-011..018`); the original 24 verdicts are unchanged in every run. Measured with the
+pinned classifier at four chunk windows — the eval now takes `--chunk-size/--chunk-overlap`
+and stamps `chunk_policy` into every result:
+
+| Window | Attacks | Legitimate withheld | p95 |
+|---|---|---|---|
+| 4096/256 (default) | 18/24 | 7/16 | 0.75 s |
+| 600/120 | **20/24** | 8/16 | 4.6 s |
+
+**Findings.** (1) *Context dilution*: a rule-clean injection sentence is `instruction` @1.00
+alone, `unresolved` after one benign paragraph, `data` @0.99 after two — the encoder labels
+a chunk's dominant tone, so a lone hostile sentence is invisible at wide windows regardless
+of the 512-token limit. (2) The 512-token wrapper truncation is real and separate; the rule
+tier is unaffected by position. (3) The four remaining misses are one family — workflow
+impersonation (`atk-008/010/015/016`), `data` @≥0.89 at every window; the fix is a
+deterministic rule, not a window. (4) Structured legitimate tool output is the
+false-positive class that matters: logs and enumerated rows at wide windows, CSV/JSON
+fragments at narrow ones, a policy e-mail by the rule tier. (5) Narrow windows need the
+resident-process classifier first; per-call reload makes p95 6× worse.
+
+Evidence: `…corpus40.result.json` (default) and `…corpus40.chunk600.result.json`, both
+immutable; the 24-case result stays as the verdict's evidence. The bootstrap's reference
+now points at the 40-case default result. Expanding the corpus changed its digest, so the
+signed lock fails `--verify` (corpus drift, artifacts intact) and
+`test_signed_lock_verifies_against_the_tree` is red until a human applies
+`docs/superpowers/patches/2026-09-03-relock-corpus40.patch` — applying it is the signing
+act. Gate otherwise: 338 passed, `init.sh` at the 5-error baseline, I1–I6 green.
+
+### Decisions
+
+| Date | Decision | Rationale |
+|---|---|---|
+| 09-03 | Expand the corpus before touching the lock, the chunk policy or the rules | Every proposed accuracy change is measured against this corpus; an unmeasured problem cannot be fixed, only guessed at |
+| 09-03 | Keep the 24-case result file; add the 40-case results beside it under new names | Results are immutable evidence; the verdict cites the old file and its figures remain true for the corpus it names |
+| 09-03 | Recommend 600/120 for deployment, gated on the resident-process classifier | It recovers both dilution misses at the cost of one more structured false positive; without a resident process the latency is not deployable |
+| 09-03 | Leave the workflow-impersonation misses to a deterministic rule | Four cases now, all confidently `data` at every window — the classifier will not learn this from a threshold |
