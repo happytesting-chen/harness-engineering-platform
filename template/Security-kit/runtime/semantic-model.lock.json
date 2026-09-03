@@ -5,8 +5,8 @@
   "executable_sha256": "dac29ab7c084413715491451025d97f6ba9a3e76021c04e12b5cddb42ed7cb2d",
   "model_path": "/Users/yuan/Work/03_Security-Program/Harness-Engineering-AI/.classifier-candidates/candidate-01/model.onnx",
   "model_sha256": "f0ea7f239f765aedbde7c9e163a7cb38a79c5b8853d3f76db5152172047b228c",
-  "corpus_sha256": "007f229421f993969225990ef8377c433e8e846355d21cc580a72898b8331e68",
+  "corpus_sha256": "eab8bdf8d3458a19e4bf7acc137a78084298039359e440fdbe094938c4a75dc0",
   "confidence_floor": 0.75,
   "approved_by": "shi_yuan@csa.gov.sg",
-  "approved_date": "2026-08-31"
+  "approved_date": "2026-09-03"
 }
