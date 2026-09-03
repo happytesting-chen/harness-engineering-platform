@@ -20,11 +20,49 @@ def test_every_runtime_module_the_profile_names_exists():
         assert (_KIT / "runtime" / f"{module}.py").exists(), f"missing runtime/{module}.py"
 
 
-def test_signed_lock_verifies_against_the_tree():
+_LOCK_PATH = _KIT / "runtime" / "semantic-model.lock.json"
+
+
+def _skip(reason: str) -> None:
+    """Skip under pytest; under the stdlib __main__ runner, say so and count as passed.
+    Either way the reason is printed — a silent skip is the failure mode this file exists
+    to prevent."""
+    print(f"SKIP: {reason}")
+    try:
+        import pytest
+        pytest.skip(reason)
+    except ImportError:
+        return
+
+
+def test_signed_lock_corpus_digest_matches_the_tree():
+    """Runs everywhere, including CI runners with no classifier: the lock's corpus digest
+    must equal the committed corpus. This is the half of C-5 that a corpus edit breaks —
+    it did on 2026-09-03, and only the operator's machine noticed."""
+    sys.path.insert(0, str(_KIT / "eval"))
+    import eval_runtime_injection as e
+    from runtime.classifier import load_lock
+    lock = load_lock(_LOCK_PATH)                       # static validity, incl. approval fields
+    assert lock.corpus_sha256 == e.corpus_sha256(), (
+        f"corpus digest drift: lock {lock.corpus_sha256[:12]}…, tree {e.corpus_sha256()[:12]}… "
+        "— the corpus changed after signing; re-run the evidence and re-sign, do not edit the lock alone"
+    )
+
+
+def test_signed_lock_verifies_against_the_artifacts():
+    """Artifact half of C-5: executable and model digests. Needs the operator's local
+    classifier files, which are deliberately not in the repo; skipped with a stated reason
+    where they are absent, never silently."""
+    import json
+    lock = json.loads(_LOCK_PATH.read_text(encoding="utf-8"))
+    missing = [k for k in ("executable_path", "model_path") if not Path(lock[k]).is_file()]
+    if missing:
+        return _skip(f"classifier artifacts not on this machine ({', '.join(missing)}); "
+                     "run Security-kit/eval/bootstrap_classifier.py to obtain and pin them")
     import subprocess
     result = subprocess.run(
         [sys.executable, "Security-kit/eval/eval_runtime_injection.py",
-         "--lock", "Security-kit/runtime/semantic-model.lock.json", "--verify"],
+         "--lock", str(_LOCK_PATH), "--verify"],
         cwd=_ROOT, capture_output=True, text=True,
     )
     assert result.returncode == 0, f"lock verification failed: {result.stdout}{result.stderr}"

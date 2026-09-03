@@ -276,10 +276,13 @@ keeps the health check dependency-free. Re-measured 2026-09-03: **38 test files 
 `tests/`, 19 in `tests/runtime/`) and `init.sh` names 21 of them.** The 17 unreached are
 `test_mechanisms.py`, `test_requirements.py`, `test_result_screening.py`,
 `test_bootstrap_classifier.py`, and 13 of the 19 runtime suites — only the six
-register-proof suites in `tests/runtime/` are named. The CI workflow runs all 38 under
-pytest **only if pytest is installed on the runner**; the CI log for `main` at `e02dbba`
-reports `pytest absent`, so on GitHub only the 21 named files have actually run
-(recorded in `progress.md`, Session 19). The gap is stated as `SEC-PROOF-GAP-001` in
+register-proof suites in `tests/runtime/` are named. **CI closes that half:** the workflow
+installs a pinned `pytest` and runs all 38 as a fatal step. Until 2026-09-03 that step was
+non-fatal and pytest was absent on every run, so the 17 had never executed on GitHub while
+this paragraph said they did (`progress.md`, Sessions 19 and 21). The one test that needs
+the operator's local classifier files skips on a runner with a printed reason; its
+corpus-digest half still runs everywhere. The remaining gap — a named proof that vanishes
+from `init.sh` is silent — is stated as `SEC-PROOF-GAP-001` in
 `Security-kit/control-matrix.md` rather than left implied.
 
 #### What you have when this goes green — and what you don't
