@@ -272,11 +272,11 @@ Three of those lines are easy to misread:
   ([Step 5b](#step-5b--tailor-the-security-controls-security-tailor)).
 
 `init.sh` names its test files individually and runs them without `pytest` — that is what
-keeps the health check dependency-free. Re-measured 2026-09-02: **37 test files exist (19 in
-`tests/`, 18 in `tests/runtime/`) and `init.sh` names 21 of them.** The 16 unreached are
+keeps the health check dependency-free. Re-measured 2026-09-03: **38 test files exist (19 in
+`tests/`, 19 in `tests/runtime/`) and `init.sh` names 21 of them.** The 17 unreached are
 `test_mechanisms.py`, `test_requirements.py`, `test_result_screening.py`,
-`test_bootstrap_classifier.py`, and 12 of the 18 runtime suites — only the six
-register-proof suites in `tests/runtime/` are named. The CI workflow runs all 37 under
+`test_bootstrap_classifier.py`, and 13 of the 19 runtime suites — only the six
+register-proof suites in `tests/runtime/` are named. The CI workflow runs all 38 under
 pytest **only if pytest is installed on the runner**; the CI log for `main` at `e02dbba`
 reports `pytest absent`, so on GitHub only the 21 named files have actually run
 (recorded in `progress.md`, Session 19). The gap is stated as `SEC-PROOF-GAP-001` in
@@ -526,8 +526,13 @@ hash-chained audit record.
 
 Contract, evidence and verdict: [`Context/runtime-security-profile.md`](Context/runtime-security-profile.md)
 · [`evaluation/runtime-security/`](evaluation/runtime-security/). Measured: 13/13 attack
-cases resisted on side-effect oracles; detection 14/16 with two named misses; **routing is
-still opt-in** (`SEC-RUNTIME-GAP-001`).
+cases resisted on side-effect oracles; detection 14/16 with two named misses on the corpus
+the verdict was signed against. Re-measured 2026-09-03 on a 40-case corpus that adds long,
+structured and buried cases: 18/24 at the default chunk window, 20/24 at 600 chars, the
+four remaining misses all workflow impersonation, 7–8 of 16 legitimate documents withheld
+(logs, tables, security discussion). Details and the chunk-window recommendation in
+`evaluation/runtime-security/classifier-selection.md`. **Routing is still opt-in**
+(`SEC-RUNTIME-GAP-001`).
 
 #### Bring your own classifier — the model is not in the repo
 
@@ -821,7 +826,7 @@ my-agent/
 │       ├── classifier.py   ·  pinned local classifier protocol; semantic-model.lock.json
 │       └── audit.py, output.py, startup.py · hash-chained evidence, buffered output, refuse-to-start
 │   ├── secret_scan.py      ← [MECHANISM] secret-block hook adapter          [never edit]
-│   └── eval/               ·  labelled corpus + scorer; asi01_walkthrough.py
+│   └── eval/               ·  labelled corpora + scorers; runtime_injection/ (40-case benchmark corpus); bootstrap_classifier.py
 │
 ├── Harness-Best-Practice/ ← IDENTITY + WORKFLOW STATE
 │   ├── AGENTS.md          ← Open standard: identity, run/verify             [FILL]
@@ -832,7 +837,7 @@ my-agent/
 │       ├── audit.py       ← [MECHANISM] append-only audit log               [never edit]
 │       └── audit_hook.py  ← [MECHANISM] PostToolUse audit adapter           [never edit]
 │
-├── tests/                 ← VERIFICATION (37 suites, 335 tests; all stdlib, pytest optional)
+├── tests/                 ← VERIFICATION (38 suites, 339 tests; all stdlib, pytest optional)
 │   ├── fixtures.json          ·  ground-truth gate cases                    [EXTEND]
 │   ├── test_fixtures.py       ·  data-driven gate runner
 │   ├── test_e2e.py            ·  end-to-end enforcement proof
