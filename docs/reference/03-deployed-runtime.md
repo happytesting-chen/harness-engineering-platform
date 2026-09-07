@@ -160,7 +160,7 @@ without touching the owners it composes around:
 
 All 16 modules and the signed `semantic-model.lock.json` are in `BUILTIN_PROTECTED_PATHS`.
 Proof: 18 suites in `tests/runtime/`; evidence and the signed `DEPLOY_WITH_RULES` verdict in
-[`evaluation/runtime-security/`](../../template/../evaluation/runtime-security/). Residuals R-1..R-3 and
+[`evaluation/runtime-security/`](../../template/evaluation/runtime-security/). Residuals R-1..R-3 and
 `SEC-RUNTIME-GAP-001` (routing is opt-in) are stated in
 [`Context/runtime-security-profile.md`](../../template/Context/runtime-security-profile.md).
 
