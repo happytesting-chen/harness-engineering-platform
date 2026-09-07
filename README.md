@@ -54,7 +54,7 @@ guarantee stops: [Boundaries](docs/reference/05-boundaries.md).
 | **[Reproducible, time-bound evidence](template/evaluation/runtime-security/)** | Attack cases are scored on observed side effects; replay traces must match byte for byte. The signed verdict is tied to one revision and configuration, carries deployment conditions, and expires. |
 | **[Unsecured copies cannot pass](docs/guide/01-getting-started.md)** | A fresh copy starts with a five-error baseline, on purpose, and reaches `PASS` only when the project and policy information is complete and every applicable control is mapped to real verification. |
 | **[Verified local injection detection](docs/guide/03-bring-your-own-classifier.md)** | The classifier is benchmarked, human-approved and locked to executable, model and corpus digests. Startup verifies the local artifacts and refuses drift; each deployment provisions its own approved classifier. |
-| **[No external dependencies](CONTRIBUTING.md)** | The control logic and the health check use the Python standard library only. The classifier is the declared exception: an isolated subprocess with pinned dependencies. |
+| **[Minimal, pinned dependencies](CONTRIBUTING.md)** | The controls, the hooks and the health check import nothing outside the Python standard library. The one external dependency set is the injection classifier: an isolated subprocess with 20 pinned packages and a digest-pinned model, provisioned per deployment. `pytest` is optional; every test also runs without it. |
 
 ## New here? Start where you stand
 
