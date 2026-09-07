@@ -46,8 +46,8 @@ guarantee stops: [Boundaries](docs/reference/05-boundaries.md).
 
 ## Key features
 
-- **[Four security checkpoints](docs/reference/02-build-time-enforcement.md)** — prompt in · tool call · tool run · result back. Code decides at each; the model cannot argue past them.
-- **[Same checkpoints in production](docs/reference/03-deployed-runtime.md)** — the four above run as hooks while you build, and again inside the app you ship, plus a session limit.
+- **[Build-time: four checkpoints](docs/reference/02-build-time-enforcement.md)** — while you build, hooks check prompt in · tool call · tool run · result back. Code decides at each; the model cannot argue past them.
+- **[Runtime: the same four](docs/reference/03-deployed-runtime.md)** — the app you ship runs the same checkpoints inside one host, no IDE and no hooks, plus a limit on what one session may do.
 - **[Approvals that cannot bypass](docs/reference/03-deployed-runtime.md)** — blocked text or actions are released by a one-time, expiring receipt; a refusal never becomes a yes.
 - **[Claims backed by tests](docs/reference/04-claims-and-evidence.md)** — each documented control names its code and its proof; six checks fail the build when one is missing.
 - **[Signed, dated evidence](template/evaluation/runtime-security/)** — attacks scored on real side effects, results that reproduce byte for byte, a verdict with conditions and an expiry.
