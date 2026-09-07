@@ -22,6 +22,9 @@ signed, conditioned and dated.
 > [`template/evaluation/runtime-security/VERDICT.md`](template/evaluation/runtime-security/VERDICT.md).
 > Routing through the host is still the application's responsibility (`SEC-RUNTIME-GAP-001`), which
 > is why the decision is not `PRODUCTION_READY`. Pin a revision for anything you depend on.
+>
+> **On GitLab this repository is a single-commit import.** The development history and the
+> commits the verdict names live on GitHub and in an archived bundle; see [PROVENANCE.md](PROVENANCE.md).
 
 ![Runtime security flow](assets/runtime-security-flow.svg)
 
@@ -43,14 +46,15 @@ guarantee stops: [Boundaries](docs/reference/05-boundaries.md).
 
 ## Key features
 
-- **[Four deterministic gates](docs/reference/02-build-time-enforcement.md)** — input, before a tool runs, execution, output before the model — on the control plane (tool calls) and the data plane (untrusted content).
-- **[A deployed runtime tier](docs/reference/03-deployed-runtime.md)** — one owned `RuntimeHost`; rule-based and pinned-classifier ingress; an action gate with policy, origin, schema, session ceilings and optional approval; buffered, redacted output; hash-chained audit.
-- **[Receipts, not overrides](docs/reference/03-deployed-runtime.md)** — quarantined content returns only by exact-digest, single-use, expiring receipt; an approval can un-pause a call but never converts a deny.
-- **[A claims plane](docs/reference/04-claims-and-evidence.md)** — every documented control names its proof; six invariants fail closed; the register is human-owned.
-- **[Signed, expiring evidence](template/evaluation/runtime-security/)** — immutable benchmark results, a labelled corpus, deterministic replay, attack traces scored on side effects, a verdict with conditions and an expiry.
-- **[Red by design](docs/guide/01-getting-started.md)** — the health check fails on a correct fresh copy with an exact error set, and CI pins that set so a new error is a diff, not an increment.
-- **[Bring your own classifier](docs/guide/03-bring-your-own-classifier.md)** — the model is not in the repo; a stdlib bootstrap rebuilds, benchmarks and pins it on any machine, and a human signs the lock.
-- **[Standard library only](CONTRIBUTING.md)** — nothing in the kit depends on a package or on the model behaving. The classifier subprocess is the one declared exception.
+| Key capability | What it means |
+|---|---|
+| **[Build-time and runtime protection](docs/reference/01-architecture.md)** | Three checkpoints — prompt in, before a tool runs, result back — each stops the turn before the model or a side effect proceeds. The tool-call checkpoint alone runs four checks: not a protected file, not a denied command, allowed in this phase, only to a permitted destination. The application you deploy gains the same protection when it routes its input, registered tools and final output through the Runtime Host, which adds semantic screening and session limits. |
+| **[Human review, hard limits](docs/reference/03-deployed-runtime.md)** | Quarantined content and approval-required actions use separate, expiring, single-use receipts. A human can release the exact item under review; no approval can override a deterministic denial. |
+| **[Controls tied to tests](docs/reference/04-claims-and-evidence.md)** | Every mechanical security claim names its implementation and its proof. Six invariants each catch a different way that could stop being true — an unimplemented claim, an orphaned control, a proof nobody runs, an incomplete register row, a requirement nothing serves, a drafter missing its guardrails — and the coverage gate fails on any of them. |
+| **[Reproducible, time-bound evidence](template/evaluation/runtime-security/)** | Attack cases are scored on whether the harmful side effect actually happened, never on a component's own report; re-running the driver reproduces the same trace byte for byte, and the verdict replays from that stored trace alone, no model or classifier involved. The signed verdict is tied to one revision and configuration, carries deployment conditions, and expires. |
+| **[Unsecured copies cannot pass](docs/guide/01-getting-started.md)** | A fresh copy starts with a five-error baseline, on purpose, and reaches `PASS` only when the project and policy information is complete and every applicable control is mapped to real verification. |
+| **[Verified local injection detection](docs/guide/03-bring-your-own-classifier.md)** | The classifier is benchmarked, human-approved and locked to executable, model and corpus digests. Startup verifies the local artifacts and refuses drift; each deployment provisions its own approved classifier. |
+| **[Minimal, pinned dependencies](CONTRIBUTING.md)** | The controls, the hooks and the health check import nothing outside the Python standard library. The one external dependency set is the injection classifier: an isolated subprocess with 20 pinned packages and a digest-pinned model, provisioned per deployment. `pytest` is optional; every test also runs without it. |
 
 ## New here? Start where you stand
 
