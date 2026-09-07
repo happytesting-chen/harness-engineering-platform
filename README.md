@@ -46,18 +46,14 @@ guarantee stops: [Boundaries](docs/reference/05-boundaries.md).
 
 ## Key features
 
-- **[Every agent turn passes four security checkpoints](docs/reference/02-build-time-enforcement.md)** — checked by code the model cannot change, in a fixed order, and a failed check stops the turn there:
-  1. **What you type.** The prompt is screened for injected instructions before the model reads it.
-  2. **What the agent wants to do.** Every tool call is checked before it runs: not a protected file, not a forbidden command, allowed in the current phase, and only to permitted destinations.
-  3. **What actually runs.** A tool can be reached only through the one chokepoint the checks sit on, and a write that carries a credential is stopped at it.
-  4. **What comes back.** The tool's output is screened and, if needed, replaced before the model reads it.
-- **[The same protection ships inside your application](docs/reference/03-deployed-runtime.md)** — in the deployed app there is no IDE and no hook, so one host wraps the agent loop and applies the same four checkpoints itself, adding a fifth: a limit on how much any one session may do. Incoming text is screened by rules plus a pinned local classifier, the final answer is held back until secrets are redacted, and every decision lands in a tamper-evident audit log.
-- **[Blocked content and actions are released only by a one-time, expiring human approval](docs/reference/03-deployed-runtime.md)** — text held back at a checkpoint comes back only through a receipt bound to its exact digest, usable once, valid for a limited time. An approval can let a paused action proceed; it can never turn a refusal into a yes.
-- **[Every security claim is tied to code and a test](docs/reference/04-claims-and-evidence.md)** — each control the documentation describes points at the code that enforces it and the test that proves it. Six automated checks fail the build if a claim has no mechanism, a mechanism has no test, or a test has quietly disappeared, so the documentation cannot drift ahead of what the code does. People, not agents, decide what goes on the register.
-- **[Security evidence is measured, signed and expires](template/evaluation/runtime-security/)** — attacks are scored on whether the harmful side effect happened, never on a component's own report; results are immutable files that reproduce byte for byte; the release decision is signed by a named person with conditions and an expiry date, and any change to what it judged lapses it.
-- **[A fresh copy fails its own health check until it is secured](docs/guide/01-getting-started.md)** — an unfilled template exits red with an exact set of errors: identity, phases and policy unfilled, and the security controls not yet tailored to the product. CI pins that exact set, so a new error is a visible difference, not one more number.
-- **[The injection classifier is rebuilt and verified on your machine, never trusted blind](docs/guide/03-bring-your-own-classifier.md)** — the model is not in the repository. A standard-library bootstrap downloads it with every file checked against a pinned digest, reproduces the published benchmark before anything runs, and writes an unsigned lock that a named human signs.
-- **[The security kit depends on nothing but Python](CONTRIBUTING.md)** — no third-party package can be swapped underneath a control, and nothing relies on the model behaving. The classifier subprocess is the one declared exception, and it is pinned by digest.
+- **[Four security checkpoints](docs/reference/02-build-time-enforcement.md)** — prompt in · tool call · tool run · result back. Code decides at each; the model cannot argue past them.
+- **[Same checkpoints, IDE and production](docs/reference/03-deployed-runtime.md)** — the four above run as hooks while you build, and again inside the app you ship, plus a session limit.
+- **[Approvals that cannot bypass](docs/reference/03-deployed-runtime.md)** — blocked text or actions are released by a one-time, expiring receipt; a refusal never becomes a yes.
+- **[Every claim has a test](docs/reference/04-claims-and-evidence.md)** — each documented control names its code and its proof; six checks fail the build when one is missing.
+- **[Signed, dated evidence](template/evaluation/runtime-security/)** — attacks scored on real side effects, results that reproduce byte for byte, a verdict with conditions and an expiry.
+- **[Red until secured](docs/guide/01-getting-started.md)** — a fresh copy fails its own health check with an exact error set until identity, policy and controls are set.
+- **[Classifier verified on your machine](docs/guide/03-bring-your-own-classifier.md)** — downloaded against pinned digests, benchmarked before use, locked by a human signature.
+- **[Zero third-party dependencies](CONTRIBUTING.md)** — Python standard library only; the pinned classifier subprocess is the one declared exception.
 
 ## New here? Start where you stand
 
