@@ -66,7 +66,7 @@ A phase passes only when its command exits 0, evidence is recorded, and a human 
 
 ## Reference
 
-- [BEST-PRACTICES.md](BEST-PRACTICES.md) — Harness engineering principles (generic, from Learn Harness Engineering)
+- [BEST-PRACTICES.md](Harness-Best-Practice/BEST-PRACTICES.md) — Harness engineering principles (generic, from Learn Harness Engineering)
 
 ## Domain Context
 

@@ -19,8 +19,8 @@ verification loop, and defined human-in-the-loop checkpoints — working out of 
 
 1. [Quick start (5 minutes)](#quick-start-5-minutes)
 2. [Step-by-step: build your first agent](#step-by-step-build-your-first-agent)
-3. [How enforcement works](#how-enforcement-works) — including
-   [**the deployed app**](#deployed-runtime--the-same-gates-no-hooks), which has no hooks
+3. [How enforcement works](#how-enforcement-works) — pointers to the platform reference,
+   including [**the deployed app**](../docs/reference/03-deployed-runtime.md), which has no hooks
 4. [**Test the runtime**](#test-the-runtime) ← start here if you only want to attack the harness
 5. [The security kit](#the-security-kit)
 6. [Directory map](#directory-map)
@@ -252,7 +252,7 @@ It prints these sections, in this order. `RESULT: PASS` (exit 0) means you're re
 | **E2E enforcement** | that a *denied* call genuinely does not execute | 4/4 pass |
 | **Security-kit integrity** | engine present · wired into `.claude/settings.json` · every wired hook path resolves on disk · 12 named suites · the coverage gate · invariants I1–I6 | all ✓ **except the coverage pair** |
 | **Python syntax check** | every `.py` parses — **only runs if** project type is Python | skipped on a generic copy |
-| **Evaluation** | `evaluation/eval.py` against its *reference target* | ✓ 100% — read the caveat below |
+| **Evaluation** | `evaluation/eval.py` against its *reference target* | ✓ 100% — see the misread list below |
 | **Fresh Session Test** | the five questions a new session must be able to answer | 4/5 — Q3 warns until your verification commands are real |
 
 Three of those lines are easy to misread:
@@ -370,224 +370,21 @@ When the active phase's verification passes, the agent reports
 *"Phase X passes. Requesting sign-off."* and **stops** — it does **not** promote the
 phase. A human reviews the audit log + evidence, then edits `feature_list.json`:
 `"status": "active"` → `"passing"`, and sets the next phase `active`. This is the first
-of three [human-in-the-loop checkpoints](#human-in-the-loop-checkpoints).
+of three [human-in-the-loop checkpoints](../docs/reference/03-deployed-runtime.md).
 
 ---
 
 ## How enforcement works
 
-Enforcement lives **outside the model** — the agent cannot see, edit, or route around
-it. There are two planes:
+The control plane (tool calls), the data plane (untrusted content), the deployed runtime tier,
+observability and the human checkpoints are documented in the platform repository:
 
-### Control plane — the permission gate (tool calls)
+- [`docs/reference/02-build-time-enforcement.md`](../docs/reference/02-build-time-enforcement.md)
+- [`docs/reference/03-deployed-runtime.md`](../docs/reference/03-deployed-runtime.md)
+- [`docs/reference/03-deployed-runtime.md`](../docs/reference/03-deployed-runtime.md)
+- [`docs/guide/02-integrate-the-runtime-host.md`](../docs/guide/02-integrate-the-runtime-host.md) · [`docs/guide/03-bring-your-own-classifier.md`](../docs/guide/03-bring-your-own-classifier.md)
 
-Every `Bash`/`Write`/`Edit` is piped through `governance/permission.py` by a
-`.claude/settings.json` PreToolUse hook. Four gates run in order, **fail-closed** (first
-denial wins; malformed input, empty input and an unparseable policy file are all denied,
-not allowed):
-
-| # | Gate | Blocks when… | Config |
-|---|---|---|---|
-| 1a | **Protected paths** | the write target *is* a mechanism or policy file (control S2.4) | built-in floor + `governance/deny-list.json` (additive only) |
-| 1b | **Deny-list** | command matches a hard-blocked pattern | `governance/deny-list.json` |
-| 2 | **Phase-gate** | tool isn't in the allowlist, or its `gated_until` phase is not listed in `signed_off_phases` | `governance/mcp-allowlist.json` (which phase is *active* still comes from `Harness-Best-Practice/feature_list.json`) |
-| 3 | **Egress** | a destination — in a shell command, or in one of 9 structured fields (`url`, `uri`, `endpoint`, `host`, …) at any depth, for **any** tool — is not an **exact** match for an `egress_hosts` entry. A subdomain must be asked for as `*.example.com` | `governance/mcp-allowlist.json` |
-
-`exit 0` = allow, `exit 2` = **BLOCK**. The gate's *logic* is proven by
-`tests/test_hooks.py` (which feeds each hook script a JSON envelope on stdin and asserts
-the exit code) and the S2.4 gate by `tests/test_protected_paths.py`. What no test can
-prove is that **your host is actually calling those scripts** — that is configuration, not
-code, and it is the first thing to check: see [Test the runtime](#test-the-runtime).
-
-**Why the unlock lives in the allowlist, not the worklog.** Gate 2 answers two questions
-from two different files on purpose. *Which phase is active?* comes from
-`feature_list.json`, the agent's own worklog, which must stay writable so the agent can
-record progress. *Is a gated tool unlocked?* comes from `signed_off_phases` in
-`mcp-allowlist.json`, which is a **protected path** and therefore human-only. Before that
-split, the unlock was read from the worklog's `status` field, so an agent could grant
-itself a gated tool by marking its own phase `passing`. An empty or absent
-`signed_off_phases` means no phase is signed off, so every gated tool stays locked — it
-fails closed.
-
-Gate 1a runs first because it has a built-in floor and can still answer when the policy
-file is unreadable — see [`Security-kit/README.md`](Security-kit/README.md) for why that
-ordering matters, and `governance/ARCHITECTURE.md` for the interface contract.
-
-### Data plane — content trust (untrusted input)
-
-Tool gates can't see a threat that arrives as *data* — e.g. prompt injection inside a
-claim body. `Security-kit/content_trust.py` owns one shared list of instruction-shaped
-markers, and it is enforced at the **two points where text reaches the model**:
-
-| Position | Hook | Script | Effect |
-|---|---|---|---|
-| ① the prompt | `UserPromptSubmit` | `Security-kit/prompt_screen.py` | exit 2 **erases the prompt** before the model sees it |
-| ④ the tool result | `PostToolUse` | `Security-kit/result_screen.py` | **replaces the tool output** via `updatedToolOutput` before the model reads it |
-
-Both are already wired in `.claude/settings.json`; you do not call them. They share one
-marker list on purpose, so a detection change moves both at once. Set
-`PROMPT_SCREEN_MODE=warn` or `RESULT_SCREEN_MODE=warn` to downgrade either to
-report-only.
-
-**These two are different controls, not two copies of one.** ① fires once per *human*
-turn and never for a subagent — so while an agent is looping, ④ is the only pre-model
-screen anything passes through. ④'s matcher is `*`, so unlike the permission gate it sees
-every tool, including `Agent`/`Task` and MCP results.
-
-**Enforcement is exact; detection is not.** The marker list is a fixed set of patterns.
-Measured against the labelled corpus in `Security-kit/eval/corpus/injection/`: **10 of 12
-attacks caught, and 2 of 12 legitimate records withheld** — a base64-encoded payload and a
-narrative paraphrase get through, and real policy text containing "no further approval"
-gets withheld. Those four numbers are pinned by `tests/test_injection_corpus.py` so they
-cannot drift silently. Widening the markers moves cases into the false-positive column;
-that trade is the reason the pair is pinned rather than tuned.
-
-Separately, `content_trust.py::screen_record()` is a **library you call yourself** where
-structured untrusted records enter your code. It **drops injected control fields** (a
-claim smuggling `{"decision":"APPROVE"}`) and **flags instruction-shaped text** so the
-caller lowers trust and routes to a human. Nothing in the template calls it — that wiring
-is yours. It reports; it never obeys. Proven by `tests/test_content_trust.py`.
-
-### Deployed runtime — the same gates, no hooks
-
-Everything above happens because Claude Code emits events. **The application you deploy
-emits none**, so a shipped copy of this harness inherits its *design* and none of its
-enforcement. Two modules close that, in process:
-
-| Position | In your IDE session | In your deployed app |
-|---|---|---|
-| ① input, before the model | `prompt_screen.py` · `UserPromptSubmit` | `runtime_screen.screen_input()` |
-| ② before a tool runs | `permission.py` · `PreToolUse` | `RuntimeDispatcher.execute()` |
-| ③ the tool executes | — | — |
-| ④ output, before the model | `result_screen.py` · `PostToolUse` | `runtime_screen.screen_result()`, on by default |
-
-```python
-import sys
-sys.path.insert(0, "governance"); sys.path.insert(0, "Security-kit")
-from runtime_dispatcher import RuntimeDispatcher
-from runtime_screen import screen_input, InputRejected
-
-dispatcher = RuntimeDispatcher({"fetch_article": fetch_article})   # ② ③ ④
-
-def handle(request_text):
-    try:
-        prompt = screen_input(request_text, source="http")          # ①
-    except InputRejected as exc:
-        return {"error": str(exc)}, 400      # our words only — never echo the request
-    return run_agent(prompt, tools=dispatcher)   # every call goes through execute()
-```
-
-Register each tool in `governance/mcp-allowlist.json` first — an unregistered tool denies
-with `<name> not in allowlist`, which is Gate 2 working, not a bug. That file is a
-protected path, so registering a tool is a **human** edit (S2.1, S5.2).
-
-Four properties worth knowing:
-
-- **`runtime_dispatcher.py` holds no second copy of any rule.** It imports
-  `make_permission_check` from `governance/permission.py` and reads the same policy JSON, so
-  the verdicts are the ones you already tested. A test asserts the file compiles no pattern
-  and loads no policy of its own.
-- **② prevents; ④ does not.** At ② nothing has happened yet, so `execute()` raises
-  `PermissionError` and the tool is never called — `tests/test_runtime_dispatcher.py`
-  asserts `calls == 0`, because a return-value-only assertion would pass either way. By ④
-  the side effect is real, so a poisoned result is *substituted*, shape preserved, and the
-  audit line records `WITHHELD` after the `ALLOWED`.
-- **① fails closed, unlike its hook counterpart, and has no warn mode.** Input that cannot
-  be scanned (anything not a `str`) is rejected rather than passed — `scan_text` returns
-  `[]` for a non-`str`, so without the type check "unscannable" would be indistinguishable
-  from "clean". There is deliberately no `RUNTIME_SCREEN_MODE=warn`: an env var that
-  downgrades a request-boundary screen to report-only is a switch an attacker would prefer
-  to the bypass.
-- **④ has no off switch; ① and ② are opt-in.** Nothing forces your application to route
-  through `RuntimeDispatcher` or to call `screen_input`. That residual is
-  `SEC-RUNTIME-GAP-001`, and verifying the wiring is a human review item at deployment.
-
-Full walkthrough: [`Security-kit/SECURITY.md`](Security-kit/SECURITY.md) S1.6. Proofs:
-`tests/test_runtime_dispatcher.py` (20 tests) and `tests/test_runtime_screen.py` (17), both
-run by `./init.sh`.
-
-#### The semantic tier — `Security-kit/runtime/`
-
-The two modules above are the **regex tier**: the same 24 markers the hooks use, in
-process. The `runtime-mvp` profile adds a second tier on top, in `Security-kit/runtime/`
-(16 modules, stdlib only apart from the classifier subprocess). A deployed application
-constructs one `RuntimeHost` and routes everything through its four methods:
-
-| Method | Position | What it adds over the regex tier |
-|---|---|---|
-| `submit_prompt()` | ① | normalization (zero-width, bidi, encoded spans) → rules → a **pinned local classifier** on whatever the rules left unresolved. `unresolved + data` is the only ALLOW; every failure withholds |
-| `invoke_tool()` | ② ③ ④ | the same four gates via `RuntimeDispatcher`, **composed** with per-tool and total session ceilings (position ⑤ — the first control there), origin rules (a turn tainted by external content cannot reach a user-only tool), argument schema, and an optional `REQUIRE_APPROVAL` tier |
-| `deliver_tool_result()` | ④ | tool output through the same ingress; withheld text never enters context |
-| `finish()` | output | the whole response buffered and redacted before one release |
-
-Withheld content is quarantined by digest and released only through
-`release_quarantined()` with a single-use `ContentReleaseReceipt`; an
-`ActionApprovalReceipt` un-pauses a call but never converts a deny. Startup refuses a
-misconfiguration — memory, delegation or streaming enabled, an unpinned classifier in
-production, a writable control root — rather than degrading. Every decision lands in a
-hash-chained audit record.
-
-Contract, evidence and verdict: [`Context/runtime-security-profile.md`](Context/runtime-security-profile.md)
-· [`evaluation/runtime-security/`](evaluation/runtime-security/). Measured: 13/13 attack
-cases resisted on side-effect oracles; detection 14/16 with two named misses on the corpus
-the verdict was signed against. Re-measured 2026-09-03 on a 40-case corpus that adds long,
-structured and buried cases: 18/24 at the default chunk window, 20/24 at 600 chars, the
-four remaining misses all workflow impersonation, 7–8 of 16 legitimate documents withheld
-(logs, tables, security discussion). Details and the chunk-window recommendation in
-`evaluation/runtime-security/classifier-selection.md`. **Routing is still opt-in**
-(`SEC-RUNTIME-GAP-001`).
-
-#### Bring your own classifier — the model is not in the repo
-
-The classifier is deliberately not shipped: 700 MB, and a hosted one is a startup error.
-The signed lock in `Security-kit/runtime/` names artifacts by **absolute path on the
-operator's machine**, so on any other machine `production=True` refuses to start until
-you pin your own. That is fail-closed behaviour, not a defect. Rebuild the same
-classifier, proven the same way:
-
-```bash
-python3 Security-kit/eval/bootstrap_classifier.py bootstrap        # venv · verified download · benchmark · UNSIGNED lock
-python3 Security-kit/eval/bootstrap_classifier.py sign --approved-by you@example.org
-```
-
-`bootstrap` stops at the first thing it cannot prove: a venv from the ==pinned
-`requirements.lock.txt`; the model and tokenizer fetched from the source in
-`Security-kit/eval/classifier-source.json` and checked by SHA-256 **and** size before
-anything runs (a mismatch deletes the file); the tracked wrapper installed only if its body
-hashes to the digest recorded beside the benchmark; the committed benchmark re-run locally
-and compared with the committed result on every summary figure **and every per-case
-verdict**. Only then does it write `semantic-model.lock.unsigned.json` under
-`.classifier-candidates/` at the repo root (git-ignored — it refuses a root git would track).
-`sign` is a separate, deliberate step: it re-hashes the artifacts, fills the approval fields,
-and runs `--verify` on the result. Point `classifier_lock_path` at **your** signed lock; the
-shipped lock stays as the verdict's evidence. TLS verification is never disabled: on a
-network that inspects TLS, pass `--ca-bundle your-ca.pem` or set `SSL_CERT_FILE`
-(on macOS the keychain's roots are added automatically).
-
-Your lock is yours. The signed verdict in `evaluation/runtime-security/` covers the
-operator's deployment; a second deployment gets the same evidence path and the same
-measured behaviour, and signs its own lock — and, if it wants one, its own verdict.
-
-### Observability
-
-Every decision (allow or deny) appends one JSON line to
-`Harness-Best-Practice/observability/audit.log` via
-`Harness-Best-Practice/observability/audit.py`. The model cannot rewrite it — it's the
-accountability record.
-
-### Human-in-the-loop checkpoints
-
-The human doesn't approve every action — only three points:
-
-1. **Phase sign-off** — agent reports "verification passes"; human flips
-   `feature_list.json` status to `passing`.
-2. **Escalation** — agent is stuck (3 failed attempts, or ambiguity); it stops and
-   writes to `progress.md`.
-3. **Policy update** — audit review reveals a gap; human edits the deny-list/allowlist.
-
-Everything else is autonomous within the gates.
-
----
+If you copied only `template/` into your project, those paths are in the source repository, not here.
 
 ## Test the runtime
 
@@ -595,7 +392,7 @@ Everything else is autonomous within the gates.
 > pinning.** Here it means *the live hook path in your IDE session* — is enforcement
 > actually firing, right now, on this copy. The other meaning — the app you deploy to
 > users, which has no hooks at all — is
-> [Deployed runtime](#deployed-runtime--the-same-gates-no-hooks) above. This section tests
+> [Deployed runtime](../docs/reference/03-deployed-runtime.md). This section tests
 > the first. Nothing in it exercises `runtime_dispatcher.py`; `tests/test_runtime_dispatcher.py`
 > does that.
 
@@ -741,186 +538,15 @@ there, that is the interesting result — report it.
 
 ## The security kit
 
-The security kit is the template's cross-cutting security operating model — it combines
-context, guidance, policy, enforcement, verification, and review evidence. It applies an
-*approved* design; it doesn't make architecture decisions for you.
-
-| Layer | Purpose | Where |
-|---|---|---|
-| **Context** | The approved posture, threats, controls | `Security-kit/SECURITY.md` (42 source-tagged controls, S1.1 – S8.6) |
-| **Guidance** | Shape everyday coding behaviour | `kiro/steering/security.md` (Kiro auto); `.claude/rules/` (Claude, optional) |
-| **Workflow** | Review sensitive changes consistently | `kiro/steering/security-review.md` |
-| **Policy** | Permitted tools, egress, approvals | `governance/deny-list.json`, `governance/mcp-allowlist.json`, `Harness-Best-Practice/feature_list.json` |
-| **Enforcement** | Prevent prohibited actions | `governance/permission.py` (control) + `Security-kit/content_trust.py` (data) — in your IDE session via hooks, in your deployed app via `governance/runtime_dispatcher.py` + `Security-kit/runtime_screen.py` |
-| **Verification** | Prove controls work + resist attack | `tests/test_hooks.py`, `test_e2e.py`, `test_content_trust.py`, `test_runtime_dispatcher.py`, `test_runtime_screen.py`, `fixtures.json` |
-| **Evidence** | Record decisions, findings, residual risk | `Security-kit/control-matrix.md`, `progress.md`, git history |
-
-**Fill per project:** `Security-kit/coverage.json` — which of the 20 OWASP LLM/Agentic ids
-apply here ([Step 5b](#step-5b--tailor-the-security-controls-security-tailor) drafts it) —
-then the rows of `Security-kit/control-matrix.md` (control → code → verification →
-evidence), your threat model, and any domain-specific test cases. The template ships the
-matrix's per-project table **empty**: no placeholder row, because a stub row draws wrong
-answers that no invariant can catch.
-
-**AI-specific risk coverage.** `Security-kit/owasp-crosswalk.md` maps every item of the
-**OWASP Top 10 for LLM Applications (2025)** and the **OWASP Top 10 for Agentic
-Applications (2026, ASI01–ASI10)** to the exact template mechanism that addresses it —
-marked `[MECH]` (enforced + tested), `[GUIDE]` (advisory), `[APP]` (your code), or
-`[GAP]`. Use it to prove coverage and record residual risk.
-
-**Security vs non-security.** `Security-kit/SECURITY-MANIFEST.md` is the authoritative
-inventory: which files are pure-security (removable), which are pure-harness, and which
-are *wired* (security woven into a shared file). To produce a build with the security
-layer removed — for comparison, or a deliberately ungoverned project:
-
-```bash
-./install.sh --no-security --dry-run   # preview what's removed/neutralized
-./install.sh --no-security             # strip it (run on a copy)
-```
-
-The full build's `init.sh` integrity gate prevents the kit from being *silently*
-stripped; `--no-security` is the explicit, recorded way to remove it.
-
-> A control is only **mechanical** when an execution path enforces it *and* a test proves
-> that path. Steering and docs are *guidance*; hooks and tests are *enforcement*. `init.sh`
-> now gates on the enforcement proofs so a disabled kit cannot pass silently.
-
-Sources: AWS Well-Architected Agentic AI Lens, CSA Singapore "Securing Agentic AI"
-Addendum, OWASP Agentic AI Top 10 — see `Security-kit/SECURITY.md` for the tagged mapping.
-
----
+What the kit is, how it works and what is mechanical: [`Security-kit/README.md`](Security-kit/README.md). The mechanism pages in the platform repository are [Build-time enforcement](../docs/reference/02-build-time-enforcement.md) and [Claims and evidence](../docs/reference/04-claims-and-evidence.md).
 
 ## Directory map
 
-```
-my-agent/
-├── CLAUDE.md              ← Claude Code instructions (imports @AGENTS.md)   [FILL]
-├── README.md             ← This file                                       [as-is]
-├── init.sh               ← Startup health check + integrity gate           [as-is]
-├── install.sh            ← Build assembler (full / --no-security)          [as-is]
-│
-├── governance/            ← ENFORCEMENT + POLICY (top-level)
-│   ├── permission.py      ← [MECHANISM] 4-gate control plane                [never edit]
-│   ├── runtime_dispatcher.py ← [MECHANISM] ②③④ for a DEPLOYED app          [never edit]
-│   ├── deny-list.json     ← [POLICY] hard-blocked patterns                  [EXTEND]
-│   └── mcp-allowlist.json ← [POLICY] approved tools + egress hosts          [FILL]
-│
-├── Security-kit/          ← SECURITY KIT (generic, not domain-specific)
-│   ├── README.md
-│   ├── SECURITY.md         ·  42-control reference (source-tagged, S1.1–S8.6)
-│   ├── owasp-crosswalk.md  ·  OWASP LLM/Agentic → mechanism map
-│   ├── SECURITY-MANIFEST.md·  what is security vs non-security
-│   ├── control-matrix.md   ·  control → code → test → evidence             [FILL rows]
-│   ├── coverage.schema.md  ·  the shape /security-tailor must produce
-│   ├── coverage.json       ·  which OWASP ids apply here    [WRITTEN by /security-tailor]
-│   ├── active-controls.md  ·  the applicable subset, @-imported by CLAUDE.md [GENERATED]
-│   ├── requirements.json   ·  obligation spine (SEC-REQ-001…011)      [human-owned]
-│   ├── mechanisms.json     ·  claims register: what actually EXISTS    [human-owned]
-│   ├── check_coverage.py   ← [MECHANISM] coverage gate + invariants I1–I6  [never edit]
-│   ├── content_trust.py    ← [MECHANISM] shared marker list (data plane)    [never edit]
-│   ├── prompt_screen.py    ← [MECHANISM] ① UserPromptSubmit screen          [never edit]
-│   ├── result_screen.py    ← [MECHANISM] ④ PostToolUse result screen        [never edit]
-│   ├── runtime_screen.py   ← [MECHANISM] ①④ for a DEPLOYED app, regex tier   [never edit]
-│   └── runtime/            ← [MECHANISM] the runtime-mvp semantic tier (16 modules) [never edit]
-│       ├── host.py         ·  the owned loop — the one entry point a deployed app calls
-│       ├── ingress.py      ·  ①④ decision table: rules + classifier → ALLOW | REQUIRE_REVIEW
-│       ├── guarded.py, session.py · ⑤ session ceilings, origin rules, schema — composed around ②
-│       ├── review.py       ·  content-release and action-approval receipts (typed, keyed)
-│       ├── classifier.py   ·  pinned local classifier protocol; semantic-model.lock.json
-│       └── audit.py, output.py, startup.py · hash-chained evidence, buffered output, refuse-to-start
-│   ├── secret_scan.py      ← [MECHANISM] secret-block hook adapter          [never edit]
-│   └── eval/               ·  labelled corpora + scorers; runtime_injection/ (40-case benchmark corpus); bootstrap_classifier.py
-│
-├── Harness-Best-Practice/ ← IDENTITY + WORKFLOW STATE
-│   ├── AGENTS.md          ← Open standard: identity, run/verify             [FILL]
-│   ├── progress.md        ← Session journal + handoff                       [UPDATE]
-│   ├── feature_list.json  ← Phases: behavior + verification + status        [FILL]
-│   ├── BEST-PRACTICES.md  ← Harness engineering principles (generic)        [as-is]
-│   └── observability/
-│       ├── audit.py       ← [MECHANISM] append-only audit log               [never edit]
-│       └── audit_hook.py  ← [MECHANISM] PostToolUse audit adapter           [never edit]
-│
-├── tests/                 ← VERIFICATION (38 suites, 339 tests; all stdlib, pytest optional)
-│   ├── fixtures.json          ·  ground-truth gate cases                    [EXTEND]
-│   ├── test_fixtures.py       ·  data-driven gate runner
-│   ├── test_e2e.py            ·  end-to-end enforcement proof
-│   ├── test_hooks.py          ·  hook-script contract (envelope on stdin → exit code)
-│   ├── test_content_trust.py  ·  data-plane boundary proof
-│   ├── test_prompt_screen.py  ·  ① prompt screen
-│   ├── test_result_screen.py  ·  ④ result screen + updatedToolOutput shape
-│   ├── test_result_screening.py· ④ in-loop proof: the bytes never reach `messages`
-│   ├── test_injection_corpus.py· pins 10/12 caught + 2/12 false positives
-│   ├── test_protected_paths.py·  S2.4 self-modification proof + pinned gaps
-│   ├── test_shipped_policy.py ·  the real deny-list.json, both directions
-│   ├── test_coverage.py       ·  the coverage gate itself (fail-closed, staleness)
-│   ├── test_mechanisms.py     ·  claims-register census + invariants I1–I5
-│   ├── test_requirements.py   ·  requirement spine ↔ controls (I6)
-│   ├── test_eval_selection.py ·  the scorer behind Security-kit/eval/
-│   ├── test_steady_state.py   ·  availability + no self-promotion via the worklog
-│   ├── test_egress.py         ·  Gate 3: exact host match + structured destinations
-│   ├── test_runtime_dispatcher.py· ②③④ in process; `calls == 0` proves prevention
-│   ├── test_runtime_screen.py ·  ①④ in process; ① fails closed on unscannable input
-│   └── runtime/           ·  18 suites for the semantic tier — ingress table, receipts,
-│                             ceilings under concurrency, attack replay, claims truthfulness
-│
-├── Context/               ← [POLICY] PROJECT AI-dev assets                   [FILL stubs]
-│   ├── README.md           ·  what belongs here
-│   ├── ai-stack.md.template     ·  framework + model choice        [copy→fill]
-│   └── deployment.md.template   ·  on-prem/cloud, egress, secrets  [copy→fill]
-│
-├── demo/                  ← DEMONSTRATION (not the production path)
-│   ├── harness.py · demo.py · fake_model.py   (zero-dependency LLM mock)
-│
-├── evaluation/            ← MEASUREMENT — the third proof after tests/ and demo/
-│   ├── runtime-security/  ·  attack traces, replay, classifier selection, limitations, VERDICT.md
-│   ├── eval.py            ·  accuracy / cost / reproducibility metrics (run by init.sh)
-│   ├── SNAPSHOT.template.md ·  filled by `eval.py --snapshot DIR` for sign-off
-│   └── README.md
-│
-├── .claude/               ← CLAUDE CODE (active runtime)
-│   ├── settings.json      ← hooks: prompt-screen ① · governance-check · secret-block
-│   │                        · result-screen ④ · audit-capture · clean-state   [never edit]
-│   └── commands/          ← /init-project · /security-tailor · /session-cycle · /domain-workflow
-│
-└── kiro/                  ← KIRO ADD-ON (opt-in: `cp -r kiro/ .kiro/` to activate)
-    ├── README.md
-    ├── hooks/             ← governance · secret-block · audit · clean-state
-    └── steering/          ← session-cycle · domain-workflow · security · security-review
-                             · security-tailor · active-controls
-```
-
-Every module also carries an `ARCHITECTURE.md` describing its role.
-
----
+Every directory and file, with what edits it and what tests it: [`docs/reference/appendix-directory-map.md`](../docs/reference/appendix-directory-map.md).
 
 ## Tool compatibility
 
-| Feature | Claude Code (active root) | Kiro (opt-in: `cp -r kiro/ .kiro/`) | Codex / Cursor / Copilot / Gemini |
-|---|---|---|---|
-| Instruction file | `CLAUDE.md` (auto; imports `@AGENTS.md`) | `CLAUDE.md` (manual ref) | `AGENTS.md` (auto) |
-| Enforcement hooks | `.claude/settings.json` → `permission.py` | `.kiro/hooks/*.json` → same `permission.py` | call `permission.py` CLI |
-| Always-on rules | `.claude/rules/*.md` | `.kiro/steering/*.md` (`inclusion: auto`) | — |
-| Session workflow | `.claude/commands/session-cycle.md` | `.kiro/steering/session-cycle.md` | — |
-
-**Claude-first, Kiro opt-in.** Everything in the active root is read by Claude Code —
-nothing sits inert. Kiro's integration lives under `kiro/`; a Kiro user copies it to
-`.kiro/` (see `kiro/README.md`). Both runtimes invoke the **same** tool-agnostic
-`governance/permission.py` — only the activation layer differs.
-
-**Why `AGENTS.md`?** It's the open standard read by other agents. Claude Code reads
-`CLAUDE.md`, not `AGENTS.md`, so `CLAUDE.md` imports it via `@AGENTS.md` — one source of
-truth that loads in every runtime.
-
-> **Enforcement caveat — read this one.** The gate is real, but the hook *wiring*
-> activates it, and wiring is configuration on **your** machine. `tests/test_hooks.py`
-> proves each hook script honours its contract (JSON envelope on stdin, exit 2 to block);
-> it cannot prove your host is invoking those scripts, and a host that isn't gives you
-> silence, not an error. **Verify it yourself in 30 seconds** —
-> [Test the runtime, Step R2](#step-r2--the-30-second-wiring-check-do-this-before-anything-else).
-> The Kiro hook payload must additionally be confirmed in a real Kiro runtime — see the
-> note in `kiro/hooks/governance-check.json`.
-
----
+Claude Code, Kiro and the other agent runtimes: [`docs/guide/04-tool-compatibility.md`](../docs/guide/04-tool-compatibility.md). The Kiro add-on is [`kiro/README.md`](kiro/README.md).
 
 ## Troubleshooting
 
@@ -967,12 +593,4 @@ Four things to know before you read its output (verified by running it 2026-08-1
 
 ## References & lineage
 
-Core framing: **agent = model + tools; harness = everything else.**
-
-| Resource | Role |
-|---|---|
-| [Learn Harness Engineering](https://walkinglabs.github.io/learn-harness-engineering/en/) | The "why." 13-lecture course. ([repo](https://github.com/walkinglabs/learn-harness-engineering)) |
-| [Awesome Harness Engineering](https://github.com/Jiaaqiliu/Awesome-Harness-Engineering) | Curated primary-source map |
-| [Awesome Claude Code](https://github.com/hesreallyhim/awesome-claude-code) | The "how" — CLAUDE.md, hooks, subagents |
-| "Harness Engineering: Leveraging Codex in an Agent-First World" (OpenAI) | Coined the term |
-| [Claude Code on AWS Bedrock — Best Practices](https://github.com/timwukp/claude-code-on-aws-bedrock-best-practices) | Fail-closed hooks, managed settings, red-team suite |
+[`README.md` § References](../README.md#references) in the platform repository.

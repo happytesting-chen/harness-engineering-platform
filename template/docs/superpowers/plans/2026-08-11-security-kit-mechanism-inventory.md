@@ -2197,7 +2197,7 @@ call, so the stateless per-call gate cannot see it.
 **Status of every mechanism named here lives in `Security-kit/mechanisms.json`**, and
 `check_coverage.py --status` fails `init.sh` when any document disagrees with it. Gate
 mechanics — the four gates, their order, and the fail-closed behaviour — are owned by
-[`governance/ARCHITECTURE.md`](../governance/ARCHITECTURE.md).
+[`governance/ARCHITECTURE.md`](../../../governance/ARCHITECTURE.md).
 ```
 
 - [ ] **Step 4: Add the ownership note**
@@ -2208,7 +2208,7 @@ In the "What is actually mechanical — and what is not" section of `Security-ki
 > **Owner of this fact:** `Security-kit/mechanisms.json`. The table below is a readable
 > copy; `check_coverage.py --status` (I1) fails the build if the two disagree, so a status
 > may be restated anywhere as long as every copy agrees. Gate *mechanics* belong to
-> [`governance/ARCHITECTURE.md`](../governance/ARCHITECTURE.md).
+> [`governance/ARCHITECTURE.md`](../../../governance/ARCHITECTURE.md).
 ```
 
 - [ ] **Step 5: Add the manifest row**
