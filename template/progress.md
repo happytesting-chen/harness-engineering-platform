@@ -914,3 +914,14 @@ surface table, guide 02 opening with `examples/runtime-security-mvp/run.py` and 
 and `/security-tailor` named as a Claude Code command. Target repository confirmed reachable:
 `wog/csa/csacentral/ai-team/security-by-design_harness` on GitLab Dedicated, one stub commit,
 unrelated history — the migration push will replace it and needs the operator's go.
+
+## Session 23 — 2026-09-07 (GitLab move, part 1: pipeline and pointers)
+
+Target: `wog/csa/csacentral/ai-team/security-by-design_harness` on GitLab Dedicated. `.gitlab-ci.yml`
+ports the two CI assertions unchanged — the baseline error set pinned by diff, then a pinned
+`pytest` run as a fatal job. The GitHub workflow stays while a GitHub copy exists; CONTRIBUTING says
+which is the pipeline of record. The remaining `github.com` mentions are external references and
+one dated evidence record, left as they are. The GitLab project already holds one stub commit with
+unrelated history, so the migration push replaces its `main` — a human go, not an agent decision.
+The pipeline is exercised first by pushing this branch to GitLab as a feature branch, which is
+non-destructive.
