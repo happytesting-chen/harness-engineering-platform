@@ -22,6 +22,9 @@ signed, conditioned and dated.
 > [`template/evaluation/runtime-security/VERDICT.md`](template/evaluation/runtime-security/VERDICT.md).
 > Routing through the host is still the application's responsibility (`SEC-RUNTIME-GAP-001`), which
 > is why the decision is not `PRODUCTION_READY`. Pin a revision for anything you depend on.
+>
+> **On GitLab this repository is a single-commit import.** The development history and the
+> commits the verdict names live on GitHub and in an archived bundle; see [PROVENANCE.md](PROVENANCE.md).
 
 ![Runtime security flow](assets/runtime-security-flow.svg)
 
