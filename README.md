@@ -52,6 +52,15 @@ guarantee stops: [Boundaries](docs/reference/05-boundaries.md).
 - **[Bring your own classifier](docs/guide/03-bring-your-own-classifier.md)** — the model is not in the repo; a stdlib bootstrap rebuilds, benchmarks and pins it on any machine, and a human signs the lock.
 - **[Standard library only](CONTRIBUTING.md)** — nothing in the kit depends on a package or on the model behaving. The classifier subprocess is the one declared exception.
 
+## New here? Start where you stand
+
+| You are… | Start at | Then |
+|---|---|---|
+| **Building an agent** and want it governed while you build | [Getting started](docs/guide/01-getting-started.md) | the copied [handbook](template/README.md): eight steps, then attack it |
+| **Deploying an application** and need the gates in process | [Integrate the runtime host](docs/guide/02-integrate-the-runtime-host.md) | [Bring your own classifier](docs/guide/03-bring-your-own-classifier.md) |
+| **Reviewing or deciding** whether a deployment can be trusted | [`VERDICT.md`](template/evaluation/runtime-security/VERDICT.md) and [Boundaries](docs/reference/05-boundaries.md) | [Produce and sign evidence](docs/guide/05-produce-and-sign-evidence.md) |
+| **Changing the platform** itself | [CONTRIBUTING.md](CONTRIBUTING.md) | [Claims and evidence](docs/reference/04-claims-and-evidence.md), then the [directory map](docs/reference/appendix-directory-map.md) |
+
 ## Pick your surface
 
 | Surface | What it protects | Start |
@@ -63,19 +72,19 @@ guarantee stops: [Boundaries](docs/reference/05-boundaries.md).
 ## Quick start
 
 ```bash
-git clone <repository-url> harness-engineering-platform
+git clone git@sgts.gitlab-dedicated.com:wog/csa/csacentral/ai-team/security-by-design_harness.git harness-engineering-platform
 cp -r harness-engineering-platform/template/ my-agent/
-cd my-agent && chmod +x init.sh && ./init.sh
+cd my-agent && chmod +x init.sh && ./init.sh     # exits 1 on a fresh copy — by design
 ```
 
 `init.sh` is a health check, not a scaffolder. On an unfilled copy it reports `FAIL — 5 error(s)`:
 **four** unfilled `{{placeholders}}` (identity, phases, policy) and **one** fail-closed coverage gate
 that only `/security-tailor` clears, because *which of the 20 OWASP LLM/Agentic risks apply* is a
-property of your product, not the template. Fill the placeholders → run `/security-tailor` → re-run
-`./init.sh` until it exits 0.
-The eight build steps and the live runtime tests are in the copied
-[`README.md`](template/README.md). To see the runtime host alone, with synthetic tools and a
-scripted model:
+property of your product, not the template. Prerequisites and the one rule that prevents silent
+hook failure: [Getting started](docs/guide/01-getting-started.md). The eight build steps and the
+live runtime tests: the copied [`README.md`](template/README.md).
+
+To see the runtime host alone, with synthetic tools and a scripted model:
 
 ```bash
 cd harness-engineering-platform/template && python3 examples/runtime-security-mvp/run.py

@@ -1,11 +1,21 @@
 # Getting started
 
-Ten minutes, no API key, no dependencies beyond Python 3.11.
+Ten minutes, no API key.
+
+## Before you start
+
+- **Claude Code** installed and signed in. The build-time surface is a set of Claude Code hooks;
+  without Claude Code there is nothing for them to attach to. (Kiro users: see
+  [Tool compatibility](04-tool-compatibility.md).)
+- **Python 3.11 or newer** and **git**. Nothing else: the kit is standard library only.
+- One rule that saves an hour: **open the copied project as its own root** in Claude Code. Hooks
+  load from `.claude/settings.json` at the project root and only there; open one directory
+  above it and nothing fires, silently.
 
 ## 1. Get the code
 
 ```bash
-git clone <repository-url> harness-engineering-platform
+git clone git@sgts.gitlab-dedicated.com:wog/csa/csacentral/ai-team/security-by-design_harness.git harness-engineering-platform
 cd harness-engineering-platform
 ```
 
@@ -27,7 +37,7 @@ chmod +x init.sh
 
 It exits 1 on a correct fresh copy, with exactly five errors: four files still hold
 `{{PLACEHOLDER}}` blocks you must fill, and the security coverage file does not exist until you run
-the tailoring command. That failure is the contract, not a bug: a health check that passed on an
+`/security-tailor` — a slash command you run inside Claude Code, not a shell script. That failure is the contract, not a bug: a health check that passed on an
 unfilled template would be lying. CI in this repository pins the exact error set.
 
 ## 4. Follow the in-project handbook

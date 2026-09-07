@@ -902,3 +902,15 @@ for, 0 duplicated paragraphs, 0 broken links (one deliberate code-span example),
 | 09-07 | Cut the reference by reader question, not by source file | Two pages explaining one path from two directions is the sprawl the restructure set out to remove |
 | 09-07 | Restore dropped prose verbatim rather than re-write it | The old paragraphs were measured, source-tagged text; a shorter paraphrase is a weaker claim, not a cleaner one |
 | 09-07 | No `docs/roadmap.md`; roadmap sits under Status in the README | Nine lines do not need a page, and a reader wants "where is it going" beside "where is it" |
+
+### Session 22 addendum — onboarding pass
+
+Walked the newcomer path as written. It was clear for a builder and unclear for everyone else:
+no prerequisites near the front, the project-root rule (the commonest silent failure) buried at
+Step R1, a placeholder clone URL, no entry point for a reviewer or a contributor, and an
+integrator page with no worked example. Fixed with about forty lines: a "Before you start" block
+and the real GitLab URL in guide 01, a four-row "start where you stand" router above the README's
+surface table, guide 02 opening with `examples/runtime-security-mvp/run.py` and condition C-1,
+and `/security-tailor` named as a Claude Code command. Target repository confirmed reachable:
+`wog/csa/csacentral/ai-team/security-by-design_harness` on GitLab Dedicated, one stub commit,
+unrelated history — the migration push will replace it and needs the operator's go.

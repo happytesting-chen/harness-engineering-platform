@@ -1,5 +1,17 @@
 # Integrate the runtime host into your application
 
+Start from the worked example, not from the API:
+[`template/examples/runtime-security-mvp/run.py`](../../template/examples/runtime-security-mvp/run.py)
+constructs one `RuntimeHost` end to end with synthetic tools, a scripted model and a classifier
+stub, and its [README](../../template/examples/runtime-security-mvp/README.md) says exactly what
+it does and does not demonstrate. Copy its wiring; replace the stubs with your tools and model.
+
+The condition you will be reviewed on is **C-1** in the signed
+[verdict](../../template/evaluation/runtime-security/VERDICT.md): every tool invocation in the
+deployed application reaches its callable through `RuntimeHost.invoke_tool`, and no component
+keeps a reference to a raw tool callable. The library cannot enforce that for you; the architecture
+review does. Design the wiring so the review is a short walkthrough, not an investigation.
+
 The deployed application owns one `RuntimeHost` and routes each supported source and sink
 through it:
 
