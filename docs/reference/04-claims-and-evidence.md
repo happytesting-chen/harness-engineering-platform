@@ -1,4 +1,9 @@
-# The claims plane: what is mechanical, and the six invariants
+# Claims and evidence: how you know any of this is true
+
+Two layers answer that question, and they fail differently. The **claims plane** is design-time
+truth: every documented control names its mechanism and its proof, and six invariants refuse to
+let a claim outrun its code. The **evidence** is measured truth: the tests, traces and benchmark
+results on one revision, and the signed verdict that rests on them.
 
 ## The tailoring path (build-time, human-reviewed)
 
@@ -113,3 +118,25 @@ thing from documentation.
 The Security Kit is the template's security navigation and review layer. It does not
 replace the existing policy, enforcement, or test assets; it connects them to
 project-specific controls and review evidence.
+
+## How the evidence is produced and signed
+
+The claims plane says which mechanism backs which claim. The evidence answers a different
+question: on the tree as it stands, does the mechanism hold? Everything under
+[`template/evaluation/runtime-security/`](../../template/evaluation/runtime-security/) is
+produced by a command that anyone can re-run, and the record's own README says which.
+
+| Evidence | What it proves | Produced by |
+|---|---|---|
+| `attack-traces.jsonl` | Each of the attack cases is RESISTANT on a **side-effect oracle**: the spy tool recorded no call, the transport carried no secret. No case passes because a component said it blocked something. | `python3 Security-kit/runtime/attack_driver.py --output …` — byte-identical on re-run |
+| `replay-results.json` | The verdicts can be re-derived from the stored traces with no model in the loop. | `python3 -m pytest tests/runtime/test_replay.py -q` |
+| `classifier-candidates/*.result.json` | What the pinned classifier caught and missed on the labelled corpus, per case, at a recorded chunk window. Results are immutable: a new run is a new file. | `python3 Security-kit/eval/eval_runtime_injection.py --candidate-manifest … --output …` |
+| `semantic-model.lock.json` (in `Security-kit/runtime/`) | The classifier executable, model and corpus digests a human approved, with the approver and date. | `eval_runtime_injection.py --lock … --verify` re-checks every digest against the tree; startup refuses a lock that does not verify |
+| `VERDICT.md` | The release decision, its conditions, and its expiry, signed by a named person. | Written by hand from the evidence above; re-scoped by dated **amendments**, never edited in place |
+
+Two rules govern all of it. **Score on damage, not self-report.** **The verdict expires** on
+any change to the source revision, the policy digest, the classifier lock, the corpus, or the
+contents of `Security-kit/runtime/`; a change lapses it into nothing, not into a stronger claim.
+On another machine, [Bring your own classifier](../guide/03-bring-your-own-classifier.md)
+rebuilds the pinned classifier and reproduces the benchmark before a human signs a local lock.
+The operator's sequence is [Produce and sign evidence](../guide/05-produce-and-sign-evidence.md).

@@ -1,39 +1,39 @@
 # Documentation
 
-Two kinds of page, kept apart on purpose.
+Two kinds of page, kept apart on purpose: the **guide** is cut by task, the **reference** by question.
 
-**Guide** — how to use the platform. Read in order the first time.
+## Guide — how to use it
 
-| Page | What it covers |
+| Page | Task |
 |---|---|
-| [01 Getting started](guide/01-getting-started.md) | Clone, copy the template, run the health check, read its failure |
-| [02 Integrate the runtime host](guide/02-integrate-the-runtime-host.md) | The four calls a deployed application routes through, and the routing condition |
-| [03 Bring your own classifier](guide/03-bring-your-own-classifier.md) | Why the model is not in the repo, and how another machine rebuilds and pins it |
-| [04 Tool compatibility](guide/04-tool-compatibility.md) | Claude Code, Kiro and the other agent runtimes |
-| [05 The security kit](guide/05-the-security-kit.md) | The kit from the template's point of view: context, guidance, policy, enforcement, verification |
+| [01 Getting started](guide/01-getting-started.md) | Get the code, copy the template, read the red health check |
+| [02 Integrate the runtime host](guide/02-integrate-the-runtime-host.md) | Route a deployed application through the host; what a product team gets |
+| [03 Bring your own classifier](guide/03-bring-your-own-classifier.md) | Rebuild, benchmark, pin and sign the classifier on another machine |
+| [04 Tool compatibility](guide/04-tool-compatibility.md) | Which runtime wires what, and the hook-wiring caveat |
+| [05 Produce and sign evidence](guide/05-produce-and-sign-evidence.md) | The operator's release sequence: gate, attack matrix, benchmark, checklist, verdict |
 
-The in-project handbook — the eight build steps and the live runtime tests — is
-[`template/README.md`](../template/README.md), because it travels with every copied template.
+Building an agent inside a copied template — the eight steps and the live runtime tests — is
+[`template/README.md`](../template/README.md), because that handbook travels with every copy.
 
-**Reference** — how it works. Read when you need the mechanism.
+## Reference — how it works
 
-| Page | What it covers |
+| Page | Question it answers |
 |---|---|
-| [01 The enforcement model](reference/01-enforcement-model.md) | Control plane (tool calls) and data plane (untrusted content) |
-| [02 The deployed runtime tier](reference/02-deployed-runtime-tier.md) | The same gates with no hooks; the semantic tier; the receipts |
-| [03 The claims plane](reference/03-claims-plane.md) | The tailoring path, what is mechanical, the six invariants |
-| [04 Security kit internals](reference/04-security-kit-internals.md) | From the agent loop you know to the dev-time enforcement path |
-| [05 Directory map](reference/05-directory-map.md) | Every directory and file, what edits it, what tests it |
-| [06 Observability and human checkpoints](reference/06-observability-and-human-checkpoints.md) | The audit record and the two places a human decides |
-| [07 What is not enforced](reference/07-what-is-not-enforced.md) | Stated boundaries, each linked to its full statement |
-| [08 References and lineage](reference/08-references-and-lineage.md) | Where the ideas came from |
+| [01 Architecture](reference/01-architecture.md) | Where does enforcement sit? The two surfaces, the gate positions, one tool call end to end |
+| [02 Build-time enforcement](reference/02-build-time-enforcement.md) | How does it fire while I build? Events, hooks, the four gates, content trust |
+| [03 Deployed runtime](reference/03-deployed-runtime.md) | How does it fire in the application I ship? The host, the semantic tier, receipts, audit |
+| [04 Claims and evidence](reference/04-claims-and-evidence.md) | How do I know any of this is true? The claims plane, then how evidence is produced and signed |
+| [05 Boundaries](reference/05-boundaries.md) | Where does the guarantee stop? |
+| [Appendix: directory map](reference/appendix-directory-map.md) | Where is everything? Every file, what edits it, what tests it |
 
-**Evidence** — measured, signed, dated.
+## Evidence — measured, signed, dated
 
 | Location | What it is |
 |---|---|
 | [`template/evaluation/runtime-security/`](../template/evaluation/runtime-security/) | The runtime verdict, its conditions and expiry, the attack traces, the classifier selection record |
 | [`evaluations/2026-08-template-ab/`](evaluations/2026-08-template-ab/) | The A/B evaluation that tested the template against a build without it |
 
-**Design record** — [`template/docs/superpowers/`](../template/docs/superpowers/): the plans, specs and
-human-applied patches behind each change. It ships with the template because the patches apply to it.
+## Design record
+
+[`template/docs/superpowers/`](../template/docs/superpowers/): the plans, specs and human-applied
+patches behind each change. It ships with the template because the patches apply to it.

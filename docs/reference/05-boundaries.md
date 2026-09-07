@@ -1,4 +1,4 @@
-# What the platform does not enforce
+# Boundaries: where the guarantee stops
 
 Stated plainly, because a security control you misunderstand is worse than none. Each line
 links to the full statement.

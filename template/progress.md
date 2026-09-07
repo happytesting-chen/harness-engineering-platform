@@ -877,3 +877,28 @@ and the ignore rule is a plain `!docs/**`.
 | 09-07 | `template/README.md` stays self-sufficient | It is the in-project handbook and travels with every copy; only platform-level explanation moved |
 | 09-07 | Remove the legacy examples rather than archive them | An archive folder needs explaining; the evidence they held is kept where evidence lives |
 | 09-07 | Operator notes live in `_local/`, never beside tracked docs | A folder that is half tracked and half ignored is one glob away from a 50 MB commit — measured twice now |
+
+### Session 22 addendum — audit of the restructure, and the second cut
+
+Audit of the first cut (scripted: preservation, claims-vs-tree, coherence, duplication, page
+structure, protected paths, links) found the rewrite had dropped real content from the old root
+README — the "reasoning proposes, mechanism enforces" thesis, the narrow-claim paragraph, the
+one-tool-call walkthrough with its SDLC diagram, the product-concern table, the roadmap — and
+had cut `docs/reference/` along source-file seams rather than reader questions, so two pages
+explained the build-time path twice and two were fragments.
+
+Second cut, on the operator's direction. Reference re-cut by question: 01 architecture (where
+enforcement sits; restores the thesis, the walkthrough and both orphaned diagrams), 02 build-time
+enforcement, 03 deployed runtime, 04 claims and evidence (adds the evidence method, which no page
+explained), 05 boundaries, appendix directory map. Guide re-cut by task: guide 05 "the security
+kit" dissolved into `Security-kit/README.md` §1 (its layer table and kit facts belong on the kit's
+own front door); a new guide 05 "produce and sign evidence" fills the one operator task no page
+covered. Lineage and roadmap live at the foot of the root README. Root README 129 → 186 lines
+with the old opening paragraphs restored verbatim. Re-audited: 637/637 removed lines accounted
+for, 0 duplicated paragraphs, 0 broken links (one deliberate code-span example), 340 passed.
+
+| Date | Decision | Rationale |
+|---|---|---|
+| 09-07 | Cut the reference by reader question, not by source file | Two pages explaining one path from two directions is the sprawl the restructure set out to remove |
+| 09-07 | Restore dropped prose verbatim rather than re-write it | The old paragraphs were measured, source-tagged text; a shorter paraphrase is a weaker claim, not a cleaner one |
+| 09-07 | No `docs/roadmap.md`; roadmap sits under Status in the README | Nine lines do not need a page, and a reader wants "where is it going" beside "where is it" |

@@ -1,6 +1,39 @@
-# Security kit internals: from the agent loop to the dev-time enforcement path
+# Architecture: where enforcement sits
 
-## Start from the agent loop you already know
+Enforcement lives **outside the model** — the agent cannot see, edit, or route around it.
+One set of gates is applied at two surfaces: Claude Code hook events around development tool
+calls while you build, and an owned in-process host around context, actions and output in the
+application you deploy. Positions are the same on both: ① input · ② before a tool runs ·
+③ execution · ④ output before the model · ⑤ the session as a sequence.
+
+## Two enforcement surfaces
+
+| | **Runtime host** | **Build-time harness** |
+|---|---|---|
+| Protects | the agent deployed to users | the coding agent building the product |
+| Boundary | an owned in-process host around context, actions and output | Claude Code hook events around development tool calls |
+| Main mechanism | `Security-kit/runtime/host.py` | `governance/permission.py` + `Security-kit/` hook adapters |
+| Injection screening | rules **plus** a pinned local semantic classifier | regex rules only |
+| Sequence-aware controls | per-tool and total session ceilings | none — every hook is stateless per call |
+| Adoption | the application routes every supported source and sink through the host | automatic when the template's Claude Code settings are active |
+
+Both follow one rule: **reasoning proposes, mechanism enforces.** A non-deterministic
+component reading attacker-influenceable text cannot be a control surface, because whatever
+persuades it disables the control. So enforcement sits *outside* the model on both surfaces.
+
+The runtime claim is deliberately narrow: one owned host, one agent, a fixed registered tool
+set, UTF-8 text ingress. Persistent memory, delegation, streaming output, remote classifiers
+and binary ingress are disabled; multi-host operation is out of scope. **Nothing forces an
+application to use the host** — complete routing is a deployment architecture-review item,
+not a property of the library. See the
+[profile](../../template/Context/runtime-security-profile.md) and
+[`limitations.md`](../../template/evaluation/runtime-security/limitations.md).
+
+---
+
+## The agent loop, and where the gates attach
+
+### Start from the agent loop you already know
 
 An LLM cannot *do* anything. It emits **text**. When an agent "uses a tool", the model has
 produced a JSON proposal — and something else decides whether to run it.
@@ -92,64 +125,37 @@ Two consequences that remain true:
    database. The moment the agent reads it, it is inside the context window, and models
    weight tool output *highly*. Nobody typed it into the product; the attacker only had to
    write a record. This is why "trust the user, distrust the internet" is the wrong axis —
-   see the two-planes split in [the enforcement model](01-enforcement-model.md).
+   see the two-planes split in [the enforcement model](02-build-time-enforcement.md).
 
-## The enforcement path (dev-time, live today)
+## One tool call, end to end
 
-```
-  agent decides to act
-        │
-        ▼
-  ┌──────────────┐   PreToolUse fires ONLY for these five tools:
-  │  tool call   │   Bash | Write | Edit | MultiEdit | NotebookEdit
-  └──────┬───────┘   (the `matcher` in .claude/settings.json)
-         │
-         │  JSON envelope on stdin: {"tool_name": …, "tool_input": {…}}
-         │
-         ├───────────────────────────────┬──────────────────────────────┐
-         ▼                               ▼                              │
- ╔═════════════════════════════╗  ╔═══════════════════════════╗         │
- ║ governance/permission.py    ║  ║ Security-kit/             ║         │
- ║ four gates, in order,       ║  ║   secret_scan.py          ║         │
- ║ FIRST DENIAL WINS           ║  ║ credential patterns in    ║         │
- ║                             ║  ║ content / command /       ║         │
- ║ ①a protected paths  (S2.4)  ║  ║ new_string                ║         │
- ║ ①b deny-list  command pats  ║  ╚═════════════╤═════════════╝         │
- ║ ②  phase-gate               ║                │                       │
- ║ ③  egress                   ║                │                       │
- ╚══════════════╤══════════════╝                │                       │
-                │                               │                       │
-                └───────────────┬───────────────┘                       │
-                                ▼                                       │
-                     ┌────────────────────┐                             │
-        exit 2  ◄────┤   what happened?   ├────►  exit 0                │
-        BLOCKED      └────────────────────┘       PROCEEDS ─────────────┘
-     reason printed            │                                        │
-     to the agent              │  anything else (crash, timeout)        ▼
-                               └──►  hook ERROR — tool STILL PROCEEDS   │
-                                                                        ▼
-                                             PostToolUse → audit.log (append-only)
-```
+![Where the build-time harness sits in the SDLC](../../assets/sdlc-position.svg)
 
-**Only exit 2 blocks.** Every other outcome silently allows — that one fact drives the
-whole design. It is why the gate must never crash, and why the exit code, not the
-reasoning, is the control.
+The build-time harness constrains the coding agent while work is in progress, then hands an
+audit trail, a generated evaluation snapshot and a control matrix to pre-deployment review.
+It complements the runtime host; it does not replace it.
 
-Three consequences worth naming, all in `permission.py`:
+One matched tool call, end to end: the coding agent proposes a `Bash` command. Claude Code's
+`PreToolUse` hook fires **before** it runs and pipes it to `governance/permission.py`, which
+applies four permission checks in fixed order — protected paths, deny-list, phase gate,
+egress — stopping at the first denial. A denial exits **2** and the command never executes.
+A pass exits 0, the tool runs, and `PostToolUse` screens the result and appends the verdict
+to an append-only `audit.log`. The template wires **7 hooks across 4 events**.
 
-- **Bad input denies.** Empty stdin, malformed JSON and a wrong payload shape all exit 2
-  (the `_deny(...)` calls in CLI mode) rather than erroring out.
-- **Untrusted policy denies.** A policy file that exists but will not parse raises
-  `PolicyError`, which CLI mode converts to exit 2. Before that, a `JSONDecodeError`
-  escaped as exit 1 — a *non-blocking* hook error — so one corrupt JSON file disabled
-  both hard-deny gates, S2.4 included.
-- **Unknown tools deny.** `check_phase_gate` ends in `return f"{tool_name} not in
-  allowlist"`, so a tool nobody approved is refused rather than waved through.
+The same four checks are reused by the runtime host for every registered tool — the
+difference is scope: build-time hooks match only `Bash|Write|Edit|MultiEdit|NotebookEdit`;
+the host gates every tool in the registry it wraps. A raw callable invoked *outside* the
+host reaches none of them.
 
-Gate ①a runs **before** the command patterns on purpose: it has a built-in floor
-(`BUILTIN_PROTECTED_PATHS`) and so still returns a verdict when policy is unreadable,
-whereas the deny-list has nothing to fall back on.
+**→ The full mechanism — each check, what it reads, why it fails closed, and the feature
+triple that stops an agent promoting its own phase — is in
+[Build-time enforcement](02-build-time-enforcement.md).**
 
-> Citations here name **functions and constants, not line numbers** — deliberately. The
-> previous revision cited `:32/:66/:99`, and every one of those anchors broke the moment
-> Gate 1a was inserted above them. Names survive edits; line numbers rot silently.
+![The feature triple and the phase state machine](../../assets/feature-lifecycle.svg)
+
+---
+
+## Where the guarantee stops
+
+The boundaries are stated in one place, [Boundaries](05-boundaries.md), and each item links to
+its full statement in the profile or the limitations record.

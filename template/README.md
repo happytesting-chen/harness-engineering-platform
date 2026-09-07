@@ -20,7 +20,7 @@ verification loop, and defined human-in-the-loop checkpoints — working out of 
 1. [Quick start (5 minutes)](#quick-start-5-minutes)
 2. [Step-by-step: build your first agent](#step-by-step-build-your-first-agent)
 3. [How enforcement works](#how-enforcement-works) — pointers to the platform reference,
-   including [**the deployed app**](../docs/reference/02-deployed-runtime-tier.md), which has no hooks
+   including [**the deployed app**](../docs/reference/03-deployed-runtime.md), which has no hooks
 4. [**Test the runtime**](#test-the-runtime) ← start here if you only want to attack the harness
 5. [The security kit](#the-security-kit)
 6. [Directory map](#directory-map)
@@ -252,7 +252,7 @@ It prints these sections, in this order. `RESULT: PASS` (exit 0) means you're re
 | **E2E enforcement** | that a *denied* call genuinely does not execute | 4/4 pass |
 | **Security-kit integrity** | engine present · wired into `.claude/settings.json` · every wired hook path resolves on disk · 12 named suites · the coverage gate · invariants I1–I6 | all ✓ **except the coverage pair** |
 | **Python syntax check** | every `.py` parses — **only runs if** project type is Python | skipped on a generic copy |
-| **Evaluation** | `evaluation/eval.py` against its *reference target* | ✓ 100% — read the caveat below |
+| **Evaluation** | `evaluation/eval.py` against its *reference target* | ✓ 100% — see the misread list below |
 | **Fresh Session Test** | the five questions a new session must be able to answer | 4/5 — Q3 warns until your verification commands are real |
 
 Three of those lines are easy to misread:
@@ -370,7 +370,7 @@ When the active phase's verification passes, the agent reports
 *"Phase X passes. Requesting sign-off."* and **stops** — it does **not** promote the
 phase. A human reviews the audit log + evidence, then edits `feature_list.json`:
 `"status": "active"` → `"passing"`, and sets the next phase `active`. This is the first
-of three [human-in-the-loop checkpoints](../docs/reference/06-observability-and-human-checkpoints.md).
+of three [human-in-the-loop checkpoints](../docs/reference/03-deployed-runtime.md).
 
 ---
 
@@ -379,9 +379,9 @@ of three [human-in-the-loop checkpoints](../docs/reference/06-observability-and-
 The control plane (tool calls), the data plane (untrusted content), the deployed runtime tier,
 observability and the human checkpoints are documented in the platform repository:
 
-- [`docs/reference/01-enforcement-model.md`](../docs/reference/01-enforcement-model.md)
-- [`docs/reference/02-deployed-runtime-tier.md`](../docs/reference/02-deployed-runtime-tier.md)
-- [`docs/reference/06-observability-and-human-checkpoints.md`](../docs/reference/06-observability-and-human-checkpoints.md)
+- [`docs/reference/02-build-time-enforcement.md`](../docs/reference/02-build-time-enforcement.md)
+- [`docs/reference/03-deployed-runtime.md`](../docs/reference/03-deployed-runtime.md)
+- [`docs/reference/03-deployed-runtime.md`](../docs/reference/03-deployed-runtime.md)
 - [`docs/guide/02-integrate-the-runtime-host.md`](../docs/guide/02-integrate-the-runtime-host.md) · [`docs/guide/03-bring-your-own-classifier.md`](../docs/guide/03-bring-your-own-classifier.md)
 
 If you copied only `template/` into your project, those paths are in the source repository, not here.
@@ -392,7 +392,7 @@ If you copied only `template/` into your project, those paths are in the source 
 > pinning.** Here it means *the live hook path in your IDE session* — is enforcement
 > actually firing, right now, on this copy. The other meaning — the app you deploy to
 > users, which has no hooks at all — is
-> [Deployed runtime](../docs/reference/02-deployed-runtime-tier.md) above. This section tests
+> [Deployed runtime](../docs/reference/03-deployed-runtime.md). This section tests
 > the first. Nothing in it exercises `runtime_dispatcher.py`; `tests/test_runtime_dispatcher.py`
 > does that.
 
@@ -538,11 +538,11 @@ there, that is the interesting result — report it.
 
 ## The security kit
 
-What the kit is, how it works and what is mechanical: [`Security-kit/README.md`](Security-kit/README.md) and [`docs/guide/05-the-security-kit.md`](../docs/guide/05-the-security-kit.md).
+What the kit is, how it works and what is mechanical: [`Security-kit/README.md`](Security-kit/README.md). The mechanism pages in the platform repository are [Build-time enforcement](../docs/reference/02-build-time-enforcement.md) and [Claims and evidence](../docs/reference/04-claims-and-evidence.md).
 
 ## Directory map
 
-Every directory and file, with what edits it and what tests it: [`docs/reference/05-directory-map.md`](../docs/reference/05-directory-map.md).
+Every directory and file, with what edits it and what tests it: [`docs/reference/appendix-directory-map.md`](../docs/reference/appendix-directory-map.md).
 
 ## Tool compatibility
 
@@ -593,4 +593,4 @@ Four things to know before you read its output (verified by running it 2026-08-1
 
 ## References & lineage
 
-[`docs/reference/08-references-and-lineage.md`](../docs/reference/08-references-and-lineage.md).
+[`README.md` § References](../README.md#references) in the platform repository.

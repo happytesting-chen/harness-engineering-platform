@@ -46,4 +46,4 @@ takes thirty seconds and it is the only way to know the gates fire in *your* edi
 
 - Deploying an application rather than an IDE agent: [Integrate the runtime host](02-integrate-the-runtime-host.md).
 - Wanting semantic screening on another machine: [Bring your own classifier](03-bring-your-own-classifier.md).
-- Wanting to know what a passing gate proves and what it does not: [What is not enforced](../reference/07-what-is-not-enforced.md).
+- Wanting to know what a passing gate proves and what it does not: [What is not enforced](../reference/05-boundaries.md).

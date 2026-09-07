@@ -16,3 +16,18 @@ Start with the [walkthrough](../../template/examples/runtime-security-mvp/README
 [profile](../../template/Context/runtime-security-profile.md) as the deployment contract.
 
 ---
+
+## What a product team gets
+
+| Product concern | Runtime control |
+|---|---|
+| Prompt injection in user, document or tool-result text | Rules plus semantic classification; anything not affirmatively cleared is withheld for review |
+| Unsafe or out-of-scope tool use | A deterministic action gate checks registration, policy, schema, content origin and session ceilings **before** the side effect |
+| Sensitive actions | Optional human approval via an expiring, single-use `ActionApprovalReceipt` — which can un-pause a call but never converts a deny |
+| False positives | Quarantined content returns only through an exact-digest, expiring, single-use `ContentReleaseReceipt` |
+| Secret leakage in the final answer | The whole response is buffered, redacted and released in one write |
+| Incident review and release evidence | Closed-schema, hash-chained audit records bind every decision to the policy and classifier digests in force |
+
+The binding promises and their scope are in
+[`template/Context/runtime-security-profile.md`](../../template/Context/runtime-security-profile.md);
+the mechanism behind each row is [Deployed runtime](../reference/03-deployed-runtime.md).

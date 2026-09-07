@@ -1,8 +1,8 @@
-# The deployed runtime tier
+# Deployed runtime: how it fires in the application you ship
 
 ## Deployed runtime — the same gates, no hooks
 
-Everything in [the enforcement model](01-enforcement-model.md) happens because Claude Code emits events. **The application you deploy
+Everything in [the enforcement model](02-build-time-enforcement.md) happens because Claude Code emits events. **The application you deploy
 emits none**, so a shipped copy of this harness inherits its *design* and none of its
 enforcement. Two modules close that, in process:
 
@@ -91,7 +91,7 @@ four remaining misses all workflow impersonation, 7–8 of 16 legitimate documen
 
 ## The enforcement path (deployed runtime, no hooks)
 
-The hook diagram in [Security kit internals](04-security-kit-internals.md) is an *event subscription*. A deployed application emits no hook events,
+The hook diagram in [Security kit internals](02-build-time-enforcement.md) is an *event subscription*. A deployed application emits no hook events,
 so none of it fires. The same four positions are available as in-process calls:
 
 | Position | Build-time (hooks) | Deployed runtime (in-process) |
@@ -163,3 +163,26 @@ Proof: 18 suites in `tests/runtime/`; evidence and the signed `DEPLOY_WITH_RULES
 [`evaluation/runtime-security/`](../../template/../evaluation/runtime-security/). Residuals R-1..R-3 and
 `SEC-RUNTIME-GAP-001` (routing is opt-in) are stated in
 [`Context/runtime-security-profile.md`](../../template/Context/runtime-security-profile.md).
+
+## Observability and the two human checkpoints
+
+### Observability
+
+Every decision (allow or deny) appends one JSON line to
+`Harness-Best-Practice/observability/audit.log` via
+`Harness-Best-Practice/observability/audit.py`. The model cannot rewrite it — it's the
+accountability record.
+
+### Human-in-the-loop checkpoints
+
+The human doesn't approve every action — only three points:
+
+1. **Phase sign-off** — agent reports "verification passes"; human flips
+   `feature_list.json` status to `passing`.
+2. **Escalation** — agent is stuck (3 failed attempts, or ambiguity); it stops and
+   writes to `progress.md`.
+3. **Policy update** — audit review reveals a gap; human edits the deny-list/allowlist.
+
+Everything else is autonomous within the gates.
+
+---

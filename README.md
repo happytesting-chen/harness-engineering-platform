@@ -4,11 +4,18 @@
 ![Python 3.11+](https://img.shields.io/badge/python-3.11%2B-blue.svg)
 ![Core: Python standard library](https://img.shields.io/badge/core-Python%20standard%20library-brightgreen.svg)
 
-A security harness for tool-using AI agents, in two surfaces from one set of gates: hooks that
-**block** disallowed development tool calls while you build, and an in-process runtime host that
-**decides** what enters the model's context, which actions execute, and what leaves, in the
-application you deploy. Every documented control names the test that proves it, and the current
-release decision is signed, conditioned and dated.
+**A runtime safety layer and build-time governance harness for tool-using AI products.**
+
+At runtime, it puts an owned host around the agent loop: user prompts, documents and tool
+results pass rule-based and semantic ingress checks; model-proposed actions pass
+deterministic policy, origin, schema, session-ceiling and approval checks before a tool can
+run; the final output is buffered and screened before release. **The model proposes.
+Mechanisms decide** what enters context, which actions execute, and what leaves.
+
+The same repository ships a build-time harness for Claude Code: phase plans, policy files,
+verification gates, and hooks that mechanically block disallowed development tool calls.
+Every documented control names the test that proves it, and the current release decision is
+signed, conditioned and dated.
 
 > **Status.** The deployed runtime profile carries a signed verdict of `DEPLOY_WITH_RULES`, valid to
 > 2026-12-01 under five conditions, in
@@ -21,18 +28,25 @@ release decision is signed, conditioned and dated.
 ## Why a harness and not a skill
 
 A skill tells the model what to do. A harness decides what the model is allowed to do, in code that
-runs whether or not the model agrees. Prompted rules lose to a determined input often enough that
-the loss must be assumed; this repository puts every security decision outside the model, keeps the
-model's judgement where judgement belongs, and measures the result on side effects, not on what any
-component says it did. The distinction is the whole design: see
-[What is not enforced](docs/reference/07-what-is-not-enforced.md) for where the guarantee stops.
+runs whether or not the model agrees. Both surfaces follow one rule: **reasoning proposes,
+mechanism enforces.** A non-deterministic component reading attacker-influenceable text cannot be
+a control surface, because whatever persuades it disables the control. So enforcement sits
+*outside* the model, and the result is measured on side effects, not on what any component says
+it did.
+
+The runtime claim is deliberately narrow: one owned host, one agent, a fixed registered tool set,
+UTF-8 text ingress. Persistent memory, delegation, streaming output, remote classifiers and binary
+ingress are disabled; multi-host operation is out of scope. **Nothing forces an application to use
+the host** — complete routing is a deployment architecture-review item, not a property of the
+library. Where enforcement sits: [Architecture](docs/reference/01-architecture.md). Where the
+guarantee stops: [Boundaries](docs/reference/05-boundaries.md).
 
 ## Key features
 
-- **[Four deterministic gates](docs/reference/01-enforcement-model.md)** — input, before a tool runs, execution, output before the model — on the control plane (tool calls) and the data plane (untrusted content).
-- **[A deployed runtime tier](docs/reference/02-deployed-runtime-tier.md)** — one owned `RuntimeHost`; rule-based and pinned-classifier ingress; an action gate with policy, origin, schema, session ceilings and optional approval; buffered, redacted output; hash-chained audit.
-- **[Receipts, not overrides](docs/reference/02-deployed-runtime-tier.md)** — quarantined content returns only by exact-digest, single-use, expiring receipt; an approval can un-pause a call but never converts a deny.
-- **[A claims plane](docs/reference/03-claims-plane.md)** — every documented control names its proof; six invariants fail closed; the register is human-owned.
+- **[Four deterministic gates](docs/reference/02-build-time-enforcement.md)** — input, before a tool runs, execution, output before the model — on the control plane (tool calls) and the data plane (untrusted content).
+- **[A deployed runtime tier](docs/reference/03-deployed-runtime.md)** — one owned `RuntimeHost`; rule-based and pinned-classifier ingress; an action gate with policy, origin, schema, session ceilings and optional approval; buffered, redacted output; hash-chained audit.
+- **[Receipts, not overrides](docs/reference/03-deployed-runtime.md)** — quarantined content returns only by exact-digest, single-use, expiring receipt; an approval can un-pause a call but never converts a deny.
+- **[A claims plane](docs/reference/04-claims-and-evidence.md)** — every documented control names its proof; six invariants fail closed; the register is human-owned.
 - **[Signed, expiring evidence](template/evaluation/runtime-security/)** — immutable benchmark results, a labelled corpus, deterministic replay, attack traces scored on side effects, a verdict with conditions and an expiry.
 - **[Red by design](docs/guide/01-getting-started.md)** — the health check fails on a correct fresh copy with an exact error set, and CI pins that set so a new error is a diff, not an increment.
 - **[Bring your own classifier](docs/guide/03-bring-your-own-classifier.md)** — the model is not in the repo; a stdlib bootstrap rebuilds, benchmarks and pins it on any machine, and a human signs the lock.
@@ -54,7 +68,11 @@ cp -r harness-engineering-platform/template/ my-agent/
 cd my-agent && chmod +x init.sh && ./init.sh
 ```
 
-The health check exits 1 and lists the five things a fresh copy still needs. That is the contract.
+`init.sh` is a health check, not a scaffolder. On an unfilled copy it reports `FAIL — 5 error(s)`:
+**four** unfilled `{{placeholders}}` (identity, phases, policy) and **one** fail-closed coverage gate
+that only `/security-tailor` clears, because *which of the 20 OWASP LLM/Agentic risks apply* is a
+property of your product, not the template. Fill the placeholders → run `/security-tailor` → re-run
+`./init.sh` until it exits 0.
 The eight build steps and the live runtime tests are in the copied
 [`README.md`](template/README.md). To see the runtime host alone, with synthetic tools and a
 scripted model:
@@ -62,6 +80,10 @@ scripted model:
 ```bash
 cd harness-engineering-platform/template && python3 examples/runtime-security-mvp/run.py
 ```
+
+Synthetic tools, a scripted model, a classifier stub: it demonstrates the control flow and
+deterministic enforcement, not production deployment or classifier quality. The
+[example README](template/examples/runtime-security-mvp/README.md) says exactly which.
 
 ## Documentation
 
@@ -119,10 +141,45 @@ Merge requests only; protected paths are changed by a human applying a reviewed 
 register is human-owned; mechanism code stays standard library. Details in
 [CONTRIBUTING.md](CONTRIBUTING.md). Vulnerabilities: [SECURITY.md](SECURITY.md).
 
+## Roadmap
+
+Rule-plus-semantic ingress, quarantine and receipted release, guarded dispatch with origin and
+schema rules, session ceilings, approval receipts, startup validation, buffered output,
+hash-chained evidence and a side-effect replay matrix are shipped and measured. What remains
+strengthens assurance without widening the profile:
+
+| Next | Why it remains |
+|---|---|
+| Independent security review | Verification so far was run by the authors; a written release condition (C-4) |
+| Prove complete application routing | The library cannot force every source and sink through its host (`SEC-RUNTIME-GAP-001`) |
+| Workflow-impersonation rule | The four remaining classifier misses are one family; a deterministic, origin-aware rule is the recorded follow-up |
+| Resident classifier process | About 0.6 s per item today, almost all model load; a prerequisite for the narrower chunk window the corpus expansion recommends |
+| Bound and operate the review queue | Fail-closed ingress can exhaust reviewer attention |
+| Memory, delegation, binary ingress, streaming | Each is a new source or sink and needs its own threat model before it is enabled |
+| `/runtime-harden` | The drafter that would generate per-project wiring; today it is done by hand from `SECURITY.md` S1.6 |
+
+**There are no sub-agents in this repository today** — `template/.claude/` ships slash commands and
+no `agents/` directory. The intended direction is phase-scoped sub-agents that each pass the same
+gates as their parent, so delegation cannot become privilege escalation. Design only.
+
 ## References
 
-Lineage and the sources this work draws on: [References and lineage](docs/reference/08-references-and-lineage.md).
-The design record behind each change: [`template/docs/superpowers/`](template/docs/superpowers/).
+| Resource | Role |
+|---|---|
+| [Learn Harness Engineering](https://walkinglabs.github.io/learn-harness-engineering/en/) | The "why" — harness theory, the feature triple and Fresh Session Test this template implements. |
+| [Awesome Harness Engineering](https://github.com/Jiaaqiliu/Awesome-Harness-Engineering) | Primary-source map; the agent-vs-harness framing. |
+| [Awesome Claude Code](https://github.com/hesreallyhim/awesome-claude-code) | CLAUDE.md patterns, hooks, slash commands, subagents. |
+| "Harness Engineering: Leveraging Codex in an Agent-First World" (OpenAI) | Credited with coining the term. |
+| Anthropic — Building Effective Agents | Design principles for tool-use loops and permission boundaries. |
+| [Claude Code on AWS Bedrock — Best Practices](https://github.com/timwukp/claude-code-on-aws-bedrock-best-practices) | Fail-closed hooks and managed-settings hierarchy. |
+
+
+---
+
+Core framing: **agent = model + tools; harness = everything else.**
+
+The design record behind each change — plans, specs and the human-applied patches — is
+[`template/docs/superpowers/`](template/docs/superpowers/).
 
 ## License
 

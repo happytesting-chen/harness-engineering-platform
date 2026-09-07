@@ -1,4 +1,4 @@
-# Directory map of the template
+# Appendix: directory map
 
 ```
 my-agent/
