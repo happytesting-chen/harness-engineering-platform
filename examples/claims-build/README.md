@@ -159,6 +159,6 @@ Porting this build onto the current template is tracked work, not a claim made h
 
 - [`../../template/README.md`](../../template/README.md) — the manual: 10 steps from empty
   copy to a signed-off phase
-- [`../claims-agent/evaluation/TEMPLATE-EVALUATION-REPORT.md`](../claims-agent/evaluation/TEMPLATE-EVALUATION-REPORT.md)
+- [`../../docs/evaluations/2026-08-template-ab/TEMPLATE-EVALUATION-REPORT.md`](../../docs/evaluations/2026-08-template-ab/TEMPLATE-EVALUATION-REPORT.md)
   — the A/B write-up that used this build to test *the template itself*
 - `progress.md` · `findings.md` — the session journal and decision record for this build

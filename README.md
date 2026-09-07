@@ -1,257 +1,129 @@
-# Harness Engineering Platform
+# Harness Engineering Platform — the model proposes, mechanisms decide
 
 [![License: MIT](https://img.shields.io/badge/license-MIT-blue.svg)](LICENSE)
 ![Python 3.11+](https://img.shields.io/badge/python-3.11%2B-blue.svg)
 ![Core: Python standard library](https://img.shields.io/badge/core-Python%20standard%20library-brightgreen.svg)
 
-**A runtime safety layer and build-time governance harness for tool-using AI products.**
+A security harness for tool-using AI agents, in two surfaces from one set of gates: hooks that
+**block** disallowed development tool calls while you build, and an in-process runtime host that
+**decides** what enters the model's context, which actions execute, and what leaves, in the
+application you deploy. Every documented control names the test that proves it, and the current
+release decision is signed, conditioned and dated.
 
-At runtime, it puts an owned host around the agent loop: user prompts, documents and tool
-results pass rule-based and semantic ingress checks; model-proposed actions pass
-deterministic policy, origin, schema, session-ceiling and approval checks before a tool can
-run; the final output is buffered and screened before release. **The model proposes.
-Mechanisms decide** what enters context, which actions execute, and what leaves.
-
-The same repository ships a build-time harness for Claude Code: phase plans, policy files,
-verification gates, and hooks that mechanically block disallowed development tool calls.
+> **Status.** The deployed runtime profile carries a signed verdict of `DEPLOY_WITH_RULES`, valid to
+> 2026-12-01 under five conditions, in
+> [`template/evaluation/runtime-security/VERDICT.md`](template/evaluation/runtime-security/VERDICT.md).
+> Routing through the host is still the application's responsibility (`SEC-RUNTIME-GAP-001`), which
+> is why the decision is not `PRODUCTION_READY`. Pin a revision for anything you depend on.
 
 ![Runtime security flow](assets/runtime-security-flow.svg)
 
-### What product teams get
+## Why a harness and not a skill
 
-| Product concern | Runtime control |
-|---|---|
-| Prompt injection in user, document or tool-result text | Rules plus semantic classification; anything not affirmatively cleared is withheld for review |
-| Unsafe or out-of-scope tool use | A deterministic action gate checks registration, policy, schema, content origin and session ceilings **before** the side effect |
-| Sensitive actions | Optional human approval via an expiring, single-use `ActionApprovalReceipt` — which can un-pause a call but never converts a deny |
-| False positives | Quarantined content returns only through an exact-digest, expiring, single-use `ContentReleaseReceipt` |
-| Secret leakage in the final answer | The whole response is buffered, redacted and released in one write |
-| Incident review and release evidence | Closed-schema, hash-chained audit records bind every decision to the policy and classifier digests in force |
+A skill tells the model what to do. A harness decides what the model is allowed to do, in code that
+runs whether or not the model agrees. Prompted rules lose to a determined input often enough that
+the loss must be assumed; this repository puts every security decision outside the model, keeps the
+model's judgement where judgement belongs, and measures the result on side effects, not on what any
+component says it did. The distinction is the whole design: see
+[What is not enforced](docs/reference/07-what-is-not-enforced.md) for where the guarantee stops.
 
-The binding promises and their scope are in
-[`template/Context/runtime-security-profile.md`](template/Context/runtime-security-profile.md).
+## Key features
 
-### See it run
+- **[Four deterministic gates](docs/reference/01-enforcement-model.md)** — input, before a tool runs, execution, output before the model — on the control plane (tool calls) and the data plane (untrusted content).
+- **[A deployed runtime tier](docs/reference/02-deployed-runtime-tier.md)** — one owned `RuntimeHost`; rule-based and pinned-classifier ingress; an action gate with policy, origin, schema, session ceilings and optional approval; buffered, redacted output; hash-chained audit.
+- **[Receipts, not overrides](docs/reference/02-deployed-runtime-tier.md)** — quarantined content returns only by exact-digest, single-use, expiring receipt; an approval can un-pause a call but never converts a deny.
+- **[A claims plane](docs/reference/03-claims-plane.md)** — every documented control names its proof; six invariants fail closed; the register is human-owned.
+- **[Signed, expiring evidence](template/evaluation/runtime-security/)** — immutable benchmark results, a labelled corpus, deterministic replay, attack traces scored on side effects, a verdict with conditions and an expiry.
+- **[Red by design](docs/guide/01-getting-started.md)** — the health check fails on a correct fresh copy with an exact error set, and CI pins that set so a new error is a diff, not an increment.
+- **[Bring your own classifier](docs/guide/03-bring-your-own-classifier.md)** — the model is not in the repo; a stdlib bootstrap rebuilds, benchmarks and pins it on any machine, and a human signs the lock.
+- **[Standard library only](CONTRIBUTING.md)** — nothing in the kit depends on a package or on the model behaving. The classifier subprocess is the one declared exception.
 
-```bash
-cd template
-python3 examples/runtime-security-mvp/run.py
-```
+## Pick your surface
 
-Synthetic tools, a scripted model, a classifier stub: it demonstrates the control flow and
-deterministic enforcement, not production deployment or classifier quality. The
-[example README](template/examples/runtime-security-mvp/README.md) says exactly which.
-
----
-
-## Two enforcement surfaces
-
-| | **Runtime host** | **Build-time harness** |
+| Surface | What it protects | Start |
 |---|---|---|
-| Protects | the agent deployed to users | the coding agent building the product |
-| Boundary | an owned in-process host around context, actions and output | Claude Code hook events around development tool calls |
-| Main mechanism | `Security-kit/runtime/host.py` | `governance/permission.py` + `Security-kit/` hook adapters |
-| Injection screening | rules **plus** a pinned local semantic classifier | regex rules only |
-| Sequence-aware controls | per-tool and total session ceilings | none — every hook is stateless per call |
-| Adoption | the application routes every supported source and sink through the host | automatic when the template's Claude Code settings are active |
-
-Both follow one rule: **reasoning proposes, mechanism enforces.** A non-deterministic
-component reading attacker-influenceable text cannot be a control surface, because whatever
-persuades it disables the control. So enforcement sits *outside* the model on both surfaces.
-
-The runtime claim is deliberately narrow: one owned host, one agent, a fixed registered tool
-set, UTF-8 text ingress. Persistent memory, delegation, streaming output, remote classifiers
-and binary ingress are disabled; multi-host operation is out of scope. **Nothing forces an
-application to use the host** — complete routing is a deployment architecture-review item,
-not a property of the library. See the
-[profile](template/Context/runtime-security-profile.md) and
-[`limitations.md`](template/evaluation/runtime-security/limitations.md).
-
----
-
-## Build-time development protection
-
-![Where the build-time harness sits in the SDLC](assets/sdlc-position.svg)
-
-The build-time harness constrains the coding agent while work is in progress, then hands an
-audit trail, a generated evaluation snapshot and a control matrix to pre-deployment review.
-It complements the runtime host; it does not replace it.
-
-One matched tool call, end to end: the coding agent proposes a `Bash` command. Claude Code's
-`PreToolUse` hook fires **before** it runs and pipes it to `governance/permission.py`, which
-applies four permission checks in fixed order — protected paths, deny-list, phase gate,
-egress — stopping at the first denial. A denial exits **2** and the command never executes.
-A pass exits 0, the tool runs, and `PostToolUse` screens the result and appends the verdict
-to an append-only `audit.log`. The template wires **7 hooks across 4 events**.
-
-The same four checks are reused by the runtime host for every registered tool — the
-difference is scope: build-time hooks match only `Bash|Write|Edit|MultiEdit|NotebookEdit`;
-the host gates every tool in the registry it wraps. A raw callable invoked *outside* the
-host reaches none of them.
-
-**→ The full mechanism — each check, what it reads, why it fails closed, and the feature
-triple that stops an agent promoting its own phase — is in
-[`template/README.md` § How enforcement works](template/README.md#how-enforcement-works).**
-
-![The feature triple and the phase state machine](assets/feature-lifecycle.svg)
-
----
-
-## Integrating the runtime host
-
-The deployed application owns one `RuntimeHost` and routes each supported source and sink
-through it:
-
-1. `submit_prompt(...)` — screens user text before it enters model context.
-2. `invoke_tool(...)` — applies session, origin, schema, policy and approval controls before
-   a registered tool runs. A denial leaves the tool's call count at zero.
-3. `deliver_tool_result(...)` — treats every tool result as untrusted external content.
-4. `finish(...)` — buffers and screens the complete final response before release.
-
-Quarantined content re-enters context only via `release_quarantined(...)` with a valid
-receipt. Structured records use the explicit ingress adapter described in the profile.
-
-Start with the [walkthrough](template/examples/runtime-security-mvp/README.md); use the
-[profile](template/Context/runtime-security-profile.md) as the deployment contract.
-
----
-
-## What it does not enforce
-
-Stated plainly, because a security control you misunderstand is worse than none. Each line
-links to the full statement.
-
-- **Runtime routing is opt-in.** Anything that bypasses the host bypasses its controls.
-  Verified by architecture review, not by the library —
-  [`SEC-RUNTIME-GAP-001`](template/Security-kit/control-matrix.md).
-- **Semantic classification is not proof of benign intent.** On the committed benchmark,
-  rules plus the classifier caught **14 of 16** attacks and withheld **3 of 8** legitimate
-  cases; two workflow-impersonation attacks were confidently misclassified. The action and
-  output gates are the compensating layers —
-  [`classifier-selection.md`](template/evaluation/runtime-security/classifier-selection.md).
-- **The review queue is unbounded in code.** Fail-closed screening queues false positives
-  for a human; the deployment sets the bound — [`limitations.md`](template/evaluation/runtime-security/limitations.md).
-- **Text-only, single-agent.** Memory, delegation, binary ingress, remote classifiers and
-  streaming refuse to start. Multi-host is out of scope.
-- **Not an OS sandbox or a network firewall.** It governs sources and sinks routed through
-  the host; it does not confine a compromised process.
-- **Build-time gates cover write/exec tools only.** `Read`, `Grep`, `WebFetch` and `Task`
-  are unmatched — a `Task` spawn reaches no gate. The runtime host has no such hole.
-- **Egress is policy matching, not network enforcement.** Hosts match exactly and structured
-  destinations are checked on every tool, but the shell half is a five-token blocklist and
-  field matching is by *name* — [`template/README.md` § Gate 3](template/README.md#how-enforcement-works).
-- **The agent cannot edit its own gate — except through a scripting runtime.** 28 files are
-  hard-denied by identity; `python3 -c` opening one for write is a measured, pinned residual
-  — [`SECURITY.md` S2.4](template/Security-kit/SECURITY.md).
-- **Core is standard library; the semantic classifier is not.** It runs as a separate,
-  digest-pinned local process with its own venv
-  ([`requirements.lock.txt`](template/evaluation/runtime-security/requirements.lock.txt)).
-  `pytest` is needed only for the full suite.
-
----
-
-## Repository layout
-
-| Path | What it is |
-|---|---|
-| `template/` | The harness itself — copy this. Domain-agnostic, with `{{placeholders}}` to fill. |
-| `template/Security-kit/runtime/` | The runtime host and its 15 enforcement modules. |
-| `template/evaluation/runtime-security/` | Measured evidence: attack traces, replay results, classifier selection, limitations, the signed verdict. |
-| `examples/` | Real filled instances (below). |
-| `assets/` | Diagrams used by this README. |
-| `.kiro/specs/harness-engineering-platform/` | The **origin** spec — historical, pre-refactor layout. |
-| `LICENSE` | MIT. |
-
----
+| **Build-time, Claude Code** | Your development session: hooks block disallowed tool calls, screen prompts and results, guard protected paths | [Getting started](docs/guide/01-getting-started.md), then the [in-project handbook](template/README.md) |
+| **Deployed runtime** | The application you ship: the same gates in process, no IDE, plus the semantic tier | [Integrate the runtime host](docs/guide/02-integrate-the-runtime-host.md) |
+| **Kiro add-on** | The same build-time controls in Kiro | [`template/kiro/README.md`](template/kiro/README.md) · [Tool compatibility](docs/guide/04-tool-compatibility.md) |
 
 ## Quick start
 
 ```bash
-git clone https://github.com/YuanSingapore/harness-engineering-platform.git
-cp -r harness-engineering-platform/template my-agent && cd my-agent
-./init.sh          # exits non-zero on a fresh copy — by design
+git clone <repository-url> harness-engineering-platform
+cp -r harness-engineering-platform/template/ my-agent/
+cd my-agent && chmod +x init.sh && ./init.sh
 ```
 
-`init.sh` is a health check, not a scaffolder. On an unfilled copy it reports
-`FAIL — 5 error(s)`: **four** unfilled `{{placeholders}}` (identity, phases, policy) and
-**one** fail-closed coverage gate that only `/security-tailor` clears, because *which of the
-20 OWASP LLM/Agentic risks apply* is a property of your product, not the template. Fill the
-placeholders → run `/security-tailor` → re-run `./init.sh` until it exits 0.
+The health check exits 1 and lists the five things a fresh copy still needs. That is the contract.
+The eight build steps and the live runtime tests are in the copied
+[`README.md`](template/README.md). To see the runtime host alone, with synthetic tools and a
+scripted model:
 
-**→ Full walkthrough: [`template/README.md`](template/README.md)** — the 10-step guide, where
-your own code goes (the template ships no `src/`, on purpose), the directory map, tool
-compatibility and troubleshooting. That document is the manual; this page is the front door.
-
----
-
-## Examples
-
-| Example | Maturity | What it shows |
-|---|---|---|
-| [`template/examples/runtime-security-mvp/`](template/examples/runtime-security-mvp/) | Runtime control flow | One owned-host run: clean prompt in, poisoned tool result withheld before model reuse, side-effect sink untouched, output buffered, evidence hash-chained. Synthetic throughout — not a production-readiness proof. |
-| [`examples/claims-build/`](examples/claims-build/) | **Most complete build.** Phases 01–03 signed off, 04 active; `./init.sh` exits 0; 50 tests pass. | An insurance-claims triage agent built end to end *inside* the harness. Built on an **earlier template generation** — no coverage gate, 4 harness suites not 36, no runtime host — and [its README says which parts](examples/claims-build/README.md#what-this-example-predates). |
-| [`examples/claims-agent/`](examples/claims-agent/evaluation/TEMPLATE-EVALUATION-REPORT.md) | Evaluation write-up | A live A/B build used to test the template itself. Read it as a critique of the harness. |
-| [`examples/red-team-harness/`](examples/red-team-harness/) | Legacy, pre-refactor layout | The original filled example (authorized penetration testing); policy tailored to a high-risk domain. |
-
----
-
-## Roadmap
-
-### Runtime — implemented; deployment assurance remains
-
-Rule-plus-semantic ingress, quarantine and receipted release, guarded dispatch with origin
-and schema rules, per-tool and total session ceilings, action-approval receipts, startup
-validation, buffered output, hash-chained evidence and a side-effect replay matrix are all
-shipped and measured. The release verdict is
-[`DEPLOY_WITH_RULES`](template/evaluation/runtime-security/VERDICT.md) — five conditions,
-fixed expiry, signed. What remains strengthens assurance without widening the profile:
-
-| Next | Why it remains |
-|---|---|
-| Independent security review | Verification so far was run by the authors; a written release condition |
-| Prove complete application routing | The library cannot force every source and sink through its host |
-| Bound and operate the review queue | Fail-closed ingress can exhaust reviewer attention |
-| Detection by provenance | Both measured misses are invisible to a text-only classifier; carrying origin to the detector is designed, not built |
-| Resident classifier process | ~0.7 s per item today, almost all model load; same contract, tens of ms |
-| Memory, delegation, binary ingress, streaming | Each is a new source or sink and needs its own threat model before it is enabled |
-| `/runtime-harden` | The drafter that would generate per-project wiring; today it is done by hand from `SECURITY.md` S1.6 |
-
-### The sub-agent layer
-
-**There are no sub-agents in this repo today** — `template/.claude/` ships 4 slash commands
-and no `agents/` directory. The intended direction is phase-scoped sub-agents (builder,
-verifier, security reviewer, evaluator) that each pass the same gates as their parent, so
-delegation cannot become privilege escalation. Design only.
-
----
+```bash
+cd harness-engineering-platform/template && python3 examples/runtime-security-mvp/run.py
+```
 
 ## Documentation
 
-| Question | Read |
+| Read this | When you are… |
 |---|---|
-| How do I actually use this? | [`template/README.md`](template/README.md) |
-| What exactly does the runtime host promise? | [`runtime-security-profile.md`](template/Context/runtime-security-profile.md) |
-| What was measured, and what remains open? | [`evaluation/runtime-security/`](template/evaluation/runtime-security/) · [`limitations.md`](template/evaluation/runtime-security/limitations.md) |
-| What release decision was recorded? | [`VERDICT.md`](template/evaluation/runtime-security/VERDICT.md) — scoped to revision, policy, lock, conditions and expiry |
-| What security controls exist, and how are they mapped to OWASP? | [`Security-kit/README.md`](template/Security-kit/README.md) · [`SECURITY.md`](template/Security-kit/SECURITY.md) · [`owasp-crosswalk.md`](template/Security-kit/owasp-crosswalk.md) |
-| Why is it built this way? | [`BEST-PRACTICES.md`](template/Harness-Best-Practice/BEST-PRACTICES.md) |
-| Where did this come from? | [`.kiro/specs/harness-engineering-platform/`](.kiro/specs/harness-engineering-platform/) — origin spec, not current design |
+| [`docs/guide/`](docs/README.md) | using the platform: getting started, integrating the host, the classifier, tool compatibility |
+| [`template/README.md`](template/README.md) | building an agent from the copied template: eight steps, then attack it |
+| [`docs/reference/`](docs/README.md) | changing or auditing the platform: the gates, the runtime tier, the claims plane, the directory map |
+| [`template/evaluation/runtime-security/`](template/evaluation/runtime-security/) | deciding whether to deploy: the verdict, its conditions, the measured record |
+| [`template/Context/runtime-security-profile.md`](template/Context/runtime-security-profile.md) | holding the runtime to its promises: the binding contract for the deployed profile |
 
----
+## Repository layout
 
-## References & lineage
+```
+.
+├── template/                 # WHAT YOU COPY — the harness, the kit, the runtime, the tests, the evidence
+│   ├── governance/           #   policy files and the four-gate permission check   (protected path)
+│   ├── Security-kit/         #   claims plane, eval tooling, runtime/ semantic tier (runtime/ protected)
+│   ├── Context/              #   product context and the binding runtime profile
+│   ├── Harness-Best-Practice/#   identity files and the phase plan
+│   ├── tests/                #   38 files, stdlib runners; CI runs them all
+│   ├── evaluation/           #   the measured record and the signed verdict
+│   ├── docs/superpowers/     #   design record: plans, specs, human-applied patches
+│   └── README.md             #   the in-project handbook, travels with every copy
+├── docs/                     # HOW TO USE IT AND HOW IT WORKS — guide/, reference/, evaluations/
+├── examples/claims-build/    # one complete build on the template, phases signed off
+├── assets/                   # the four diagrams
+├── .github/workflows/        # CI: baseline shape asserted, full suite fatal
+└── CONTRIBUTING.md · SECURITY.md · CHANGELOG.md · LICENSE
+```
 
-| Resource | Role |
-|---|---|
-| [Learn Harness Engineering](https://walkinglabs.github.io/learn-harness-engineering/en/) | The "why" — harness theory, the feature triple and Fresh Session Test this template implements. |
-| [Awesome Harness Engineering](https://github.com/Jiaaqiliu/Awesome-Harness-Engineering) | Primary-source map; the agent-vs-harness framing. |
-| [Awesome Claude Code](https://github.com/hesreallyhim/awesome-claude-code) | CLAUDE.md patterns, hooks, slash commands, subagents. |
-| "Harness Engineering: Leveraging Codex in an Agent-First World" (OpenAI) | Credited with coining the term. |
-| Anthropic — Building Effective Agents | Design principles for tool-use loops and permission boundaries. |
-| [Claude Code on AWS Bedrock — Best Practices](https://github.com/timwukp/claude-code-on-aws-bedrock-best-practices) | Fail-closed hooks and managed-settings hierarchy. |
+## Testing
 
----
+```bash
+cd template
+python3 -m pytest tests -q               # full suite; every file also runs standalone without pytest
+./init.sh                                # exit 1, exactly the documented 5-error baseline
+python3 Security-kit/check_coverage.py   # claims invariants I1–I6
+python3 Security-kit/runtime/attack_driver.py --output /tmp/traces.jsonl   # 13 cases, side-effect oracles
+```
+
+CI asserts the baseline's exact error set, then runs the whole suite as a fatal step. The one test
+that needs the operator's local classifier files skips on a runner and says why.
+
+## Troubleshooting
+
+Symptoms and fixes for the copied template are in its own
+[Troubleshooting](template/README.md#troubleshooting) section. If a hook does not fire at all, the
+usual cause is opening the editor one directory above the copy: hooks load from `.claude/settings.json`
+at the project root, and only there.
+
+## Contributing
+
+Merge requests only; protected paths are changed by a human applying a reviewed patch; the claims
+register is human-owned; mechanism code stays standard library. Details in
+[CONTRIBUTING.md](CONTRIBUTING.md). Vulnerabilities: [SECURITY.md](SECURITY.md).
+
+## References
+
+Lineage and the sources this work draws on: [References and lineage](docs/reference/08-references-and-lineage.md).
+The design record behind each change: [`template/docs/superpowers/`](template/docs/superpowers/).
 
 ## License
 
-[MIT](LICENSE).
+MIT. See [LICENSE](LICENSE).

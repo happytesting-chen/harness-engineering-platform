@@ -82,7 +82,7 @@ comparison or for a project that deliberately accepts no mechanical governance.
 The result still passes its own `init.sh` (placeholder + tests + Fresh Session) but has
 **no mechanical enforcement** — exactly the control arm used in this template's own A/B
 evaluation (scored 16/24 vs 24/24 for the full build; see
-`examples/claims-agent/evaluation/TEMPLATE-EVALUATION-REPORT.md`).
+`docs/evaluations/2026-08-template-ab/TEMPLATE-EVALUATION-REPORT.md`).
 
 > Removing security should be a deliberate, recorded choice. In a **full** build,
 > `init.sh`'s integrity gate prevents the kit from being *silently* stripped while still

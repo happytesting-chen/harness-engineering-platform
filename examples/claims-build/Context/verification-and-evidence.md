@@ -25,7 +25,7 @@ Future fixtures must conform to this versioned shape; `expected` is a test oracl
 Amounts are non-negative canonical decimal strings with exactly two fractional digits; floating-point values are invalid. Currency is an uppercase three-letter code. Booleans are JSON booleans, safety flags are unique strings, unknown fields are rejected, and outcome is one of `APPROVED`, `REJECTED`, or `PENDING_REVIEW`. Missing, malformed, unknown, insufficient, unsafe, or untrusted data must never be approved. The later fixture set must cover each terminal outcome plus malformed, boundary, duplicate-write, and failed-write cases; this task creates no fixtures.
 
 ## Reviewed verification commands
-Run from `examples/claims-agent/` with no network or credentials:
+Run from `examples/claims-build/` with no network or credentials. (Build A's original tree, `examples/claims-agent/`, was retired on 2026-09-07; its evaluation evidence is kept at `docs/evaluations/2026-08-template-ab/`.)
 
 - Unchanged retained Core Harness tests: `python3 -m pytest tests -v`
 - Future Claims-only tests: `python3 -m pytest claims/tests -v`

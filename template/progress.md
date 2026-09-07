@@ -843,3 +843,37 @@ was replaced with the section that actually expects `pytest tests/ -q` (§6.1, l
 | 09-03 | Install pytest on the CI runner rather than keep the non-fatal step | "Zero external deps" is a property of the kit, not of the machine that tests it; a gate its own log shows never ran is not a gate |
 | 09-03 | Split the lock test instead of skipping it whole | The corpus digest needs no artifacts and is exactly what drifted today; skipping it too would have hidden the one failure CI could have caught |
 | 09-03 | Skip prints its reason under both runners | A silent skip is the failure mode SEC-PROOF-GAP-001 describes; the stdlib runner has no skip concept, so it prints and passes |
+
+## Session 22 — 2026-09-07 (documentation restructure, ahead of the GitLab move)
+
+The repository read as scattered: three large READMEs (root 257, template 978, Security-kit 449
+lines) explained enforcement three times and duplicated quick start, layout and references. Modelled
+on the aidlc-workflows README shape — pick, install, run in the README; everything else in `docs/`.
+
+Root README rewritten to 129 lines with key features linking into `docs/guide/` and
+`docs/reference/`. The platform-level explanation left the two template READMEs by line range
+(links rewritten to the new depth; every heading, anchor and relative link re-checked across all
+121 markdown files). `template/README.md` keeps the eight build steps, the live runtime tests and
+troubleshooting because `install.sh` copies it into every product repository; it is now 598 lines.
+`Security-kit/README.md` is a 116-line index. Legacy examples `claims-agent` (a pre-refactor
+snapshot) and `red-team-harness` removed; the A/B evaluation evidence they held is kept at
+`docs/evaluations/2026-08-template-ab/` and its four citations updated. CONTRIBUTING, SECURITY and
+CHANGELOG added. Two August-era broken links fixed; the one remaining checker hit is a deliberate
+example inside a code span.
+
+Incident, recorded because it must not recur: the repository root held 29 untracked research
+files under `docs/` that the allowlist `.gitignore` hid from every inventory. A heading-normalisation
+pass over `docs/**` changed heading depth in 23 of them. One was restored byte-for-byte from an
+editor history copy; in the rest every heading at depth three or deeper was restored exactly, and
+the depth-two layer was listed for the operator to eyeball. The notes were then moved to
+`_local/research-docs/` at the operator's direction, so `docs/` holds platform documentation only
+and the ignore rule is a plain `!docs/**`.
+
+### Decisions
+
+| Date | Decision | Rationale |
+|---|---|---|
+| 09-07 | Guide and reference at repository root, not under `template/` | They describe the whole repository; `install.sh` copies template paths only, so product teams do not inherit a platform manual |
+| 09-07 | `template/README.md` stays self-sufficient | It is the in-project handbook and travels with every copy; only platform-level explanation moved |
+| 09-07 | Remove the legacy examples rather than archive them | An archive folder needs explaining; the evidence they held is kept where evidence lives |
+| 09-07 | Operator notes live in `_local/`, never beside tracked docs | A folder that is half tracked and half ignored is one glob away from a 50 MB commit — measured twice now |
