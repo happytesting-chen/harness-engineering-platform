@@ -52,9 +52,9 @@ guarantee stops: [Boundaries](docs/reference/05-boundaries.md).
 | **[Human review, hard limits](docs/reference/03-deployed-runtime.md)** | Quarantined content and approval-required actions use separate, expiring, single-use receipts. A human can release the exact item under review; no approval can override a deterministic denial. |
 | **[Controls tied to tests](docs/reference/04-claims-and-evidence.md)** | Every mechanical security claim names its implementation and its proof. Six consistency checks compare the control matrix, the mechanisms register and the requirements spine, and the coverage gate fails on any mismatch. |
 | **[Reproducible, time-bound evidence](template/evaluation/runtime-security/)** | Attack cases are scored on observed side effects; replay traces must match byte for byte. The signed verdict is tied to one revision and configuration, carries deployment conditions, and expires. |
-| **[Red until configured](docs/guide/01-getting-started.md)** | A fresh copy starts with a five-error baseline, on purpose, and reaches `PASS` only when the project and policy information is complete and every applicable control is mapped to real verification. |
+| **[Unsecured copies cannot pass](docs/guide/01-getting-started.md)** | A fresh copy starts with a five-error baseline, on purpose, and reaches `PASS` only when the project and policy information is complete and every applicable control is mapped to real verification. |
 | **[Verified local injection detection](docs/guide/03-bring-your-own-classifier.md)** | The classifier is benchmarked, human-approved and locked to executable, model and corpus digests. Startup verifies the local artifacts and refuses drift; each deployment provisions its own approved classifier. |
-| **[Standard-library core](CONTRIBUTING.md)** | The control logic and the health check use the Python standard library only. The classifier is the declared exception: an isolated subprocess with pinned dependencies. |
+| **[No external dependencies](CONTRIBUTING.md)** | The control logic and the health check use the Python standard library only. The classifier is the declared exception: an isolated subprocess with pinned dependencies. |
 
 ## New here? Start where you stand
 
