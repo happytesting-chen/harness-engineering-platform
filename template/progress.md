@@ -925,3 +925,21 @@ one dated evidence record, left as they are. The GitLab project already holds on
 unrelated history, so the migration push replaces its `main` — a human go, not an agent decision.
 The pipeline is exercised first by pushing this branch to GitLab as a feature branch, which is
 non-destructive.
+
+### Session 23 addendum — the allowlist ate three pull requests
+
+Found while building the GitLab import: the root `.gitignore` is an allowlist (`*` then `!`
+entries) and had no entries for root-level files other than `LICENSE`. `git add -A` therefore
+silently skipped every root document created this week. PR #18 claimed CONTRIBUTING, CHANGELOG
+and SECURITY — none was committed. PR #19 claimed `.gitlab-ci.yml` — its merge contains eleven
+lines of progress.md and nothing else. PR #20 claimed PROVENANCE.md — not committed. The README's
+links to those files were broken on GitHub the whole time; the link checker read the working tree,
+not the index, so it passed. Fixed here: six root files allow-listed and added in one commit, and
+the link check now runs against `git ls-files`. Recorded as a decision because the same allowlist
+also caused the 2026-09-02 deck sweep in the other direction: an allowlist protects against
+over-committing and fails silently under under-committing, and every check of "what landed" must
+read the index, never the disk.
+
+| Date | Decision | Rationale |
+|---|---|---|
+| 09-07 | Root documents are allow-listed by name; "did it land" checks read `git ls-files` | A file on disk that is not in the index looks identical to every tool that reads the tree |

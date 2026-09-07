@@ -1,0 +1,65 @@
+# GitLab CI — the same two assertions as .github/workflows/harness-baseline.yml, which is kept
+# while a GitHub copy of this repository exists. Edit both together or delete the GitHub one.
+#
+# Job 1 asserts the BASELINE declared in
+# template/docs/superpowers/specs/2026-08-13-security-kit-build-design.md §7.4.1 — NOT that the
+# build is green. The shipped template is red by design (4 placeholder files, no coverage.json
+# until /security-tailor runs), so `./init.sh` exits 1 in a correct tree and the exact error SET
+# is pinned: a new error is a diff, not an increment nobody notices. The warning count is not
+# pinned: one warning is mtime-derived and a fresh checkout gives every file the same mtime.
+#
+# Job 2 installs a pinned pytest (a CI tool, not a mechanism dependency — AGENTS.md:8 binds the
+# kit, not the runner) and runs the whole suite as a fatal step. The one test that needs the
+# operator's local classifier artifacts skips with a printed reason where they are absent, and
+# its corpus-digest half still runs.
+
+image: python:3.11
+
+stages: [baseline, suite]
+
+workflow:
+  rules:
+    - if: $CI_PIPELINE_SOURCE == "merge_request_event"
+    - if: $CI_COMMIT_BRANCH
+
+baseline:
+  stage: baseline
+  script:
+    - cd template
+    - set +e
+    - OUT="$(./init.sh 2>&1)"; CODE=$?
+    - set -e
+    - echo "$OUT"
+    - |
+      if [ "$CODE" -ne 1 ]; then
+        echo "ERROR: expected exit 1 (red by design), got $CODE — baseline drifted, see spec §7.4.1"
+        exit 1
+      fi
+      if ! echo "$OUT" | grep -qE 'RESULT: FAIL — 5 error\(s\)'; then
+        echo "ERROR: baseline drifted — expected 5 error(s), see spec §7.4.1 and re-measure §2"
+        exit 1
+      fi
+      # The error SET, not just its size. 6 ✗ lines for 5 errors is correct: the coverage checker
+      # prints its own "coverage.json missing" line from a child process, and init.sh increments
+      # ERRORS once for the checker's non-zero exit.
+      echo "$OUT" | grep '✗' | sed 's/^[[:space:]]*//' | sort > /tmp/actual-errors.txt
+      sed 's/^[[:space:]]*//' <<'EXPECTED' | sort > /tmp/expected-errors.txt
+      ✗ UNFILLED placeholders in CLAUDE.md:
+      ✗ UNFILLED placeholders in Harness-Best-Practice/AGENTS.md:
+      ✗ UNFILLED placeholders in Harness-Best-Practice/feature_list.json:
+      ✗ UNFILLED placeholders in governance/mcp-allowlist.json:
+      ✗ coverage.json missing — run /security-tailor (fail-closed)
+      ✗ security coverage incomplete — run /security-tailor and fill verifications
+      EXPECTED
+      if ! diff -u /tmp/expected-errors.txt /tmp/actual-errors.txt; then
+        echo "ERROR: the baseline ERROR SET changed (diff above). If intended, update spec §7.4.1 and this list together."
+        exit 1
+      fi
+      echo "baseline OK: exit 1, 5 errors, error set unchanged"
+
+suite:
+  stage: suite
+  script:
+    - python3 -m pip install --quiet pytest==9.1.1
+    - cd template
+    - python3 -m pytest tests/ -q

@@ -4,6 +4,12 @@
 # Include platform content
 !.gitignore
 !LICENSE
+!README.md
+!PROVENANCE.md
+!CONTRIBUTING.md
+!CHANGELOG.md
+!SECURITY.md
+!.gitlab-ci.yml
 !assets/
 !assets/*.svg
 !template/
