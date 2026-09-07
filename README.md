@@ -47,12 +47,12 @@ guarantee stops: [Boundaries](docs/reference/05-boundaries.md).
 ## Key features
 
 - **[Four security checkpoints](docs/reference/02-build-time-enforcement.md)** — prompt in · tool call · tool run · result back. Code decides at each; the model cannot argue past them.
-- **[Same checkpoints, IDE and production](docs/reference/03-deployed-runtime.md)** — the four above run as hooks while you build, and again inside the app you ship, plus a session limit.
+- **[Same checkpoints in production](docs/reference/03-deployed-runtime.md)** — the four above run as hooks while you build, and again inside the app you ship, plus a session limit.
 - **[Approvals that cannot bypass](docs/reference/03-deployed-runtime.md)** — blocked text or actions are released by a one-time, expiring receipt; a refusal never becomes a yes.
-- **[Every claim has a test](docs/reference/04-claims-and-evidence.md)** — each documented control names its code and its proof; six checks fail the build when one is missing.
+- **[Claims backed by tests](docs/reference/04-claims-and-evidence.md)** — each documented control names its code and its proof; six checks fail the build when one is missing.
 - **[Signed, dated evidence](template/evaluation/runtime-security/)** — attacks scored on real side effects, results that reproduce byte for byte, a verdict with conditions and an expiry.
 - **[Red until secured](docs/guide/01-getting-started.md)** — a fresh copy fails its own health check with an exact error set until identity, policy and controls are set.
-- **[Classifier verified on your machine](docs/guide/03-bring-your-own-classifier.md)** — downloaded against pinned digests, benchmarked before use, locked by a human signature.
+- **[Classifier verified locally](docs/guide/03-bring-your-own-classifier.md)** — downloaded against pinned digests, benchmarked before use, locked by a human signature.
 - **[Zero third-party dependencies](CONTRIBUTING.md)** — Python standard library only; the pinned classifier subprocess is the one declared exception.
 
 ## New here? Start where you stand
