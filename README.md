@@ -46,14 +46,15 @@ guarantee stops: [Boundaries](docs/reference/05-boundaries.md).
 
 ## Key features
 
-- **[Build-time: four checkpoints](docs/reference/02-build-time-enforcement.md)** — while you build, hooks check prompt in · tool call · tool run · result back. Code decides at each; the model cannot argue past them.
-- **[Runtime: the same four](docs/reference/03-deployed-runtime.md)** — the app you ship runs the same checkpoints inside one host, no IDE and no hooks, plus a limit on what one session may do.
-- **[Approvals that cannot bypass](docs/reference/03-deployed-runtime.md)** — blocked text or actions are released by a one-time, expiring receipt; a refusal never becomes a yes.
-- **[Claims backed by tests](docs/reference/04-claims-and-evidence.md)** — each documented control names its code and its proof; six checks fail the build when one is missing.
-- **[Signed, dated evidence](template/evaluation/runtime-security/)** — attacks scored on real side effects, results that reproduce byte for byte, a verdict with conditions and an expiry.
-- **[Red until secured](docs/guide/01-getting-started.md)** — a fresh copy fails its own health check with an exact error set until identity, policy and controls are set.
-- **[Classifier verified locally](docs/guide/03-bring-your-own-classifier.md)** — downloaded against pinned digests, benchmarked before use, locked by a human signature.
-- **[Zero third-party dependencies](CONTRIBUTING.md)** — Python standard library only; the pinned classifier subprocess is the one declared exception.
+| Key capability | What it means |
+|---|---|
+| **[Build-time and runtime protection](docs/reference/01-architecture.md)** | Four checkpoints: prompt in · tool call · tool run · result back. While you build, hooks screen prompts and tool results and gate the development tool calls that can cause harm. The application you deploy gains the same protection when it routes its input, registered tools and final output through the Runtime Host, which adds semantic screening and session limits. |
+| **[Human review, hard limits](docs/reference/03-deployed-runtime.md)** | Quarantined content and approval-required actions use separate, expiring, single-use receipts. A human can release the exact item under review; no approval can override a deterministic denial. |
+| **[Controls tied to tests](docs/reference/04-claims-and-evidence.md)** | Every mechanical security claim names its implementation and its proof. Six consistency checks compare the control matrix, the mechanisms register and the requirements spine, and the coverage gate fails on any mismatch. |
+| **[Reproducible, time-bound evidence](template/evaluation/runtime-security/)** | Attack cases are scored on observed side effects; replay traces must match byte for byte. The signed verdict is tied to one revision and configuration, carries deployment conditions, and expires. |
+| **[Red until configured](docs/guide/01-getting-started.md)** | A fresh copy starts with a five-error baseline, on purpose, and reaches `PASS` only when the project and policy information is complete and every applicable control is mapped to real verification. |
+| **[Verified local injection detection](docs/guide/03-bring-your-own-classifier.md)** | The classifier is benchmarked, human-approved and locked to executable, model and corpus digests. Startup verifies the local artifacts and refuses drift; each deployment provisions its own approved classifier. |
+| **[Standard-library core](CONTRIBUTING.md)** | The control logic and the health check use the Python standard library only. The classifier is the declared exception: an isolated subprocess with pinned dependencies. |
 
 ## New here? Start where you stand
 
