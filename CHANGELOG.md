@@ -3,14 +3,16 @@
 Human-readable history. The detailed record, with measurements and decisions, is
 `template/progress.md`; this file indexes it.
 
-## 2026-09-07 — GitLab move
+## 2026-09-07 — GitLab move: preparation
 
-- `PROVENANCE.md` added: the GitLab repository is a single signed import of GitHub `main` at `ed85cc9`;
-  history and the verdict's named commits stay on GitHub and in an archived bundle.
+This repository still lives on GitHub as of this date; the following prepares a planned
+single-commit import to GitLab Dedicated, not yet performed.
 
-- `.gitlab-ci.yml` added: the baseline-shape assertion and the fatal full-suite run, as on GitHub.
-- Clone URLs point at `sgts.gitlab-dedicated.com/wog/csa/csacentral/ai-team/security-by-design_harness`.
-- The GitHub workflow is retained while a GitHub copy exists.
+- `PROVENANCE.md` added: what the import will do, why one commit, and the hashes to verify it
+  against once it happens.
+- `.gitlab-ci.yml` added: the same baseline-shape assertion and fatal full-suite run as
+  `.github/workflows/harness-baseline.yml`, ready for when GitLab becomes the pipeline of record.
+- Clone URLs stay on GitHub, where the repository actually is, until the import lands.
 
 ## 2026-09-07 — documentation restructure
 
@@ -20,8 +22,8 @@ Human-readable history. The detailed record, with measurements and decisions, is
 - Legacy examples `claims-agent` and `red-team-harness` removed; the template A/B evaluation
   evidence kept at `docs/evaluations/2026-08-template-ab/`.
 - CONTRIBUTING, CHANGELOG and SECURITY added.
-- Onboarding: prerequisites and the project-root rule up front, an audience router in the README, the
-  real GitLab clone URL, and an integrator's page that starts from the worked example.
+- Onboarding: prerequisites and the project-root rule up front, an audience router in the README,
+  and an integrator's page that starts from the worked example.
 
 ## Sessions recorded in `template/progress.md`
 

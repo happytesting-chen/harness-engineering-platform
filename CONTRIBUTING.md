@@ -28,11 +28,13 @@ python3 -m pytest tests -q      # or: run each tests/**/test_*.py directly
 python3 Security-kit/check_coverage.py
 ```
 
-CI asserts the baseline's exact error set and runs the full suite. The pipeline of record is
-`.gitlab-ci.yml` on GitLab Dedicated; `.github/workflows/harness-baseline.yml` is the same two jobs
-and is kept only while a GitHub copy of the repository exists — change both or delete the GitHub one. A merge request that changes
-the baseline must change `docs/superpowers/specs/2026-08-13-security-kit-build-design.md` §7.4.1
-in the same change.
+CI asserts the baseline's exact error set and runs the full suite. The pipeline of record today
+is `.github/workflows/harness-baseline.yml` on GitHub, where this repository lives.
+`.gitlab-ci.yml` is the same two jobs, prepared for a planned import to GitLab Dedicated (see
+[PROVENANCE.md](PROVENANCE.md)); once that import happens and PRs land there, it becomes the
+pipeline of record and the two are kept in step until the GitHub copy is retired. A pull request
+that changes the baseline must change
+`docs/superpowers/specs/2026-08-13-security-kit-build-design.md` §7.4.1 in the same change.
 
 ## What voids the signed verdict
 

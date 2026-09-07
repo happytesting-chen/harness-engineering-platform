@@ -15,7 +15,7 @@ Ten minutes, no API key.
 ## 1. Get the code
 
 ```bash
-git clone git@sgts.gitlab-dedicated.com:wog/csa/csacentral/ai-team/security-by-design_harness.git harness-engineering-platform
+git clone https://github.com/YuanSingapore/harness-engineering-platform.git harness-engineering-platform
 cd harness-engineering-platform
 ```
 
