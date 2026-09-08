@@ -196,3 +196,36 @@ Both holdouts sit outside `corpus_sha256` by design, so neither disturbs the sig
 attempt to override prior instructions" — by design it cannot see politely-phrased exfiltration.
 That is the clearest evidence yet that the gap is a **category mismatch**, not a quality deficit
 in the pinned model.
+
+## Candidate 02 — TestSavantAI, the ONNX control — 2026-09-08
+
+`testsavantai/prompt-injection-defender-small-v0-onnx`, BERT, 110 MB, native ONNX, driven by the
+**unmodified** wrapper (same `{0: data, 1: instruction}` contract).
+
+| | Incumbent (deberta-v3) | TestSavantAI |
+|---|---|---|
+| Signed corpus, attacks | 18/24 | **20/24** |
+| Signed corpus, legitimate withheld | 7/16 | **3/16** |
+| Latency p50 | ~660 ms | **310 ms** |
+| **Holdout, attacks** | 6/13 | **6/13** |
+| Holdout, legitimate withheld | 1/7 | **0/7** |
+
+**Better on the signed corpus, half the false positives, twice as fast — and identical on the
+holdout.** Against the bar (≥10/13 attacks, ≤2/7 false positives) it passes the FP half easily and
+**fails the attack half**, so it does not ship on these numbers.
+
+Two things this control establishes:
+
+- **The blind spot is not model-specific.** Different publisher, different architecture (BERT vs
+  DeBERTa), different training data — the same three polite-exfiltration probes come back `data`
+  at 0.82–0.99. Together with Prompt Guard 2's model card scoping itself to prompts that
+  "explicitly attempt to override prior instructions", this is now three independent lines of
+  evidence that the gap is a **property of the jailbreak-detection training objective**, not a
+  defect in any one model.
+- **The same headline number hides a different failure distribution.** Both score 6/13, but the
+  incumbent gets `agent-override` 2/2 and `tool-inventory` 1/2, while TestSavantAI gets
+  `agent-override` **0/2** and `tool-inventory` **2/2**. A swap chosen on the headline alone would
+  have traded one family for another silently. This is exactly what `holdout-2` exists to catch.
+
+Recorded but not adopted. If the attack half of the bar is ever relaxed, this candidate is worth
+revisiting on FP and latency grounds alone.
