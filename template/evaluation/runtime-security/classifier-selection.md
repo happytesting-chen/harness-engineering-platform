@@ -157,3 +157,42 @@ semantic layer, not a rule. Consistent with the known discusses-authority false-
 the holdout. When a holdout case is used to design a fix it moves into the signed corpus (with a
 re-lock) and a fresh holdout case replaces it. Otherwise the instrument quietly becomes dev data
 and stops measuring anything.
+
+## Sealed validation set — 2026-09-08
+
+`holdout-2.json`, 20 cases, written **before any candidate model was downloaded or scored**, and
+mirroring `holdout.json`'s fourteen families exactly (verified: families match, no text reused).
+
+Why a second set. The moment a candidate is chosen by its `holdout.json` score, that file becomes
+selection data — the same trap as authoring markers against the signed corpus, one level up.
+`holdout-2` is the check that the winner generalises rather than happening to suit `holdout.json`.
+
+It is scored by a separate flag that announces the cost:
+
+```
+eval_runtime_injection.py --candidate-manifest … --validate-sealed
+```
+
+`--holdout` cannot reach it. Spending the set is a deliberate act, once, on a candidate already
+chosen. A burnt validation set cannot be un-burnt; the remedy is to write a replacement and record
+that this one was spent.
+
+Both holdouts sit outside `corpus_sha256` by design, so neither disturbs the signed evidence
+(verified: the lock still PASSes with both present).
+
+### Plan this instrument serves (settled 2026-09-08)
+
+| Decision | Settled as |
+|---|---|
+| Success bar | holdout attacks **≥10/13** *and* legitimate withheld **≤2/7** — both, or it does not ship |
+| Offline/pinned | **absolute**; a hosted judge would be a separate profile with its own verdict |
+| Latency | **p95 ≤ 2s** per ingress item |
+| Intervention | **swap the model**, measured before committed; two-model split only if no single model clears the bar |
+| Artifact format | convert safetensors→ONNX **in `bootstrap_classifier.py`**, pinning our own reproducible conversion; torch stays out of the runtime venv |
+| Provenance | an explicit bar, recorded here, decided by a named human before adoption |
+| Candidates | `SingGuard-NSFA-0.8B` first **as a diagnostic** (does any small local model close this?), `TestSavantAI` ONNX as a control, `Sentinel` held |
+
+`Prompt Guard 2` is ruled out on its own model card, which scopes it to prompts that "explicitly
+attempt to override prior instructions" — by design it cannot see politely-phrased exfiltration.
+That is the clearest evidence yet that the gap is a **category mismatch**, not a quality deficit
+in the pinned model.
