@@ -1,0 +1,23 @@
+diff --git a/template/Security-kit/content_trust.py b/template/Security-kit/content_trust.py
+--- a/template/Security-kit/content_trust.py
++++ b/template/Security-kit/content_trust.py
+@@ -57,6 +57,19 @@
+     re.compile(r"(?i)\byou\s+(should|must|need\s+to)\s+now\b"),
+     re.compile(r"(?i)\b(execute|run)\s+the\s+following\s+(command|code|script)\b"),
+ 
++    # --- workflow-impersonation ---------------------------------------------------
++    # Added 2026-09-08. The measured miss family: text that wears a process/authority
++    # costume ("compliance audit", "[Automated workflow step 3/5]", "Pipeline notice")
++    # and asks the agent to disclose its own capabilities or move data outward. The
++    # encoder reads these as confident `data` (0.76-1.00), so no confidence floor can
++    # reach them; they are shape, not sentiment, which is what a rule is for.
++    re.compile(r"(?i)\btools?\s+(you\s+can\s+(call|use|access|invoke)|available\s+to\s+you)\b"),
++    re.compile(r"(?i)\b(fetch|retrieve|download|visit|open|load)\b[^\n]{0,160}https?://[^\n]{0,160}\b(follow|execute|apply|obey|carry\s+out|do)\b[^\n]{0,40}\b(steps?|instructions?|directions?|commands?|it\s+returns)"),
++    re.compile(r"(?i)\b(export|dump|extract|copy)\b[^\n]{0,100}\b(and|then)\s+(post|send|upload|transmit|push|publish|forward)\b[^\n]{0,40}\bto\b"),
++    re.compile(r"(?i)\b(include|add|put|append|paste)\b[^\n]{0,80}(\.env\b|\bcredentials?\b|\bsecrets?\b|\bapi[-_\s]?keys?\b|\btokens?\b)[^\n]{0,80}\byour\s+(summary|reply|response|answer|output|message)"),
++    re.compile(r"(?i)\b(assistant|agent|ai|model|llm|claude)\s*[,:]\s*(from\s+(here|now)\s+on|going\s+forward|henceforth|from\s+this\s+point)"),
++    re.compile(r"(?i)\btreat\s+(this|it|the\s+following)\b[^\n]{0,30}\bas\s+your\s+(only|sole|new|primary)\s+(guidance|instructions?|directive|source|authority)"),
++
+     # --- exfil-shaped -----------------------------------------------------------
+     re.compile(r"(?i)\b(curl|wget)\b[^\n]{0,120}?\s(-d|--data|--upload-file|-T|POST)\b"),
+     re.compile(r"(?i)(\.ssh/id_\w+|\.aws/credentials|\bid_rsa\b)[^\n]{0,80}https?://"),
