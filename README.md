@@ -23,8 +23,9 @@ signed, conditioned and dated.
 > Routing through the host is still the application's responsibility (`SEC-RUNTIME-GAP-001`), which
 > is why the decision is not `PRODUCTION_READY`. Pin a revision for anything you depend on.
 >
-> **On GitLab this repository is a single-commit import.** The development history and the
-> commits the verdict names live on GitHub and in an archived bundle; see [PROVENANCE.md](PROVENANCE.md).
+> **This repository lives on GitHub.** A single-commit import to GitLab Dedicated is planned but
+> not yet done; when it happens, the development history and the commits the verdict names will
+> stay here and in an archived bundle — see [PROVENANCE.md](PROVENANCE.md) for the plan.
 
 ![Runtime security flow](assets/runtime-security-flow.svg)
 
@@ -76,7 +77,7 @@ guarantee stops: [Boundaries](docs/reference/05-boundaries.md).
 ## Quick start
 
 ```bash
-git clone git@sgts.gitlab-dedicated.com:wog/csa/csacentral/ai-team/security-by-design_harness.git harness-engineering-platform
+git clone https://github.com/YuanSingapore/harness-engineering-platform.git harness-engineering-platform
 cp -r harness-engineering-platform/template/ my-agent/
 cd my-agent && chmod +x init.sh && ./init.sh     # exits 1 on a fresh copy — by design
 ```
@@ -150,7 +151,7 @@ at the project root, and only there.
 
 ## Contributing
 
-Merge requests only; protected paths are changed by a human applying a reviewed patch; the claims
+Pull requests only; protected paths are changed by a human applying a reviewed patch; the claims
 register is human-owned; mechanism code stays standard library. Details in
 [CONTRIBUTING.md](CONTRIBUTING.md). Vulnerabilities: [SECURITY.md](SECURITY.md).
 
