@@ -23,9 +23,9 @@ signed, conditioned and dated.
 > Routing through the host is still the application's responsibility (`SEC-RUNTIME-GAP-001`), which
 > is why the decision is not `PRODUCTION_READY`. Pin a revision for anything you depend on.
 >
-> **This repository lives on GitHub.** A single-commit import to GitLab Dedicated is planned but
-> not yet done; when it happens, the development history and the commits the verdict names will
-> stay here and in an archived bundle — see [PROVENANCE.md](PROVENANCE.md) for the plan.
+> **Two homes.** Development history lives on GitHub. GitLab Dedicated carries a single-commit
+> import of the same tree — no history there by design; the commits the verdict names resolve on
+> GitHub and in an archived bundle. See [PROVENANCE.md](PROVENANCE.md).
 
 ![Runtime security flow](assets/runtime-security-flow.svg)
 
