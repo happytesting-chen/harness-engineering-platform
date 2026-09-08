@@ -207,21 +207,27 @@ def verify_lock_mode(lock_path: Path) -> int:
 
 
 HOLDOUT_FILE = "holdout.json"
+SEALED_FILE = "holdout-2.json"
 
 
-def load_holdout() -> list:
+def load_holdout(filename: str = HOLDOUT_FILE) -> list:
     """The generalization holdout — deliberately NOT part of corpus_sha256.
 
     Patterns are authored against the signed corpus; this set is scored and never
     tuned toward. The gap between the two is the overfitting measurement, and a
     wide gap is the finding, not a failure of the run.
     """
-    doc = json.loads((CORPUS_DIR / HOLDOUT_FILE).read_text(encoding="utf-8"))
-    return [{**case, "file": HOLDOUT_FILE} for case in doc["cases"]]
+    doc = json.loads((CORPUS_DIR / filename).read_text(encoding="utf-8"))
+    return [{**case, "file": filename} for case in doc["cases"]]
 
 
-def run_holdout(manifest_path: Path) -> int:
-    """Score the holdout with the same rule and semantic path the signed corpus uses."""
+def run_holdout(manifest_path: Path, filename: str = HOLDOUT_FILE) -> int:
+    """Score a holdout with the same rule and semantic path the signed corpus uses."""
+    if filename == SEALED_FILE:
+        print("!! SEAL BREAK: holdout-2 is the sealed validation set. Scoring it is a one-time")
+        print("!! act to validate a candidate ALREADY chosen on holdout.json. If you are still")
+        print("!! selecting or tuning, stop: this run spends the set and it cannot be un-spent.")
+        print()
     manifest = json.loads(manifest_path.read_text(encoding="utf-8"))
     lock = SemanticModelLock(
         schema_version=1, protocol_version=1,
@@ -237,7 +243,7 @@ def run_holdout(manifest_path: Path) -> int:
         print(f"INELIGIBLE: {exc}")
         return 1
 
-    cases = load_holdout()
+    cases = load_holdout(filename)
     rows, by_family = [], {}
     for case in cases:
         rule = _rule_label(case)
@@ -253,7 +259,8 @@ def run_holdout(manifest_path: Path) -> int:
     atk = [r for r in rows if r["oracle"] == "instruction"]
     leg = [r for r in rows if r["oracle"] == "data"]
     rule_only = sum(1 for r in atk if r["rule"] == "instruction")
-    print(f"HOLDOUT ({len(rows)} cases, outside corpus_sha256 by design)")
+    label = "SEALED VALIDATION" if filename == SEALED_FILE else "HOLDOUT"
+    print(f"{label} ({len(rows)} cases, outside corpus_sha256 by design)")
     print(f"  attacks caught (combined) : {sum(r['caught'] for r in atk)}/{len(atk)}")
     print(f"  attacks caught (rule only): {rule_only}/{len(atk)}")
     print(f"  legitimate withheld       : {sum(r['caught'] for r in leg)}/{len(leg)}")
@@ -277,6 +284,9 @@ def main(argv=None) -> int:
     parser.add_argument("--verify", action="store_true")
     parser.add_argument("--holdout", action="store_true",
                         help="score the generalization holdout instead of the signed corpus")
+    parser.add_argument("--validate-sealed", action="store_true",
+                        help="score the SEALED validation set (holdout-2). One-time use, to validate a "
+                             "candidate already chosen on --holdout. Spends the set")
     parser.add_argument("--chunk-size", type=int, default=None,
                         help="chars per chunk for this run (default: ChunkPolicy default). "
                              "The classifier truncates at 512 tokens; a chunk larger than "
@@ -291,6 +301,8 @@ def main(argv=None) -> int:
 
     if args.lock and args.verify:
         return verify_lock_mode(args.lock)
+    if args.candidate_manifest and args.validate_sealed:
+        return run_holdout(args.candidate_manifest, SEALED_FILE)
     if args.candidate_manifest and args.holdout:
         return run_holdout(args.candidate_manifest)
     if args.candidate_manifest and args.output:

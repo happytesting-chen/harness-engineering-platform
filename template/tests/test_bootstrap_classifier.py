@@ -49,8 +49,17 @@ def test_bootstrap_module_is_stdlib_only():
 def test_source_pins_the_same_model_as_the_signed_lock_and_candidate_manifest():
     model = next(f for f in _SOURCE["files"] if f["local"].endswith("model.onnx"))
     assert model["sha256"] == _LOCK["model_sha256"]
-    manifest = json.loads(next((_ROOT / "evaluation/runtime-security/candidate-manifests").glob("*.json")).read_text())
-    assert model["sha256"] == manifest["model_sha256"]
+    # Select the manifest belonging to the PINNED candidate by name, never by glob order.
+    # This assertion used to take the first glob hit, which was correct only while exactly
+    # one candidate manifest existed. Adding candidates 02/03 broke it on Linux and not on
+    # macOS, because glob order is filesystem-dependent — it passed locally and failed CI.
+    manifest_dir = _ROOT / "evaluation/runtime-security/candidate-manifests"
+    matching = [json.loads(p.read_text()) for p in sorted(manifest_dir.glob("*.json"))
+                if json.loads(p.read_text()).get("name") == _SOURCE["candidate"]]
+    assert len(matching) == 1, (
+        f"expected exactly one manifest named {_SOURCE['candidate']!r}, found {len(matching)}"
+    )
+    assert model["sha256"] == matching[0]["model_sha256"]
     assert _SOURCE["classifier"]["confidence_floor"] == _LOCK["confidence_floor"]
 
 
