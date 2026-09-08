@@ -315,30 +315,47 @@ Three corrections to the first measurement, all of which matter:
   re-measured on representative deployment hardware before any optimisation is chosen**, because if
   the gap is thermal the target is wrong.
 
-### The options
+### The options, and the one recommended
 
-| | Closes latency | Removes torch | Cost | Blocker |
-|---|---|---|---|---|
-| **A. Quantise** | likely 2–3× | no | moderate | torch dynamic int8 has **no engine on this platform** — `NoQEngine` on `quantized::linear_prepack`, measured. Needs torchao or ONNX Runtime |
-| **B. Export backbone to ONNX** | enables A | **yes** | moderate | export may hit unsupported ops |
-| **C. Heads on a smaller backbone** | yes | depends | **high** | **head training data is not released** |
+> ## ▶ RECOMMENDED: **Option B — export the backbone to ONNX**, after a hardware re-measure
+>
+> **Status: recommended by the agent 2026-09-08, NOT yet decided.** No owner has signed off. When
+> a human chooses, record the decision, the date and the name here — a recommendation that quietly
+> becomes a decision is how the corpus overfitting happened.
 
-**C is ruled out, and not on cost.** The heads are trained against this backbone's 1024-dim
-embedding space, so moving them is retraining, not porting — and only the *evaluation* benchmarks
-are published (`inclusionAI/NSFA_Benchmarks`), explicitly deduplicated against the training set.
+| | Closes latency | Removes torch | Cost | Blocker | Verdict |
+|---|---|---|---|---|---|
+| A. Quantise | likely 2–3× | ✗ no | moderate | torch dynamic int8 has **no engine on this platform** — `NoQEngine` on `quantized::linear_prepack`, measured. Needs torchao or ONNX Runtime | **second, only if needed** |
+| **▶ B. Export backbone to ONNX** | **enables A** | **✓ yes** | moderate | export may hit unsupported ops | **▶ RECOMMENDED** |
+| C. Heads on a smaller backbone | yes | depends | **high** | **head training data is not released** | **✗ ruled out** |
+
+**Why B.** The heads need one forward pass for a last-token embedding — **no generation, no KV
+cache**. That is the easy case for decoder export; most ONNX difficulty with decoder models is
+autoregressive state this design never touches. B is also the only option that satisfies the Q7
+constraint by removing torch from the runtime, it keeps the existing wrapper contract unchanged,
+and it unlocks ONNX Runtime quantisation, which is A. So B is both the fix and the prerequisite
+for the fallback.
+
+**Why not A alone.** It leaves torch in the runtime venv, which is exactly what Q7 exists to
+prevent. A is a follow-on to B, not an alternative to it.
+
+**Why C is ruled out — on data, not cost.** The heads are trained against this backbone's 1024-dim
+embedding space, so moving them is retraining, not porting. Only the *evaluation* benchmarks are
+published (`inclusionAI/NSFA_Benchmarks`), explicitly deduplicated against the training set.
 Training heads on that data would be training on the eval set.
 
-**B is the strongest, for a reason specific to this use.** The heads need one forward pass for a
-last-token embedding — **no generation, no KV cache**. That is the easy case for decoder export;
-most ONNX difficulty with decoder models is autoregressive state this design never touches. B also
-removes torch from the runtime (the Q7 constraint), keeps the existing wrapper contract unchanged,
-and unlocks ONNX Runtime quantisation, which is A.
+### The recommended sequence, and what each step must prove
 
-**A alone does not satisfy the constraints** — it leaves torch in the runtime venv, which is what
-Q7 exists to prevent.
+| # | Step | Must prove before moving on |
+|---|---|---|
+| **0** | **Re-measure on representative deployment hardware** | Whether the budget miss is real. Burst passes (1498 ms); only sustained fails (p95 3692 ms), which points at laptop thermal throttling. **If step 0 passes on real hardware, B and A may both be unnecessary** — do not optimise before knowing this |
+| 1 | Export the backbone to ONNX, heads folded in or kept as numpy | Same verdicts as the torch path on `holdout.json` — an export that changes answers is a broken export, not a faster one |
+| 2 | Measure latency and accuracy again | p95 ≤ 2 s **and** ≥10/13 attacks, ≤2/7 legitimate withheld |
+| 3 | Only if step 2 misses latency: ONNX Runtime int8 | Same bar as step 2. Quantisation can degrade exactly the subtle semantic discrimination this model was chosen for — re-measure, never assume |
+| 4 | Validate the winner once on `holdout-2.json` | The seal is spent here, on the chosen candidate only |
 
-**Recommended sequence: measure on deployment hardware → B → A only if sustained latency still
-misses.** Provenance remains a separate, human decision and is not resolved by any of these.
+**Not resolved by any of this:** provenance. Ant Group publication is a separate human decision
+(settled plan, Q6) and no amount of engineering answers it.
 
 ### Incidental finding
 

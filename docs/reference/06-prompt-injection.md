@@ -51,8 +51,27 @@ evidence: our DeBERTa model, an unrelated BERT model from another publisher with
 failure, and Meta's Prompt Guard 2 card, which scopes itself to prompts that "explicitly attempt to
 override prior instructions" — polite exfiltration overrides nothing.
 
-A model that does close this gap exists and has been measured (12/13 on the same holdout), but it
-cannot ship under the current constraints. See
+## The gap is closable, and here is the intended path
+
+A model that closes it exists and has been measured: **12/13 on the same holdout, 0/7 false
+positives**, passing at every threshold from 0.3 to 0.7. It cannot ship as-is — 2.1 GB, needs torch
+at runtime, and p95 3692 ms against a 2 s budget.
+
+> **▶ Recommended path: export that model's backbone to ONNX, after re-measuring on deployment
+> hardware.** Recommended 2026-09-08, **not yet decided** — no owner has signed off.
+
+| Step | Why it is first |
+|---|---|
+| **0. Re-measure on real hardware** | Burst latency passes (1498 ms); only sustained load fails. That signature is thermal throttling on a laptop. **If it passes on deployment hardware, no optimisation is needed at all.** |
+| 1. Export backbone to ONNX | Removes torch from the runtime and unlocks quantisation. Feasible here specifically because the design needs one forward pass — no generation, no KV cache |
+| 2. Quantise, only if step 1 misses latency | A fallback, not the plan |
+
+Two options were rejected: quantising alone leaves torch in the runtime, and moving the classifier
+heads to a smaller backbone is retraining rather than porting, with training data that was never
+published. Provenance of the candidate model remains a separate human decision that no engineering
+step resolves.
+
+Full comparison, measurements and reasoning:
 [`classifier-selection.md`](../../template/evaluation/runtime-security/classifier-selection.md).
 
 ## What to do about it as a deployer
