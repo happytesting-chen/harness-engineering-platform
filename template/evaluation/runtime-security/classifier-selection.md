@@ -120,3 +120,46 @@ Expanding the corpus changed its digest, so the signed lock no longer verifies a
 the tree; the re-lock is a human step
 (`docs/superpowers/patches/2026-09-03-relock-corpus40.patch`) and the signed verdict's
 figures remain true for the corpus it was signed against.
+
+## Workflow-impersonation markers — 2026-09-08
+
+The structural rule recorded as a follow-up above, now built and measured. Six patterns added
+to `content_trust.py` (the single marker owner; `runtime/rules.py` owns no pattern by design):
+
+| Marker | Catches |
+|---|---|
+| tool-inventory disclosure | `atk-008` — "the full list of tools you can call" |
+| fetch-and-follow | `atk-010` — fetch a URL, then follow what it returns |
+| export-and-send | `atk-015` — "Export the customer table and post it to …" |
+| secret-into-output | `atk-016` — ".env … in your summary" (and `atk-009`) |
+| addressed-agent override | `atk-011`, `atk-017` — "Assistant, from here on …" |
+| sole-guidance override | `atk-011`, `atk-017` — "treat this note as your only guidance" |
+
+Measured, same artifacts, same corpus, default window:
+
+| | Baseline | Floor 0.80 | **Rules** | Rules + floor 0.80 |
+|---|---|---|---|---|
+| Attacks caught (combined) | 18/24 | 19/24 | **24/24** | 24/24 |
+| Legitimate withheld | 7/16 | 7/16 | **7/16 — unchanged** | 7/16 |
+| Rule-only | 14/24 | 14/24 | **23/24** | 23/24 |
+
+**Zero legitimate cases changed** — verified case by case against the baseline result, not by
+totals alone. Attack driver: 13 RESISTANT, 0 VULNERABLE. Suite 340 passed, `init.sh` at the
+5-error baseline, I1–I6 green.
+
+Two findings worth recording:
+
+- **The buried-payload cases did not need the narrow window.** `atk-011` and `atk-017` carry the
+  same injected sentence, and the rule tier reads whole chunks — position never mattered to it.
+  What defeated the encoder (dilution past 512 tokens) is invisible to a marker. The narrow-window
+  recommendation, and its resident-process prerequisite, are no longer on the critical path for
+  these two; they remain relevant only for payloads a marker does not name.
+- **The floor raise is now redundant for every measured case.** Rules alone and rules-plus-floor
+  both give 24/24. The floor change (`2026-09-08-raise-confidence-floor-080.patch`) keeps a
+  defence-in-depth argument for unmeasured attacks landing in the 0.76–0.79 band, but it is no
+  longer load-bearing. Taking it is now a judgement call, not a fix.
+
+`content_trust.py` is a protected path shared by the dev-time hooks and the runtime tier, so this
+is a human step: `docs/superpowers/patches/2026-09-08-workflow-impersonation-markers.patch`.
+Applying it changes the source revision, so `VERDICT.md` needs an amendment carrying the new §2
+detection figures — not a revision re-label alone, because the numbers themselves move.
