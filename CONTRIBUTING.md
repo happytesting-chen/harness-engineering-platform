@@ -5,7 +5,8 @@ template repository. They exist to keep every documented claim provable.
 
 ## Ground rules
 
-- **Everything lands through a merge request.** No direct pushes to `main`, including from agents.
+- **Everything lands through a pull request.** No direct pushes to `main`, including from agents.
+  (This becomes "merge request" once the repository is on GitLab — see [PROVENANCE.md](PROVENANCE.md).)
 - **Protected paths are never edited by an agent.** The set is defined in code, not here:
   `BUILTIN_PROTECTED_PATHS` in `template/governance/permission.py` and the path entries in
   `template/governance/deny-list.json` — the governance policy files and dispatcher, the Security-kit
@@ -19,7 +20,7 @@ template repository. They exist to keep every documented claim provable.
 - **Numbers come from a run, not from memory.** Any figure in a document names the command that
   produced it. If a number moves, the document that quotes it moves in the same change.
 
-## Before you open a merge request
+## Before you open a pull request
 
 ```bash
 cd template

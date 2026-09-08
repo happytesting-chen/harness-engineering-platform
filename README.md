@@ -151,7 +151,7 @@ at the project root, and only there.
 
 ## Contributing
 
-Merge requests only; protected paths are changed by a human applying a reviewed patch; the claims
+Pull requests only; protected paths are changed by a human applying a reviewed patch; the claims
 register is human-owned; mechanism code stays standard library. Details in
 [CONTRIBUTING.md](CONTRIBUTING.md). Vulnerabilities: [SECURITY.md](SECURITY.md).
 
