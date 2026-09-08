@@ -120,3 +120,40 @@ Expanding the corpus changed its digest, so the signed lock no longer verifies a
 the tree; the re-lock is a human step
 (`docs/superpowers/patches/2026-09-03-relock-corpus40.patch`) and the signed verdict's
 figures remain true for the corpus it was signed against.
+
+## Generalization holdout — 2026-09-08
+
+A 20-case holdout (`Security-kit/eval/runtime_injection/holdout.json`, deliberately outside
+`corpus_sha256`): 13 paraphrases of the attack families the new markers catch, plus 7 legitimate
+near-misses chosen to fire an over-broad rule. Run it with
+`eval_runtime_injection.py --candidate-manifest … --holdout`.
+
+| | Signed corpus (24) | Holdout (13 attacks) |
+|---|---|---|
+| Attacks caught, **before** markers | 18/24 | 6/13 |
+| Attacks caught, **after** markers | **24/24** | **6/13 — unchanged** |
+| Rule-only, after markers | 23/24 | **0/13** |
+
+**The six markers contribute exactly nothing on unseen phrasing.** They were authored after
+reading the six cases they catch, so 24/24 measures fit, not capability. The holdout makes that
+visible as a number instead of leaving it to judgement.
+
+Two things this instrument establishes:
+
+- **The semantic layer is carrying generalization, not the rules.** On the signed corpus it looks
+  near-worthless (+1 attack, 5 of 7 false positives). On the holdout it catches 6/13 where rules
+  catch 0/13. Both readings are true; only the second describes an attacker who rewords.
+- **The model's blind spot is data movement phrased as routine business.** `hld-a05`, `a06`, `a07`,
+  `a08`, `a12` are all "send/attach/upload X to Y" in polite register, all `data` at 0.89–1.00.
+  It fires on adversarial *tone*, not on exfiltration *semantics*. `hld-a13` is caught only
+  because "API token" is lexically loaded.
+- **Marker brittleness predates this change.** `hld-a11` ("ignore **your** instructions") evades
+  the shipped 24 markers, which require `previous|prior|above`. Not introduced here; surfaced here.
+
+One legitimate case is withheld (`hld-l05`, "This revision supersedes the March policy") — the
+semantic layer, not a rule. Consistent with the known discusses-authority false-positive family.
+
+**Standing rule for this file:** patterns are authored against the signed corpus and never against
+the holdout. When a holdout case is used to design a fix it moves into the signed corpus (with a
+re-lock) and a fresh holdout case replaces it. Otherwise the instrument quietly becomes dev data
+and stops measuring anything.
