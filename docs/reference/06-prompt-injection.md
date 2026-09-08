@@ -54,21 +54,26 @@ override prior instructions" — polite exfiltration overrides nothing.
 ## The gap is closable, and here is the intended path
 
 A model that closes it exists and has been measured: **12/13 on the same holdout, 0/7 false
-positives**, passing at every threshold from 0.3 to 0.7. It cannot ship as-is — 2.1 GB, needs torch
-at runtime, and p95 3692 ms against a 2 s budget.
+positives**, passing at every threshold from 0.3 to 0.7. It cannot ship as-is: 2.1 GB, and it needs
+torch at runtime, which the runtime venv deliberately excludes.
 
-> **▶ Recommended path: export that model's backbone to ONNX, after re-measuring on deployment
-> hardware.** Recommended 2026-09-08, **not yet decided** — no owner has signed off.
+Latency is *not* among the reasons. An earlier note here said p95 3692 ms against a 2 s budget;
+that was a measurement taken while the machine was under load. Re-measured three times it is
+**p95 ~1500 ms, inside the budget.**
 
-| Step | Why it is first |
+> **▶ Chosen path: export that model's backbone to ONNX.** Decided 2026-09-08 by
+> shi_yuan@csa.gov.sg. The reason is the **torch dependency**, not speed — the export is what lets
+> a capable model run inside a runtime that carries no third-party ML stack.
+
+| Step | Purpose |
 |---|---|
-| **0. Re-measure on real hardware** | Burst latency passes (1498 ms); only sustained load fails. That signature is thermal throttling on a laptop. **If it passes on deployment hardware, no optimisation is needed at all.** |
-| 1. Export backbone to ONNX | Removes torch from the runtime and unlocks quantisation. Feasible here specifically because the design needs one forward pass — no generation, no KV cache |
-| 2. Quantise, only if step 1 misses latency | A fallback, not the plan |
+| 1. Export backbone to ONNX | Removes torch from the runtime. Feasible here specifically because the design needs one forward pass — no generation, no KV cache |
+| 2. Re-measure accuracy on the holdout | An export that changes answers is a broken export, not a faster one |
+| 3. Confirm latency on deployment hardware | Expected to pass — it already does on a laptop — but confirmed rather than assumed |
 
-Two options were rejected: quantising alone leaves torch in the runtime, and moving the classifier
-heads to a smaller backbone is retraining rather than porting, with training data that was never
-published. Provenance of the candidate model remains a separate human decision that no engineering
+Two options were rejected: quantising alone leaves torch in the runtime (and is now unnecessary,
+since latency passes), and moving the classifier heads to a smaller backbone is retraining rather
+than porting, with training data that was never published. Provenance of the candidate model remains a separate human decision that no engineering
 step resolves.
 
 Full comparison, measurements and reasoning:

@@ -301,7 +301,8 @@ unless stated:
 | bf16, 4 threads | 2154 ms | fail |
 | fp16, 4 threads | 1842 ms | pass |
 | fp32, **8 threads** | 3590 ms | fail — 2.4× worse |
-| Sustained 20-case run | p50 2584, **p95 3692** | fail |
+| Sustained 20-case run, first attempt | p50 2584, p95 3692 | **measurement error — see correction** |
+| Sustained 20-case run, re-measured ×3 | p50 1232–1483, **p95 1462–1563** | **pass** |
 
 Three corrections to the first measurement, all of which matter:
 
@@ -310,18 +311,24 @@ Three corrections to the first measurement, all of which matter:
   already, so it was not inflated by dtype — but the assumption that bf16 would be faster was wrong.
 - **Four threads is optimal because there are four performance cores.** Raising it to eight spills
   onto efficiency cores and costs 2.4×. The default was already right; tuning it makes things worse.
-- **Burst passes, sustained fails.** 1.5 s for a single warm call against p95 3692 ms across a
-  20-case run is thermal throttling on laptop silicon, not a property of the model. **This should be
-  re-measured on representative deployment hardware before any optimisation is chosen**, because if
-  the gap is thermal the target is wrong.
+- **CORRECTION 2026-09-08: the sustained figure was wrong, and it was load-bare.** The original
+  p50 2584 / p95 3692 ms was taken immediately after a 2.1 GB download, with the machine under
+  memory and I/O pressure. Re-run three times since — including the *identical script on the
+  identical input* — it gives p50 1232–1483 ms, **p95 1462–1563 ms. SingGuard passes the 2 s budget
+  on this laptop.** Three runs agree; the outlier was the first. The lesson is the one this project
+  keeps relearning: a single measurement taken under unknown machine state is not a measurement.
 
 ### The options, and the one recommended
 
 > ## ▶ RECOMMENDED: **Option B — export the backbone to ONNX**, after a hardware re-measure
 >
-> **Status: recommended by the agent 2026-09-08, NOT yet decided.** No owner has signed off. When
-> a human chooses, record the decision, the date and the name here — a recommendation that quietly
-> becomes a decision is how the corpus overfitting happened.
+> **DECIDED 2026-09-08 by shi_yuan@csa.gov.sg.** Option B is the path.
+>
+> **Rationale corrected the same day.** The decision was taken partly on a latency figure that
+> turned out to be a measurement error (p95 3692 ms; the true figure is ~1500 ms — see the
+> correction above). **The decision still stands, but for one reason instead of two:** SingGuard
+> requires torch at runtime, and Q7 keeps torch out of the runtime venv. Latency is no longer a
+> justification for B, and **option A (quantisation) is now unnecessary rather than a fallback.**
 
 | | Closes latency | Removes torch | Cost | Blocker | Verdict |
 |---|---|---|---|---|---|
@@ -348,10 +355,10 @@ Training heads on that data would be training on the eval set.
 
 | # | Step | Must prove before moving on |
 |---|---|---|
-| **0** | **Re-measure on representative deployment hardware** | Whether the budget miss is real. Burst passes (1498 ms); only sustained fails (p95 3692 ms), which points at laptop thermal throttling. **If step 0 passes on real hardware, B and A may both be unnecessary** — do not optimise before knowing this |
+| **0** | Re-measure on representative deployment hardware | ~~Whether the budget miss is real~~ **Already answered on the laptop: p95 ~1500 ms, passes.** Still worth confirming on the deployment host, but it is **no longer a gate on B** — B is required by the torch constraint, not by latency |
 | 1 | Export the backbone to ONNX, heads folded in or kept as numpy | Same verdicts as the torch path on `holdout.json` — an export that changes answers is a broken export, not a faster one |
 | 2 | Measure latency and accuracy again | p95 ≤ 2 s **and** ≥10/13 attacks, ≤2/7 legitimate withheld |
-| 3 | Only if step 2 misses latency: ONNX Runtime int8 | Same bar as step 2. Quantisation can degrade exactly the subtle semantic discrimination this model was chosen for — re-measure, never assume |
+| 3 | ~~ONNX Runtime int8~~ **dropped** | Was a fallback for a latency problem that does not exist. Reinstate only if deployment hardware is materially slower than this laptop |
 | 4 | Validate the winner once on `holdout-2.json` | The seal is spent here, on the chosen candidate only |
 
 **Not resolved by any of this:** provenance. Ant Group publication is a separate human decision
