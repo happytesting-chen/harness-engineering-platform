@@ -1,9 +1,8 @@
 # Provenance
 
-This repository lives on GitHub today, with full development history. A **single-commit import**
-to GitLab Dedicated is planned but not yet performed. This file records the plan and, once the
-import happens, becomes the record of what was imported and how to check that nothing changed
-on the way — a note at that point will mark it done.
+This repository's development history lives on GitHub. On GitLab Dedicated it is a
+**single-commit import**: one signed commit carrying the whole tree, no history. This file records
+what was imported and how to verify nothing changed on the way.
 
 ## Why one commit
 
@@ -23,17 +22,23 @@ to import the current tree as one signed commit and keep the history where it wa
 
 | Fact | Value |
 |---|---|
-| Content baseline the import will use | commit `ed85cc9f3e8a53a018b09bbab9094b02a75258cb` ("Merge pull request #19"), 2026-09-07 — **superseded by whatever `main` is at import time**; re-derive the two hashes below before importing |
-| Tree hash of that baseline | `3178d0f41abcc870feca7b5eb59c57dbccffde89` |
+| Content baseline on GitHub | commit `a71354fca66e4561e874d1117f594ae60fd19d1d` ("Merge pull request #22"), plus the commit adding this record |
 | Tree hash of `template/Security-kit/runtime/` (the verdict's C-5 artifacts) | `b1cd95d49288af391b45f3b9ccf8793ee0ea093e` |
-| Import date | not yet performed |
+| Import date | 2026-09-08 |
 
-Once the import is done, verify it against the baseline above, in either repository:
+The C-5 tree hash is the anchor, deliberately: it is stable across the commit that writes this
+file, whereas a root-tree hash would not be. It is also the only hash the signed verdict depends
+on. It has not changed since 2026-09-07 despite substantial work either side of it — the runtime
+modules the verdict scopes were never touched.
+
+Verify the import against the baseline, in either repository:
 
 ```bash
-git rev-parse HEAD:template/Security-kit/runtime      # must print b1cd95d4… for the C-5 tree
-git rev-parse HEAD^{tree}                              # differs from 3178d0f4… only by this file and the CHANGELOG line that names it
+git rev-parse HEAD:template/Security-kit/runtime      # must print b1cd95d4… in both
 ```
+
+If that matches, the artefacts the verdict judges are byte-identical in both places, whatever the
+commit identifiers say.
 
 ## What this means for the signed verdict
 
