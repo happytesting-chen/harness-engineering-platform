@@ -24,6 +24,7 @@ Building an agent inside a copied template — the eight steps and the live runt
 | [03 Deployed runtime](reference/03-deployed-runtime.md) | How does it fire in the application I ship? The host, the semantic tier, receipts, audit |
 | [04 Claims and evidence](reference/04-claims-and-evidence.md) | How do I know any of this is true? The claims plane, then how evidence is produced and signed |
 | [05 Boundaries](reference/05-boundaries.md) | Where does the guarantee stop? |
+| [06 Prompt injection](reference/06-prompt-injection.md) | What actually stops prompt injection, and how good is detection really? |
 | [Appendix: directory map](reference/appendix-directory-map.md) | Where is everything? Every file, what edits it, what tests it |
 
 ## Evidence — measured, signed, dated

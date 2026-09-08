@@ -23,8 +23,9 @@ signed, conditioned and dated.
 > Routing through the host is still the application's responsibility (`SEC-RUNTIME-GAP-001`), which
 > is why the decision is not `PRODUCTION_READY`. Pin a revision for anything you depend on.
 >
-> **On GitLab this repository is a single-commit import.** The development history and the
-> commits the verdict names live on GitHub and in an archived bundle; see [PROVENANCE.md](PROVENANCE.md).
+> **This repository lives on GitHub.** A single-commit import to GitLab Dedicated is planned but
+> not yet done; when it happens, the development history and the commits the verdict names will
+> stay here and in an archived bundle — see [PROVENANCE.md](PROVENANCE.md) for the plan.
 
 ![Runtime security flow](assets/runtime-security-flow.svg)
 
@@ -53,7 +54,7 @@ guarantee stops: [Boundaries](docs/reference/05-boundaries.md).
 | **[Controls tied to tests](docs/reference/04-claims-and-evidence.md)** | Every mechanical security claim names its implementation and its proof. Six invariants each catch a different way that could stop being true — an unimplemented claim, an orphaned control, a proof nobody runs, an incomplete register row, a requirement nothing serves, a drafter missing its guardrails — and the coverage gate fails on any of them. |
 | **[Reproducible, time-bound evidence](template/evaluation/runtime-security/)** | Attack cases are scored on whether the harmful side effect actually happened, never on a component's own report; re-running the driver reproduces the same trace byte for byte, and the verdict replays from that stored trace alone, no model or classifier involved. The signed verdict is tied to one revision and configuration, carries deployment conditions, and expires. |
 | **[Unsecured copies cannot pass](docs/guide/01-getting-started.md)** | A fresh copy starts with a five-error baseline, on purpose, and reaches `PASS` only when the project and policy information is complete and every applicable control is mapped to real verification. |
-| **[Verified local injection detection](docs/guide/03-bring-your-own-classifier.md)** | The classifier is benchmarked, human-approved and locked to executable, model and corpus digests. Startup verifies the local artifacts and refuses drift; each deployment provisions its own approved classifier. |
+| **[Injection detection, honestly measured](docs/reference/06-prompt-injection.md)** | Two layers — 24 regex markers and a pinned, digest-verified local classifier — screen untrusted text before the model reads it. Measured: **24/24 attacks on the corpus the rules were written against, 6/13 on reworded ones**. Detection is not the control; the action gate is, and it holds when the classifier is fooled. |
 | **[Minimal, pinned dependencies](CONTRIBUTING.md)** | The controls, the hooks and the health check import nothing outside the Python standard library. The one external dependency set is the injection classifier: an isolated subprocess with 20 pinned packages and a digest-pinned model, provisioned per deployment. `pytest` is optional; every test also runs without it. |
 
 ## New here? Start where you stand
@@ -76,7 +77,7 @@ guarantee stops: [Boundaries](docs/reference/05-boundaries.md).
 ## Quick start
 
 ```bash
-git clone git@sgts.gitlab-dedicated.com:wog/csa/csacentral/ai-team/security-by-design_harness.git harness-engineering-platform
+git clone https://github.com/YuanSingapore/harness-engineering-platform.git harness-engineering-platform
 cp -r harness-engineering-platform/template/ my-agent/
 cd my-agent && chmod +x init.sh && ./init.sh     # exits 1 on a fresh copy — by design
 ```
@@ -150,7 +151,7 @@ at the project root, and only there.
 
 ## Contributing
 
-Merge requests only; protected paths are changed by a human applying a reviewed patch; the claims
+Pull requests only; protected paths are changed by a human applying a reviewed patch; the claims
 register is human-owned; mechanism code stays standard library. Details in
 [CONTRIBUTING.md](CONTRIBUTING.md). Vulnerabilities: [SECURITY.md](SECURITY.md).
 

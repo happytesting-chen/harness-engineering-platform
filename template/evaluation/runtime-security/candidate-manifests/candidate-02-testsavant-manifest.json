@@ -1,0 +1,10 @@
+{
+ "name": "candidate-02-testsavantai-prompt-injection-defender-small-v0-onnx",
+ "executable_path": "/Users/yuan/Work/03_Security-Program/Harness-Engineering-AI/.classifier-candidates/wrapper.py",
+ "executable_sha256": "dac29ab7c084413715491451025d97f6ba9a3e76021c04e12b5cddb42ed7cb2d",
+ "model_path": "/Users/yuan/Work/03_Security-Program/Harness-Engineering-AI/.classifier-candidates/candidate-02-testsavant/model.onnx",
+ "model_sha256": "7cf77ec204721d8178bfc8826b763774f2138d95e3380f4a460629aae21455c7",
+ "timeout_ms": 30000,
+ "confidence_floor": 0.75,
+ "notes": "testsavantai/prompt-injection-defender-small-v0-onnx, BertForSequenceClassification, 110MB, native ONNX (no conversion). Downloaded 2026-09-08. HF downloads at time of test: 235. Tested as the ONNX-native CONTROL in the category-mismatch investigation."
+}
