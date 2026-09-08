@@ -1,0 +1,13 @@
+diff --git a/template/Security-kit/runtime/semantic-model.lock.json b/template/Security-kit/runtime/semantic-model.lock.json
+--- a/template/Security-kit/runtime/semantic-model.lock.json
++++ b/template/Security-kit/runtime/semantic-model.lock.json
+@@ -6,7 +6,7 @@
+   "model_path": "/Users/yuan/Work/03_Security-Program/Harness-Engineering-AI/.classifier-candidates/candidate-01/model.onnx",
+   "model_sha256": "f0ea7f239f765aedbde7c9e163a7cb38a79c5b8853d3f76db5152172047b228c",
+   "corpus_sha256": "eab8bdf8d3458a19e4bf7acc137a78084298039359e440fdbe094938c4a75dc0",
+-  "confidence_floor": 0.75,
++  "confidence_floor": 0.80,
+   "approved_by": "shi_yuan@csa.gov.sg",
+-  "approved_date": "2026-09-03"
++  "approved_date": "2026-09-08"
+ }
