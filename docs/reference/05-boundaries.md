@@ -31,3 +31,7 @@ links to the full statement.
   `pytest` is needed only for the full suite.
 
 ---
+
+For the specific case of prompt injection — what the two detection layers catch, what they
+demonstrably miss, and why the action gate rather than detection is the guarantee — see
+[Prompt injection](06-prompt-injection.md).

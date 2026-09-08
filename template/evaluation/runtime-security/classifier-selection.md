@@ -288,3 +288,61 @@ can be trained on any frozen backbone, which makes the last option worth costing
 own `head_config` and state shapes. Any error here would show as noise, not as the clean 0.9+/0.000
 separation observed, but the wiring is worth re-checking independently before anything is decided
 on these numbers.
+
+## Making SingGuard deployable — the three options, costed — 2026-09-08
+
+Measured on the operator's machine (10 logical cores, **4 performance cores**), one-sentence probe
+unless stated:
+
+| Configuration | p50 | Against the 2 s budget |
+|---|---|---|
+| fp32, 4 threads, 41 tok | **1498 ms** | pass |
+| fp32, 4 threads, 221 tok | **1908 ms** | pass |
+| bf16, 4 threads | 2154 ms | fail |
+| fp16, 4 threads | 1842 ms | pass |
+| fp32, **8 threads** | 3590 ms | fail — 2.4× worse |
+| Sustained 20-case run | p50 2584, **p95 3692** | fail |
+
+Three corrections to the first measurement, all of which matter:
+
+- **fp32 is the fastest dtype on this CPU**, despite the model being bf16 native. bf16 and fp16
+  have no fast CPU kernels here and are emulated. The original 2584 ms figure was taken in fp32
+  already, so it was not inflated by dtype — but the assumption that bf16 would be faster was wrong.
+- **Four threads is optimal because there are four performance cores.** Raising it to eight spills
+  onto efficiency cores and costs 2.4×. The default was already right; tuning it makes things worse.
+- **Burst passes, sustained fails.** 1.5 s for a single warm call against p95 3692 ms across a
+  20-case run is thermal throttling on laptop silicon, not a property of the model. **This should be
+  re-measured on representative deployment hardware before any optimisation is chosen**, because if
+  the gap is thermal the target is wrong.
+
+### The options
+
+| | Closes latency | Removes torch | Cost | Blocker |
+|---|---|---|---|---|
+| **A. Quantise** | likely 2–3× | no | moderate | torch dynamic int8 has **no engine on this platform** — `NoQEngine` on `quantized::linear_prepack`, measured. Needs torchao or ONNX Runtime |
+| **B. Export backbone to ONNX** | enables A | **yes** | moderate | export may hit unsupported ops |
+| **C. Heads on a smaller backbone** | yes | depends | **high** | **head training data is not released** |
+
+**C is ruled out, and not on cost.** The heads are trained against this backbone's 1024-dim
+embedding space, so moving them is retraining, not porting — and only the *evaluation* benchmarks
+are published (`inclusionAI/NSFA_Benchmarks`), explicitly deduplicated against the training set.
+Training heads on that data would be training on the eval set.
+
+**B is the strongest, for a reason specific to this use.** The heads need one forward pass for a
+last-token embedding — **no generation, no KV cache**. That is the easy case for decoder export;
+most ONNX difficulty with decoder models is autoregressive state this design never touches. B also
+removes torch from the runtime (the Q7 constraint), keeps the existing wrapper contract unchanged,
+and unlocks ONNX Runtime quantisation, which is A.
+
+**A alone does not satisfy the constraints** — it leaves torch in the runtime venv, which is what
+Q7 exists to prevent.
+
+**Recommended sequence: measure on deployment hardware → B → A only if sustained latency still
+misses.** Provenance remains a separate, human decision and is not resolved by any of these.
+
+### Incidental finding
+
+`inclusionAI/NSFA_Benchmarks` is a released evaluation set drawn from AgentDojo, InjecAgent,
+AgentHarm, AgentDyn and ATBench. It is independent of this project and of the vendor's own training
+data by construction, which makes it a candidate **external** benchmark for the corpus work —
+useful regardless of whether SingGuard is ever adopted.
