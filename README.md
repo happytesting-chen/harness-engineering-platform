@@ -56,7 +56,7 @@ chmod +x init.sh
 ./init.sh
 ```
 
-### What is the health check?
+### What is the health check?(need to double check later!)
 
 The health check checks whether the project has been properly configured and whether the required project and security checks pass.
 
@@ -93,6 +93,10 @@ At this stage, **FAIL is the correct result**. Continue to Step 2.
 
 ## Step 2 - Describe and Clarify the Product
 
+-- developer need to go where to describe the product?? in the chatting box with coding assistant or need to modify some file? if needed, which file? if need coding assistant prompt to ask questions, how would coding assistant know that he should ask questions? and ask which kind of questions? any files for coding assistant to follow?
+
+-- coding assistant clarify the product, how could coding assistant know that he should clarify the product, coding assistant will read which file first, the steps for coding assistant to follow is this main readme.md? 
+
 Before coding starts, describe what you want to build.
 
 The developer does not need to provide a complete technical specification at the beginning. Start with the product idea.
@@ -103,7 +107,7 @@ For example:
 
 ### Coding Assistant Clarifies the Requirements
 
-The coding assistant should read the product description and ask questions when important information is missing.
+The coding assistant should read the product description and ask questions when important information is missing. (the same, coding assistant should read, but which file is asking coding assistand to read, and after that do what, which file is for coding assistant to read?)
 
 For example:
 
@@ -137,6 +141,8 @@ Developer says:
 The developer describes what the product needs. The Secure Template and coding assistant translate those requirements into the appropriate product implementation.
 
 ## Step 3 - Record the Requirements in Context/
+???? who will record the requirement in context, will coding assistant record this?
+
 
 The clarified requirements should be recorded under:
 
