@@ -2,7 +2,7 @@
 
 ## What is this project?
 
-This project helps developers build AI applications and AI agents securely without having to design the security architecture from scratch.
+This project helps developers build AI applications securely without having to design the security architecture from scratch.
 
 The goal is simple:
 
