@@ -56,7 +56,9 @@ chmod +x init.sh
 ./init.sh
 ```
 
-### What is the health check?(need to double check later!)
+### What is the health check?
+
+<span style="color:blue"><strong>TO BE CLARIFIED:</strong> What exactly does the initial health check verify, which checks are expected to fail on a fresh template, and what must be completed before the health check can PASS?</span>
 
 The health check checks whether the project has been properly configured and whether the required project and security checks pass.
 
@@ -93,9 +95,17 @@ At this stage, **FAIL is the correct result**. Continue to Step 2.
 
 ## Step 2 - Describe and Clarify the Product
 
--- developer need to go where to describe the product?? in the chatting box with coding assistant or need to modify some file? if needed, which file? if need coding assistant prompt to ask questions, how would coding assistant know that he should ask questions? and ask which kind of questions? any files for coding assistant to follow?
+<span style="color:blue"><strong>TO BE CLARIFIED — Where does the developer describe the product?</strong></span>
 
--- coding assistant clarify the product, how could coding assistant know that he should clarify the product, coding assistant will read which file first, the steps for coding assistant to follow is this main readme.md? 
+<span style="color:blue">After copying the Secure Template, where should the developer provide the initial product description? Should the developer describe the product directly in the chat with the coding assistant, or should the developer first write the description into a specific project file? If a file is required, which file should be used? If the product description starts in the chat, should the coding assistant then record the clarified requirements into the appropriate project files?</span>
+
+<span style="color:blue"><strong>TO BE CLARIFIED — How does the coding assistant know that clarification is required?</strong></span>
+
+<span style="color:blue">What tells the coding assistant that it must clarify the product requirements before starting substantial development? Is there a specific instruction file, prompt, command, or workflow that triggers this behavior? What categories of questions should the coding assistant ask, such as product functions, LLM/framework, required tools, external systems, data sources, credentials, deployment environment, and security-relevant requirements? Is there an existing file or checklist that defines these clarification questions?</span>
+
+<span style="color:blue"><strong>TO BE CLARIFIED — Which instructions does the coding assistant follow first?</strong></span>
+
+<span style="color:blue">When the coding assistant first opens a newly copied project, which file is it expected to read first? What tells it to follow the sequence of understanding the product, clarifying requirements, recording the requirements, developing the application, and completing the required verification? Is this root `README.md` intended mainly for the human developer, or is it also intended to control the coding assistant's workflow? If `README.md` is mainly developer documentation, which file contains the authoritative instructions that the coding assistant must follow?</span>
 
 Before coding starts, describe what you want to build.
 
@@ -107,7 +117,11 @@ For example:
 
 ### Coding Assistant Clarifies the Requirements
 
-The coding assistant should read the product description and ask questions when important information is missing. (the same, coding assistant should read, but which file is asking coding assistand to read, and after that do what, which file is for coding assistant to read?)
+<span style="color:blue"><strong>TO BE CLARIFIED — What tells the coding assistant to perform this step?</strong></span>
+
+<span style="color:blue">Which project instruction tells the coding assistant to read the product description and ask questions when information is incomplete? Which files must it read before asking those questions, and where is the required reading order defined? After clarification is complete, what instruction tells the coding assistant what to do next?</span>
+
+The coding assistant should read the product description and ask questions when important information is missing.
 
 For example:
 
@@ -141,8 +155,10 @@ Developer says:
 The developer describes what the product needs. The Secure Template and coding assistant translate those requirements into the appropriate product implementation.
 
 ## Step 3 - Record the Requirements in Context/
-???? who will record the requirement in context, will coding assistant record this?
 
+<span style="color:blue"><strong>TO BE CLARIFIED — Who records the requirements in `Context/`?</strong></span>
+
+<span style="color:blue">After the developer and coding assistant clarify the product, who is responsible for updating the files under `Context/`? Should the coding assistant automatically write the agreed requirements into these files, or does the developer need to update them manually? If the coding assistant is responsible, what instruction tells it which `Context/` file each type of requirement belongs in?</span>
 
 The clarified requirements should be recorded under:
 
@@ -191,6 +207,14 @@ The coding assistant should use `Context/` when building the application.
 If important information is missing, it should ask the developer rather than silently guessing.
 
 ## Step 4 - Coding Assistant Develops the AI Application
+
+<span style="color:blue"><strong>TO BE CLARIFIED — How does the coding assistant know that it is ready to start development?</strong></span>
+
+<span style="color:blue">How does the coding assistant determine that the product requirements are sufficiently complete and development can begin? What prevents it from making assumptions and starting to code while important requirements are still unresolved? Is there a defined checkpoint, status, command, or instruction that marks the transition from requirement clarification to implementation?</span>
+
+<span style="color:blue"><strong>TO BE CLARIFIED — Which files define the coding assistant's development workflow?</strong></span>
+
+<span style="color:blue">Before writing application code, which project files must the coding assistant read? Does it need to read `Context/`, `AGENTS.md`, `SECURITY.md`, governance policies, runtime-security instructions, or other files? Where is this required reading order and development procedure defined? How is the same workflow communicated consistently to different coding assistants such as Claude Code, Cursor, Codex, Copilot, or Kiro?</span>
 
 Once the requirements are sufficiently clear and recorded in `Context/`, the coding assistant develops the application using the Secure Template.
 
