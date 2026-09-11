@@ -8,7 +8,7 @@ The goal is simple:
 
 > **Developers focus on what the product should do. The Secure Template provides the security foundation around it.**
 
-The template provides reusable security controls, development guardrails, runtime protection, and verification.
+The template provides reusable security controls that are integrated into the AI application during development and automatically protect the application at runtime.
 
 For example, if you are building an AI News Agent, you mainly need to decide:
 
