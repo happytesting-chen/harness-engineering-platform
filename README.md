@@ -63,7 +63,7 @@ At this stage, a failure is expected. Continue to Step 2.
 
 Open the copied project with your preferred coding assistant and tell it:
 
-> **Read `Harness-Best-Practice/AGENTS.md` and follow the workflow defined there.**
+> **Read `AGENTS.md` and follow the workflow defined there.**
 
 You can then describe your product directly in the coding-assistant chat.
 
@@ -94,7 +94,7 @@ The developer does not need to decide which `Context/` file each answer belongs 
 
 ## Step 3 - Coding Assistant Develops and Verifies the Application
 
-Once the critical requirements are clear, the coding assistant continues by following `Harness-Best-Practice/AGENTS.md`.
+Once the critical requirements are clear, the coding assistant continues by following `AGENTS.md`.
 
 The intended flow is:
 
@@ -151,7 +151,7 @@ COPY SECURE TEMPLATE
 OPEN WITH CODING ASSISTANT
          |
          v
-"Read Harness-Best-Practice/AGENTS.md
+"Read AGENTS.md
 and follow the workflow defined there."
          |
          v
