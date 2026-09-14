@@ -34,7 +34,7 @@ echo ""
 
 # --- 2. Check for unfilled {{placeholders}} in required config files ---
 echo "▶ Checking for unfilled placeholders..."
-REQUIRED_FILES=("CLAUDE.md" "Harness-Best-Practice/AGENTS.md" "Harness-Best-Practice/feature_list.json" "governance/deny-list.json" "governance/mcp-allowlist.json")
+REQUIRED_FILES=("CLAUDE.md" "AGENTS.md" "Harness-Best-Practice/feature_list.json" "governance/deny-list.json" "governance/mcp-allowlist.json")
 for f in "${REQUIRED_FILES[@]}"; do
     if [ -f "$f" ]; then
         PLACEHOLDERS=$(grep -o '{{[^}]*}}' "$f" 2>/dev/null || true)
@@ -416,7 +416,7 @@ FST_PASS=0
 FST_FAIL=0
 
 # Q1: What is this? (AGENTS.md exists and has content beyond placeholders)
-if [ -f "Harness-Best-Practice/AGENTS.md" ] && [ "$(wc -l < Harness-Best-Practice/AGENTS.md)" -gt 5 ]; then
+if [ -f "AGENTS.md" ] && [ "$(wc -l < AGENTS.md)" -gt 5 ]; then
     echo "  ✓ Q1 (What is this?) — AGENTS.md present"
     FST_PASS=$((FST_PASS + 1))
 else
