@@ -2,7 +2,7 @@
 
 ## What is this project?
 
-This project helps developers build AI applications securely without having to design the security architecture from scratch.
+This project helps developers build AI applications securely with Claude Code without having to design the security architecture from scratch.
 
 The goal is simple:
 
@@ -21,7 +21,7 @@ For example, if you are building an AI News application, you mainly need to deci
 
 You do not need to design security mechanisms such as tool authorization, network restrictions, secret protection, or untrusted-content protection from scratch.
 
-The Secure Template provides these mechanisms and gives the coding assistant a defined workflow for applying them according to the product requirements.
+The Secure Template provides these mechanisms and gives Claude Code a defined workflow for applying them according to the product requirements.
 
 ## Basic Development Process
 
@@ -29,17 +29,26 @@ The Secure Template provides these mechanisms and gives the coding assistant a d
 1. Copy the Secure Template
           |
           v
-2. Open the project with your coding assistant
-   and ask it to read AGENTS.md
+2. Open the project with Claude Code
           |
           v
-3. Coding assistant clarifies, builds, and verifies
+3. Describe the application you want to build
           |
           v
-4. Developer review and deployment
+4. Claude Code clarifies the requirements
+          |
+          v
+5. Claude Code builds the application
+   + applies security controls
+          |
+          v
+6. Verification
+          |
+          v
+7. Developer review and deployment
 ```
 
-Security is not something added after the application is finished. The coding assistant should identify the required controls before substantial coding, apply them while implementing the application, and verify them before completion.
+Security is not something added after the application is finished. Claude Code should identify the required controls before substantial coding, apply them while implementing the application, and verify them before completion.
 
 ## Step 1 - Copy the Secure Template
 
@@ -59,19 +68,19 @@ chmod +x init.sh
 
 At this stage, a failure is expected. Continue to Step 2.
 
-## Step 2 - Start with Your Coding Assistant
+## Step 2 - Start with Claude Code
 
-Open the copied project with your preferred coding assistant and tell it:
+Open the copied project with Claude Code.
 
-> **Read `AGENTS.md` and follow the workflow defined there.**
+Claude Code loads the project instructions from `CLAUDE.md`. `CLAUDE.md` imports the main development workflow from `AGENTS.md` and the active security controls from `Security-kit/active-controls.md`.
 
-You can then describe your product directly in the coding-assistant chat.
+You do not need to manually tell Claude Code to read `AGENTS.md`. Simply describe the application you want to build.
 
 For example:
 
 > Build an AI News application that collects AI and cybersecurity news, selects four important stories, generates a digest, and allows users to ask questions about the news.
 
-The coding assistant should then guide the product-definition process rather than immediately starting substantial coding.
+Claude Code should then guide the product-definition process rather than immediately starting substantial coding.
 
 It should:
 
@@ -90,11 +99,11 @@ Typical clarification questions may include:
 - Where will it be deployed?
 - What user interface is required?
 
-The developer does not need to decide which `Context/` file each answer belongs in. The coding assistant should organize and record the confirmed requirements.
+The developer does not need to decide which `Context/` file each answer belongs in. Claude Code should organize and record the confirmed requirements.
 
-## Step 3 - Coding Assistant Develops and Verifies the Application
+## Step 3 - Claude Code Develops and Verifies the Application
 
-Once the critical requirements are clear, the coding assistant continues by following `AGENTS.md`.
+Once the critical requirements are clear, Claude Code follows the workflow defined in `AGENTS.md`.
 
 The intended flow is:
 
@@ -102,7 +111,7 @@ The intended flow is:
 Developer describes the product
           |
           v
-Coding assistant clarifies requirements
+Claude Code clarifies requirements
           |
           v
 Confirmed requirements recorded in Context/
@@ -132,9 +141,9 @@ Security implementation:
 Allow only the approved external destinations
 ```
 
-If a new capability is introduced during development, the coding assistant should update the relevant requirements and reassess the applicable controls before implementing that capability.
+If a new capability is introduced during development, Claude Code should update the relevant requirements and reassess the applicable controls before implementing that capability.
 
-The coding assistant should not claim the application is complete until the required verification passes.
+Claude Code should not claim the application is complete until the required verification passes.
 
 ## Step 4 - Developer Review and Deployment
 
@@ -148,14 +157,13 @@ The deployed application must continue to use the template's runtime enforcement
 COPY SECURE TEMPLATE
          |
          v
-OPEN WITH CODING ASSISTANT
+OPEN WITH CLAUDE CODE
          |
          v
-"Read AGENTS.md
-and follow the workflow defined there."
+DESCRIBE THE APPLICATION
          |
          v
-DEVELOPER <--> CODING ASSISTANT
+DEVELOPER <--> CLAUDE CODE
 Clarify the product
          |
          v
@@ -176,4 +184,4 @@ DEVELOPER REVIEW / DEPLOY
 
 In simple terms:
 
-> **The developer defines what to build. The coding assistant clarifies the requirements, records them, builds the application using the Secure Template, and verifies the result.**
+> **The developer defines what to build. Claude Code clarifies the requirements, records them, builds the application using the Secure Template, and verifies the result.**
