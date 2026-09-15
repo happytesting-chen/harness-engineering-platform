@@ -31,18 +31,18 @@ From that understanding, prepare drafts for:
 | `AGENTS.md` | name, purpose, `{{LANGUAGE}}`, verification command, governance summary, escalation rules, context links |
 | `Harness-Best-Practice/feature_list.json` | phases derived from architecture milestones — each with behavior + a real verification command + status (`phase-01` active, rest not-started). Make the LAST phase an evaluation-and-snapshot phase (see `_recommended_final_phase`): fresh-session `python3 evaluation/eval.py` recording accuracy/reproducibility/latency/cost, proposing a `SNAPSHOT.md`, starting no new work. |
 | `Harness-Best-Practice/progress.md` | session-1 state: what Context/ defined, what was auto-filled, open questions |
-| `governance/mcp-allowlist.json` | the tools the architecture says the agent uses (+ `gated_until` for risky ones); `egress_hosts` from deployment |
-| `governance/deny-list.json` | add domain patterns implied by the design (keep catastrophic defaults) |
-| `Security-kit/control-matrix.md` | one row per trust boundary the design introduces (tool, egress, untrusted input) |
+| `security/shared/mcp-allowlist.json` | the tools the architecture says the agent uses (+ `gated_until` for risky ones); `egress_hosts` from deployment |
+| `security/shared/deny-list.json` | add domain patterns implied by the design (keep catastrophic defaults) |
+| `security/shared/control-matrix.md` | one row per trust boundary the design introduces (tool, egress, untrusted input) |
 
 `CLAUDE.md` is only a Claude Code adapter that imports `AGENTS.md`; do not duplicate project workflow or project-specific placeholders into it.
 
 ## Step 2b — Tailor security controls
 
 Invoke **`/security-tailor`** now (Context/ is freshly read). It writes
-`Security-kit/coverage.json` (which OWASP-AI controls apply to this product), adds
-`applies` rows to `control-matrix.md` (Verification left for you to fill), and regenerates
-`Security-kit/active-controls.md`. Fold its gap report into your Step 3 Clarification list.
+`security/shared/coverage.json` (which OWASP-AI controls apply to this product), adds
+`applies` rows to `security/shared/control-matrix.md` (Verification left for you to fill), and regenerates
+`security/shared/active-controls.md`. Fold its gap report into your Step 3 Clarification list.
 
 ## Step 3 — FLAG every uncertainty (do not guess)
 
@@ -62,7 +62,7 @@ the single source of truth, so gaps must be resolved explicitly, not filled by a
 ## Step 4 — Write and verify
 
 1. Write the confirmed values into the files above.
-2. Run `./init.sh` — must exit 0 (all placeholders filled, tests green, Security-kit
+2. Run `./init.sh` — must exit 0 (all placeholders filled, tests green, security-layer
    integrity ✓).
 3. If `init.sh` still reports unfilled placeholders, surface them and resolve with the user.
 
