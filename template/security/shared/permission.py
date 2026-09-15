@@ -37,11 +37,14 @@ def _migrate_protected_path(path: str) -> str:
 _impl.BUILTIN_PROTECTED_PATHS = tuple(
     dict.fromkeys(
         [_migrate_protected_path(p) for p in _impl.BUILTIN_PROTECTED_PATHS]
-        + ["security/shared/permission_impl.py"]
+        + [
+            "security/shared/permission_impl.py",
+            "security/shared/result_screen_impl.py",
+            "security/runtime/__init__.py",
+        ]
     )
 )
 
-# Re-export the implementation API used by runtime code and tests.
 for _name in dir(_impl):
     if not _name.startswith("__"):
         globals()[_name] = getattr(_impl, _name)
@@ -51,7 +54,6 @@ BUILTIN_PROTECTED_PATHS = _impl.BUILTIN_PROTECTED_PATHS
 
 
 def _cli() -> None:
-    """Claude Code PreToolUse adapter; equivalent to the original __main__ block."""
     def deny(reason: str):
         print(reason, file=sys.stderr)
         try:
