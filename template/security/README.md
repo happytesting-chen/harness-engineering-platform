@@ -1,35 +1,54 @@
 # Security Architecture
 
-The Secure Template separates security into three layers so developers and coding assistants can see which controls protect development, which protect the deployed application, and which are shared by both.
+The Secure Template separates security into three explicit layers so developers and coding assistants can tell what protects development, what protects the deployed application, and what is reused by both.
 
 ```text
                  Product Requirements
                          |
-              Security Assessment
+                  Security Assessment
                          |
           +--------------+--------------+
           |              |              |
           v              v              v
-      Build-Time       Shared         Runtime
-       Security        Security        Security
+     BUILD-TIME        SHARED         RUNTIME
+      SECURITY        SECURITY        SECURITY
           |              |              |
           +--------------+--------------+
                          |
-                     Verification
+                    Verification
 ```
 
 ## Build-Time
 
-`buildtime/` protects Claude Code and the development workflow. Claude-specific hook configuration remains in `.claude/`, while build-time security mechanisms and guidance belong here.
+`buildtime/` protects Claude Code and the development workflow. It contains coding-assistant-specific adapters such as prompt screening and secret scanning. Claude Code hook configuration remains in `.claude/settings.json` because Claude requires that location.
 
 ## Runtime
 
-`runtime/` protects the deployed AI application. Runtime controls must be mechanically wired into the application; the presence of security files alone does not provide runtime protection.
+`runtime/` protects the deployed AI application. It contains the runtime dispatcher, runtime input screening, runtime host and the supporting runtime enforcement modules. Runtime protection only exists when the application is actually wired through these mechanisms.
 
 ## Shared
 
-`shared/` contains policy, enforcement logic, security requirements, and reference material intentionally reused by both build-time and runtime security. Shared logic should not be duplicated between the two layers.
+`shared/` contains security policy, reusable mechanisms, control definitions and security references consumed by both layers. Shared logic must not be copied independently into Build-Time and Runtime.
 
-## Migration Status
+## Design rule
 
-This repository is being migrated from the older `Security-kit/` and `governance/` layout. During migration, existing paths remain authoritative unless a file has explicitly moved. The migration should preserve behavior first and simplify documentation second.
+A product requirement may create both build-time and runtime controls. Separate the enforcement layers, but keep the security reasoning and common policy shared.
+
+Example:
+
+```text
+Application needs external API access
+            |
+      Security assessment
+            |
+     +------+------+
+     |             |
+Build-time      Runtime
+restriction     restriction
+     |             |
+     +------+------+
+            |
+       Shared policy
+```
+
+During migration, legacy `Security-kit/` and `governance/` paths may temporarily coexist with this structure. They should be removed only after imports, hooks, tests, protected paths and documentation have been switched to the new paths.
