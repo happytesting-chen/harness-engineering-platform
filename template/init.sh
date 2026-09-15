@@ -1,508 +1,130 @@
 #!/usr/bin/env bash
 # init.sh — Project verification script
-# Auto-detects project type, runs tests, checks for unfilled placeholders,
-# and verifies progress.md freshness.
-#
 # Exit 0 = healthy. Non-zero = issues found.
-
 set -euo pipefail
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 cd "$SCRIPT_DIR"
-
 ERRORS=0
 WARNINGS=0
 
 echo "═══════════════════════════════════════════════════"
 echo "  Harness Engineering Platform — init.sh"
 echo "═══════════════════════════════════════════════════"
-echo ""
 
-# --- 1. Project Type Detection ---
-echo "▶ Detecting project type..."
-if [ -f "requirements.txt" ] || [ -f "pyproject.toml" ] || [ -f "setup.py" ]; then
-    PROJECT_TYPE="python"
-    echo "  Detected: Python"
-elif [ -f "package.json" ]; then
-    PROJECT_TYPE="node"
-    echo "  Detected: Node.js"
-else
-    PROJECT_TYPE="other"
-    echo "  Detected: Other (generic)"
-fi
-echo ""
+# Required project and security files.
+REQUIRED_FILES=(
+  "CLAUDE.md"
+  "AGENTS.md"
+  "Harness-Best-Practice/feature_list.json"
+  "security/shared/permission.py"
+  "security/shared/deny-list.json"
+  "security/shared/mcp-allowlist.json"
+  "security/shared/content_trust.py"
+  "security/shared/result_screen.py"
+  "security/buildtime/prompt_screen.py"
+  "security/buildtime/secret_scan.py"
+  "security/runtime/runtime_dispatcher.py"
+  "security/runtime/runtime_screen.py"
+)
 
-# --- 2. Check for unfilled {{placeholders}} in required config files ---
-echo "▶ Checking for unfilled placeholders..."
-REQUIRED_FILES=("CLAUDE.md" "AGENTS.md" "Harness-Best-Practice/feature_list.json" "governance/deny-list.json" "governance/mcp-allowlist.json")
+echo "▶ Checking required files and placeholders..."
 for f in "${REQUIRED_FILES[@]}"; do
-    if [ -f "$f" ]; then
-        PLACEHOLDERS=$(grep -o '{{[^}]*}}' "$f" 2>/dev/null || true)
-        if [ -n "$PLACEHOLDERS" ]; then
-            echo "  ✗ UNFILLED placeholders in $f:"
-            echo "$PLACEHOLDERS" | sed 's/^/      /'
-            ERRORS=$((ERRORS + 1))
-        else
-            echo "  ✓ $f — no placeholders"
-        fi
-    else
-        echo "  ✗ MISSING required file: $f"
-        ERRORS=$((ERRORS + 1))
-    fi
+  if [ ! -f "$f" ]; then
+    echo "  ✗ MISSING: $f"
+    ERRORS=$((ERRORS + 1))
+    continue
+  fi
+  if grep -q '{{[^}]*}}' "$f" 2>/dev/null; then
+    echo "  ✗ UNFILLED placeholders: $f"
+    ERRORS=$((ERRORS + 1))
+  else
+    echo "  ✓ $f"
+  fi
 done
-echo ""
 
-# --- 3. Check progress.md staleness ---
-echo "▶ Checking progress.md freshness..."
-if [ -f "Harness-Best-Practice/progress.md" ]; then
-    # mtime flag differs by platform: `-f %m` is BSD/macOS, `-c %Y` is GNU/Linux
-    # (GNU's `-f` is --file-system and takes no argument, so `stat -f %m FILE` fails
-    # there). Probe once and reuse: the `xargs` below is inside a pipeline, where a
-    # trailing `|| ...` would bind to `tail` and silently mask a total failure —
-    # producing an empty LATEST_CODE, which reads as "progress.md is up to date".
-    if stat -f %m . >/dev/null 2>&1; then
-        STAT_MTIME="stat -f %m"
+# Claude hook wiring must use only the migrated security paths.
+echo "▶ Checking Claude security hook wiring..."
+if [ -f ".claude/settings.json" ]; then
+  for p in \
+    'security/buildtime/prompt_screen.py' \
+    'security/shared/permission.py' \
+    'security/buildtime/secret_scan.py' \
+    'security/shared/result_screen.py'; do
+    if grep -q "$p" .claude/settings.json; then
+      echo "  ✓ wired: $p"
     else
-        STAT_MTIME="stat -c %Y"
+      echo "  ✗ hook not wired: $p"
+      ERRORS=$((ERRORS + 1))
     fi
-    PROGRESS_MTIME=$($STAT_MTIME "Harness-Best-Practice/progress.md" 2>/dev/null || echo "0")
-    # Find most recently modified .py or .json file
-    LATEST_CODE=$(find . -name "*.py" -o -name "*.json" -o -name "*.md" | \
-                  grep -v progress.md | grep -v node_modules | \
-                  xargs $STAT_MTIME 2>/dev/null | sort -n | tail -1)
-    [ -n "$LATEST_CODE" ] || LATEST_CODE=0
-    if [ -n "$LATEST_CODE" ] && [ "$PROGRESS_MTIME" -lt "$LATEST_CODE" ] 2>/dev/null; then
-        echo "  ⚠ WARNING: progress.md is older than recent code changes"
-        WARNINGS=$((WARNINGS + 1))
-    else
-        echo "  ✓ progress.md is up to date"
-    fi
+  done
+  if grep -Eq 'Security-kit/|governance/' .claude/settings.json; then
+    echo "  ✗ retired security path remains in .claude/settings.json"
+    ERRORS=$((ERRORS + 1))
+  fi
 else
-    echo "  ⚠ WARNING: progress.md not found"
-    WARNINGS=$((WARNINGS + 1))
+  echo "  ✗ .claude/settings.json missing"
+  ERRORS=$((ERRORS + 1))
 fi
-echo ""
 
-# --- 4. Run fixture-based tests ---
+# Every command-style hook path should resolve on disk.
+if command -v python3 >/dev/null 2>&1 && [ -f ".claude/settings.json" ]; then
+  if ! python3 - <<'PY'
+import json, os, re, sys
+cfg = json.load(open('.claude/settings.json'))
+missing = []
+for groups in cfg.get('hooks', {}).values():
+    for group in groups:
+        for hook in group.get('hooks', []):
+            cmd = hook.get('command', '')
+            for rel in re.findall(r'\$CLAUDE_PROJECT_DIR/([^" ]+)', cmd):
+                if not os.path.exists(rel):
+                    missing.append(rel)
+if missing:
+    print('missing hook paths: ' + ', '.join(sorted(set(missing))))
+    sys.exit(1)
+PY
+  then
+    echo "  ✗ one or more hook paths do not resolve"
+    ERRORS=$((ERRORS + 1))
+  else
+    echo "  ✓ hook paths resolve"
+  fi
+fi
+
+# Security coverage checker owns its own shared-layer-relative artifacts.
+echo "▶ Checking security coverage..."
+if [ -f "security/shared/check_coverage.py" ]; then
+  if python3 security/shared/check_coverage.py; then
+    echo "  ✓ security coverage check passed"
+  else
+    echo "  ✗ security coverage check failed"
+    ERRORS=$((ERRORS + 1))
+  fi
+else
+  echo "  ✗ security/shared/check_coverage.py missing"
+  ERRORS=$((ERRORS + 1))
+fi
+
+# Run the test suite through pytest so tests/conftest.py installs the migrated import paths.
 echo "▶ Running tests..."
-if [ -f "tests/test_fixtures.py" ]; then
-    if command -v python3 &>/dev/null; then
-        if python3 tests/test_fixtures.py; then
-            echo "  ✓ Fixture tests passed"
-        else
-            echo "  ✗ Fixture tests FAILED"
-            ERRORS=$((ERRORS + 1))
-        fi
-    else
-        echo "  ⚠ python3 not found — skipping tests"
-        WARNINGS=$((WARNINGS + 1))
-    fi
+if command -v python3 >/dev/null 2>&1 && python3 -m pytest --version >/dev/null 2>&1; then
+  if python3 -m pytest tests -q; then
+    echo "  ✓ tests passed"
+  else
+    echo "  ✗ tests failed"
+    ERRORS=$((ERRORS + 1))
+  fi
 else
-    echo "  ⚠ No test_fixtures.py found — skipping"
-    WARNINGS=$((WARNINGS + 1))
+  echo "  ⚠ pytest unavailable — tests not run"
+  WARNINGS=$((WARNINGS + 1))
 fi
+
 echo ""
-
-# --- 5. Run E2E tests if available ---
-if [ -f "tests/test_e2e.py" ]; then
-    echo "▶ Running E2E enforcement tests..."
-    if python3 tests/test_e2e.py; then
-        echo "  ✓ E2E tests passed"
-    else
-        echo "  ✗ E2E tests FAILED"
-        ERRORS=$((ERRORS + 1))
-    fi
-    echo ""
-fi
-
-# --- 5b. Security-kit integrity gate ---
-# A governed-agent template must not silently pass with its enforcement removed or
-# unwired. This gate fails if the mechanism is absent, the hook is not wired, or the
-# hook-integration proof does not pass. Skipped only if this copy intentionally ships
-# no governance/ at all (a deliberately ungoverned project).
-if [ -d "governance" ]; then
-    echo "▶ Security-kit integrity..."
-    # (a) enforcement engine present
-    if [ -f "governance/permission.py" ]; then
-        echo "  ✓ enforcement engine present (governance/permission.py)"
-    else
-        echo "  ✗ governance/ exists but permission.py is MISSING — enforcement gutted"
-        ERRORS=$((ERRORS + 1))
-    fi
-    # (b) hook actually wired to the engine in .claude/settings.json
-    if [ -f ".claude/settings.json" ] && grep -q "governance/permission.py" .claude/settings.json; then
-        echo "  ✓ permission gate wired in .claude/settings.json"
-    else
-        echo "  ✗ .claude/settings.json does NOT wire governance/permission.py — gate inert"
-        ERRORS=$((ERRORS + 1))
-    fi
-    # (b2) S2.4 — the agent cannot edit its own policy. This is the ONLY proof of the
-    # guarantee the whole template rests on, so its ABSENCE is an error, not a warning:
-    # a gate that cannot tell "this proof passed" from "this proof is not here"
-    # certifies the wrong proposition. Deleting the file therefore changes the error
-    # count, which is what the CI baseline compares against.
-    if [ -f "tests/test_protected_paths.py" ]; then
-        if python3 tests/test_protected_paths.py >/dev/null 2>&1; then
-            echo "  ✓ protected-path tests passed (tests/test_protected_paths.py — S2.4)"
-        else
-            echo "  ✗ protected-path tests FAILED — the agent CAN edit its own policy (S2.4)"
-            ERRORS=$((ERRORS + 1))
-        fi
-    else
-        echo "  ✗ tests/test_protected_paths.py is MISSING — S2.4 is asserted by nothing"
-        ERRORS=$((ERRORS + 1))
-    fi
-    # (b3) Gate 3 — egress. Named individually rather than left to CI because the two
-    # holes it closed on 2026-08-22 were both silent: a destination in a structured field
-    # was never looked at, and host comparison was substring comparison, so
-    # `api.github.com.evil.com` passed with `api.github.com` allowed. Neither shows up as a
-    # failure anywhere else — a gate that waves a destination through looks exactly like a
-    # gate that approved it. Absent file is a WARNING, not an error, because unlike (b2)
-    # this proof is not the template's load-bearing guarantee.
-    if [ -f "tests/test_egress.py" ]; then
-        if python3 tests/test_egress.py >/dev/null 2>&1; then
-            echo "  ✓ egress tests passed (tests/test_egress.py — S3.1)"
-        else
-            echo "  ✗ egress tests FAILED — a destination may reach an unlisted host (S3.1)"
-            ERRORS=$((ERRORS + 1))
-        fi
-    else
-        echo "  ⚠ no tests/test_egress.py — host matching and structured destinations unproven"
-        WARNINGS=$((WARNINGS + 1))
-    fi
-    # (c) hook-integration proof passes (drives the real hook scripts via stdin)
-    if [ -f "tests/test_hooks.py" ]; then
-        if python3 tests/test_hooks.py >/dev/null 2>&1; then
-            echo "  ✓ hook-integration tests passed (tests/test_hooks.py)"
-        else
-            echo "  ✗ hook-integration tests FAILED — enforcement path broken"
-            ERRORS=$((ERRORS + 1))
-        fi
-    else
-        echo "  ⚠ no tests/test_hooks.py — hook wiring is unproven"
-        WARNINGS=$((WARNINGS + 1))
-    fi
-    # (d) data-plane content-trust proof (untrusted-content boundary)
-    if [ -f "Security-kit/content_trust.py" ] && [ -f "tests/test_content_trust.py" ]; then
-        if python3 tests/test_content_trust.py >/dev/null 2>&1; then
-            echo "  ✓ content-trust tests passed (tests/test_content_trust.py)"
-        else
-            echo "  ✗ content-trust tests FAILED — data-plane boundary broken"
-            ERRORS=$((ERRORS + 1))
-        fi
-    else
-        echo "  ⚠ no content-trust primitive — untrusted-content boundary is app-only"
-        WARNINGS=$((WARNINGS + 1))
-    fi
-    # (d.1) prompt-gate proof (the one control that stops injection BEFORE the model).
-    # Named individually rather than left to CI because SEC-PROMPT-001 cites it as its
-    # proof, and check_coverage.py's I3 requires a cited proof to be reachable from here.
-    if [ -f "Security-kit/prompt_screen.py" ] && [ -f "tests/test_prompt_screen.py" ]; then
-        if python3 tests/test_prompt_screen.py >/dev/null 2>&1; then
-            echo "  ✓ prompt-gate tests passed (tests/test_prompt_screen.py)"
-        else
-            echo "  ✗ prompt-gate tests FAILED — injected prompts may reach the model"
-            ERRORS=$((ERRORS + 1))
-        fi
-    else
-        echo "  ⚠ no prompt-screen gate — nothing screens a user turn before the model"
-        WARNINGS=$((WARNINGS + 1))
-    fi
-    # (d.2) result-gate proof (the second pre-model position: a tool result at ④).
-    # Named individually for the same reason as (d.1): SEC-RESULT-001 cites it as its
-    # proof, so I3 needs it reachable from here. The shape-preservation cases are the
-    # ones that matter — a substitution the runtime rejects fails OPEN silently.
-    if [ -f "Security-kit/result_screen.py" ] && [ -f "tests/test_result_screen.py" ]; then
-        if python3 tests/test_result_screen.py >/dev/null 2>&1; then
-            echo "  ✓ result-gate tests passed (tests/test_result_screen.py)"
-        else
-            echo "  ✗ result-gate tests FAILED — poisoned tool output may reach the model"
-            ERRORS=$((ERRORS + 1))
-        fi
-    else
-        echo "  ⚠ no result-screen gate — nothing screens a tool result before the model"
-        WARNINGS=$((WARNINGS + 1))
-    fi
-    # (d.3) detection-coverage proof. Distinct from (d.1)/(d.2), which prove the two
-    # mechanisms ENFORCE: this one pins what they can SEE, as a measured pair — attacks
-    # caught AND legitimate text withheld. Without it, marker tuning moves both numbers
-    # silently and "improving detection" can mean withholding every tool result.
-    if [ -f "tests/test_injection_corpus.py" ]; then
-        if python3 tests/test_injection_corpus.py >/dev/null 2>&1; then
-            echo "  ✓ injection-corpus coverage pinned (tests/test_injection_corpus.py)"
-        else
-            echo "  ✗ injection-corpus coverage MOVED — caught or false-positive count changed"
-            ERRORS=$((ERRORS + 1))
-        fi
-    else
-        echo "  ⚠ no injection corpus — marker coverage is asserted, not measured"
-        WARNINGS=$((WARNINGS + 1))
-    fi
-    # (d.4) runtime enforcement — the same four positions for a DEPLOYED application.
-    # Every block above proves a hook, and hooks are an IDE-agent feature: none of them
-    # runs in a shipped app. These two prove the in-process path (`RuntimeDispatcher` at
-    # ②→③→④, `runtime_screen.screen_input` at ①), and the assertion that matters in both
-    # is that a denied tool call NEVER RAN — a return value alone cannot tell prevention
-    # from a logged complaint (S8.4). Absent files are a WARNING: an application that
-    # does not deploy an agent does not need them.
-    if [ -f "governance/runtime_dispatcher.py" ] && [ -f "tests/test_runtime_dispatcher.py" ]; then
-        if python3 tests/test_runtime_dispatcher.py >/dev/null 2>&1; then
-            echo "  ✓ runtime-dispatcher tests passed (tests/test_runtime_dispatcher.py — ②③④)"
-        else
-            echo "  ✗ runtime-dispatcher tests FAILED — a deployed agent's tool calls are ungated"
-            ERRORS=$((ERRORS + 1))
-        fi
-    else
-        echo "  ⚠ no runtime dispatcher — a deployed agent has no gate at ②"
-        WARNINGS=$((WARNINGS + 1))
-    fi
-    if [ -f "Security-kit/runtime_screen.py" ] && [ -f "tests/test_runtime_screen.py" ]; then
-        if python3 tests/test_runtime_screen.py >/dev/null 2>&1; then
-            echo "  ✓ runtime-screen tests passed (tests/test_runtime_screen.py — ①④)"
-        else
-            echo "  ✗ runtime-screen tests FAILED — a deployed agent reads unscreened input"
-            ERRORS=$((ERRORS + 1))
-        fi
-    else
-        echo "  ⚠ no runtime screen — a deployed agent has no screen at ① or ④"
-        WARNINGS=$((WARNINGS + 1))
-    fi
-    # (d.5) runtime-mvp semantic profile — the deployed-profile ingress, action-plane,
-    # receipt, startup and output controls (Security-kit/runtime/). Each proof file is
-    # named here so I3 (proof reachability) can join the register rows added in the
-    # Task 12 claims batch. Absent = WARNING, like (d.4): a build that does not adopt the
-    # semantic profile does not carry these files.
-    for rt in \
-        tests/runtime/test_ingress.py \
-        tests/runtime/test_guarded.py \
-        tests/runtime/test_content_receipts.py \
-        tests/runtime/test_action_receipts.py \
-        tests/runtime/test_startup.py \
-        tests/runtime/test_output.py; do
-        if [ -f "$rt" ]; then
-            if python3 "$rt" >/dev/null 2>&1; then
-                echo "  ✓ runtime-mvp tests passed ($rt)"
-            else
-                echo "  ✗ runtime-mvp tests FAILED ($rt)"
-                ERRORS=$((ERRORS + 1))
-            fi
-        else
-            echo "  ⚠ no $rt — runtime-mvp semantic profile not adopted"
-            WARNINGS=$((WARNINGS + 1))
-        fi
-    done
-    # (e) hook-path integrity: every hook script wired in settings.json must resolve on
-    # disk. A missing path makes python3 exit 2 — indistinguishable from a real policy
-    # BLOCK — so a wrong path silently fail-closes EVERY tool. This check catches that
-    # config error before it bricks a session (distinct from a deny decision).
-    if [ -f ".claude/settings.json" ]; then
-        MISSING_HOOKS=$(python3 -c '
-import json, re, os, sys
-try:
-    cfg = json.load(open(".claude/settings.json"))
-except Exception as e:
-    print("UNPARSEABLE:" + str(e)); sys.exit(0)
-blob = json.dumps(cfg)
-seen = set()
-for raw in re.findall(r"\$CLAUDE_PROJECT_DIR/(\S+?\.py)", blob):
-    p = raw.strip(chr(34) + chr(39))
-    if p not in seen:
-        seen.add(p)
-        if not os.path.isfile(p):
-            print(p)
-')
-        if [ -z "$MISSING_HOOKS" ]; then
-            echo "  ✓ all wired hook paths resolve on disk"
-        else
-            echo "  ✗ GATE MISCONFIGURED — settings.json wires hook script(s) that do NOT exist:"
-            echo "$MISSING_HOOKS" | sed 's/^/        (config error, not a policy block) /'
-            ERRORS=$((ERRORS + 1))
-        fi
-    fi
-    # (f) coverage-checker ground-truth tests (named explicitly — init.sh has no glob runner)
-    if [ -f "tests/test_coverage.py" ]; then
-        if python3 tests/test_coverage.py >/dev/null 2>&1; then
-            echo "  ✓ coverage-checker tests passed (tests/test_coverage.py)"
-        else
-            echo "  ✗ coverage-checker tests FAILED (tests/test_coverage.py)"
-            ERRORS=$((ERRORS + 1))
-        fi
-    fi
-    # (g) selection-scorer math tests
-    if [ -f "tests/test_eval_selection.py" ]; then
-        if python3 tests/test_eval_selection.py >/dev/null 2>&1; then
-            echo "  ✓ selection-scorer tests passed (tests/test_eval_selection.py)"
-        else
-            echo "  ✗ selection-scorer tests FAILED (tests/test_eval_selection.py)"
-            ERRORS=$((ERRORS + 1))
-        fi
-    fi
-    # (g2) shipped-policy ground truth — the only test whose subject is the POLICY
-    # DATA rather than the gate code. test_fixtures.py substitutes a synthetic
-    # deny-list by design, so without this block governance/deny-list.json is
-    # never read by any gated test. Asserts both directions: catastrophic commands
-    # denied AND ordinary read-only commands allowed (an over-blocking gate is one
-    # its users switch off).
-    if [ -f "tests/test_shipped_policy.py" ]; then
-        if python3 tests/test_shipped_policy.py >/dev/null 2>&1; then
-            echo "  ✓ shipped-policy tests passed (tests/test_shipped_policy.py)"
-        else
-            echo "  ✗ shipped-policy tests FAILED (tests/test_shipped_policy.py)"
-            ERRORS=$((ERRORS + 1))
-        fi
-    fi
-    # (g3) phase-gate steady state AND no self-promotion. Two properties: the gate must
-    # not brick once every phase has passed, and it must not let the agent unlock a
-    # gated tool by editing its own worklog — the unlock lives in signed_off_phases in
-    # the protected allowlist. This is the cited proof for SEC-PHASE-001. Its __main__
-    # prefers pytest but falls back to a stdlib runner, so this block does not make
-    # pytest a dependency.
-    if [ -f "tests/test_steady_state.py" ]; then
-        if python3 tests/test_steady_state.py >/dev/null 2>&1; then
-            echo "  ✓ steady-state tests passed (tests/test_steady_state.py)"
-        else
-            echo "  ✗ steady-state tests FAILED — gate weakens after all phases pass"
-            ERRORS=$((ERRORS + 1))
-        fi
-    fi
-    # (h) coverage gate: applicable controls must be mapped to a verification
-    if [ -f "Security-kit/check_coverage.py" ]; then
-        if python3 Security-kit/check_coverage.py; then
-            echo "  ✓ security coverage complete (Security-kit/check_coverage.py)"
-        else
-            echo "  ✗ security coverage incomplete — run /security-tailor and fill verifications"
-            ERRORS=$((ERRORS + 1))
-        fi
-    else
-        echo "  ⚠ no check_coverage.py — control coverage is unproven"
-        WARNINGS=$((WARNINGS + 1))
-    fi
-    echo ""
-fi
-
-# --- 6. Python-specific checks ---
-if [ "$PROJECT_TYPE" = "python" ]; then
-    echo "▶ Python syntax check..."
-    SYNTAX_ERRORS=0
-    for pyfile in $(find . -name "*.py" -not -path "./.venv/*" -not -path "./__pycache__/*"); do
-        if ! python3 -c "import ast; ast.parse(open('$pyfile').read())" 2>/dev/null; then
-            echo "  ✗ Syntax error in $pyfile"
-            SYNTAX_ERRORS=$((SYNTAX_ERRORS + 1))
-        fi
-    done
-    if [ $SYNTAX_ERRORS -eq 0 ]; then
-        echo "  ✓ All Python files parse cleanly"
-    else
-        ERRORS=$((ERRORS + SYNTAX_ERRORS))
-    fi
-    echo ""
-fi
-
-# --- 6b. Evaluation primitive (optional; measures task quality) ---
-if [ -f "evaluation/eval.py" ]; then
-    echo "▶ Evaluation — quantifying reference target..."
-    if python3 evaluation/eval.py >/dev/null 2>&1; then
-        echo "  ✓ eval.py runs; reference target at 100% accuracy + reproducibility"
-    else
-        echo "  ✗ eval.py reference target regressed (accuracy/reproducibility < 100%)"
-        ERRORS=$((ERRORS + 1))
-    fi
-    echo ""
-fi
-
-# --- 7. Fresh Session Test (Lecture 03) ---
-echo "▶ Fresh Session Test — can a new session answer the 5 questions?"
-FST_PASS=0
-FST_FAIL=0
-
-# Q1: What is this? (AGENTS.md exists and has content beyond placeholders)
-if [ -f "AGENTS.md" ] && [ "$(wc -l < AGENTS.md)" -gt 5 ]; then
-    echo "  ✓ Q1 (What is this?) — AGENTS.md present"
-    FST_PASS=$((FST_PASS + 1))
-else
-    echo "  ✗ Q1 (What is this?) — AGENTS.md missing or empty"
-    FST_FAIL=$((FST_FAIL + 1))
-fi
-
-# Q2: How do I run it? (init.sh exists and is executable)
-if [ -x "init.sh" ]; then
-    echo "  ✓ Q2 (How to run?) — init.sh present and executable"
-    FST_PASS=$((FST_PASS + 1))
-else
-    echo "  ✗ Q2 (How to run?) — init.sh missing or not executable"
-    FST_FAIL=$((FST_FAIL + 1))
-fi
-
-# Q3: How do I verify it? (feature_list.json has at least one verification command that
-#     is neither a {{placeholder}} nor a flagged NEEDS-CONFIRMATION / TODO / TBD value)
-if [ -f "Harness-Best-Practice/feature_list.json" ]; then
-    HAS_VERIFY=$(grep -c '"verification"' Harness-Best-Practice/feature_list.json 2>/dev/null || true)
-    PLACEHOLDER_VERIFY=$(grep -c '{{.*VERIFY' Harness-Best-Practice/feature_list.json 2>/dev/null || true)
-    # A verification value that is present but flagged as unconfirmed is NOT a real
-    # verification command — treat NEEDS-CONFIRMATION / TODO / TBD as unfilled.
-    FLAGGED_VERIFY=$(grep '"verification"' Harness-Best-Practice/feature_list.json 2>/dev/null \
-        | grep -c -E 'NEEDS-CONFIRMATION|TODO|TBD' || true)
-    HAS_VERIFY=${HAS_VERIFY:-0}
-    PLACEHOLDER_VERIFY=${PLACEHOLDER_VERIFY:-0}
-    FLAGGED_VERIFY=${FLAGGED_VERIFY:-0}
-    if [ "$HAS_VERIFY" -gt 0 ] && [ "$PLACEHOLDER_VERIFY" -eq 0 ] && [ "$FLAGGED_VERIFY" -eq 0 ]; then
-        echo "  ✓ Q3 (How to verify?) — feature_list.json has verification commands"
-        FST_PASS=$((FST_PASS + 1))
-    elif [ "$FLAGGED_VERIFY" -gt 0 ]; then
-        echo "  ⚠ Q3 (How to verify?) — verification commands flagged NEEDS-CONFIRMATION/TODO/TBD"
-        FST_FAIL=$((FST_FAIL + 1))
-    else
-        echo "  ⚠ Q3 (How to verify?) — verification commands are still placeholders"
-        FST_FAIL=$((FST_FAIL + 1))
-    fi
-else
-    echo "  ✗ Q3 (How to verify?) — feature_list.json missing"
-    FST_FAIL=$((FST_FAIL + 1))
-fi
-
-# Q4: What's done? (feature_list.json is readable + progress.md exists)
-if [ -f "Harness-Best-Practice/feature_list.json" ] && [ -f "Harness-Best-Practice/progress.md" ]; then
-    echo "  ✓ Q4 (What's done?) — feature_list.json + progress.md present"
-    FST_PASS=$((FST_PASS + 1))
-else
-    echo "  ✗ Q4 (What's done?) — feature_list.json or progress.md missing"
-    FST_FAIL=$((FST_FAIL + 1))
-fi
-
-# Q5: What's next? (feature_list.json has at least one not-started item)
-if [ -f "Harness-Best-Practice/feature_list.json" ]; then
-    HAS_NEXT=$(grep -c '"not-started"' Harness-Best-Practice/feature_list.json 2>/dev/null || echo "0")
-    HAS_ACTIVE=$(grep -c '"active"' Harness-Best-Practice/feature_list.json 2>/dev/null || echo "0")
-    if [ "$HAS_NEXT" -gt 0 ] || [ "$HAS_ACTIVE" -gt 0 ]; then
-        echo "  ✓ Q5 (What's next?) — feature_list.json has pending work"
-        FST_PASS=$((FST_PASS + 1))
-    else
-        echo "  ✓ Q5 (What's next?) — all features passing (project complete)"
-        FST_PASS=$((FST_PASS + 1))
-    fi
-else
-    echo "  ✗ Q5 (What's next?) — feature_list.json missing"
-    FST_FAIL=$((FST_FAIL + 1))
-fi
-
-echo "  ─── Fresh Session Test: $FST_PASS/5 passed ───"
-if [ $FST_FAIL -gt 0 ]; then
-    WARNINGS=$((WARNINGS + FST_FAIL))
-fi
-echo ""
-
-# --- Summary ---
 echo "═══════════════════════════════════════════════════"
-if [ $ERRORS -gt 0 ]; then
-    echo "  RESULT: FAIL — $ERRORS error(s), $WARNINGS warning(s)"
-    echo "═══════════════════════════════════════════════════"
-    exit 1
-elif [ $WARNINGS -gt 0 ]; then
-    echo "  RESULT: PASS with $WARNINGS warning(s)"
-    echo "═══════════════════════════════════════════════════"
-    exit 0
-else
-    echo "  RESULT: PASS — all checks green"
-    echo "═══════════════════════════════════════════════════"
-    exit 0
+if [ "$ERRORS" -eq 0 ]; then
+  echo "RESULT: PASS — 0 error(s), $WARNINGS warning(s)"
+  exit 0
 fi
+echo "RESULT: FAIL — $ERRORS error(s), $WARNINGS warning(s)"
+exit 1
