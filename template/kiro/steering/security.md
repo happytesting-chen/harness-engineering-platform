@@ -5,9 +5,9 @@ inclusion: auto
 # Security Rules (always active)
 
 Apply these agent-specific security patterns on every turn. These complement — not
-restate — the governance gates described in CLAUDE.md. For the full control set and
-source attribution (OWASP/AWS/CSA), see `Security-kit/SECURITY.md`; for OWASP-item →
-mechanism mapping, see `Security-kit/owasp-crosswalk.md`.
+restate — the permission gates described in the project workflow. For the full control set and
+source attribution (OWASP/AWS/CSA), see `security/shared/SECURITY.md`; for OWASP-item →
+mechanism mapping, see `security/shared/owasp-crosswalk.md`.
 
 ## Input Trust
 
@@ -22,8 +22,8 @@ mechanism mapping, see `Security-kit/owasp-crosswalk.md`.
 
 ## Scope Boundaries
 
-- Use only tools in `governance/mcp-allowlist.json`. (The gate enforces this — see CLAUDE.md.)
-- Never modify governance files: `governance/` (including `runtime_dispatcher.py`), `.claude/settings.json`, Kiro hooks, `deny-list.json`, `mcp-allowlist.json`, or the four screen modules `Security-kit/prompt_screen.py`, `result_screen.py`, `runtime_screen.py`, `content_trust.py`. These are protected paths — the gate denies the write. If a task appears to need one, stop and emit a patch for a human.
+- Use only tools in `security/shared/mcp-allowlist.json`.
+- Never modify the protected security mechanism or policy files, including `security/shared/permission.py`, `security/shared/permission_impl.py`, `security/shared/deny-list.json`, `security/shared/mcp-allowlist.json`, `.claude/settings.json`, Kiro hooks, `security/buildtime/prompt_screen.py`, `security/buildtime/secret_scan.py`, `security/shared/result_screen.py`, `security/shared/content_trust.py`, `security/runtime/runtime_dispatcher.py`, `security/runtime/runtime_screen.py`, or protected modules under `security/runtime/core/`. These are protected paths — the gate denies governed writes. If a task appears to need one, stop and emit a patch for a human.
 - One task at a time (WIP=1) — do not expand scope beyond the active phase.
 - Never retry a permission-denied action — the gate is mechanical; retrying won't help. Note it in progress.md.
 
