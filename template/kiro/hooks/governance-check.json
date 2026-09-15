@@ -9,6 +9,6 @@
   "_fix_note": "G-BA-002: previously sent tool_input:{} so deny/egress could not inspect the command. Now forwards the tool payload. Kiro variable syntax varies by runtime version — VERIFY in a real Kiro session that {{tool_name}}/{{tool_input}} expand to the actual call before relying on this as enforcement.",
   "then": {
     "type": "runCommand",
-    "command": "echo '{\"tool_name\": \"{{tool_name}}\", \"tool_input\": {{tool_input}}}' | python3 governance/permission.py"
+    "command": "echo '{\"tool_name\": \"{{tool_name}}\", \"tool_input\": {{tool_input}}}' | python3 security/shared/permission.py"
   }
 }
