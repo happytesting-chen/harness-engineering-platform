@@ -15,21 +15,28 @@ Do not require the developer to manually decide which project file should contai
 - **Language:** {{LANGUAGE}} (e.g., Python 3.11+)
 - **Dependencies:** Zero external deps for mechanism code (stdlib only)
 - **Agent runtimes:** Claude Code, Kiro, Codex, Cursor, Copilot
-- **Enforcement:** `governance/permission.py` — four-gate permission check (CLI mode)
+- **Enforcement:** `security/shared/permission.py` — four-gate permission check (CLI mode)
 
 ## Architecture
 
 ```text
 ├── AGENTS.md                         ← Authoritative coding-assistant workflow
 ├── CLAUDE.md                         ← Claude Code adapter; imports AGENTS.md
-├── governance/                       ← ENFORCEMENT + POLICY
-│   ├── permission.py                 ← Enforcement engine
-│   ├── deny-list.json                ← Hard-blocked command patterns
-│   └── mcp-allowlist.json            ← Approved tools + egress hosts
-├── Security-kit/                     ← AI-security kit
-│   ├── SECURITY.md                   ← Control reference
-│   ├── content_trust.py              ← Data-plane content boundary
-│   └── secret_scan.py                ← Secret-block hook adapter
+├── security/                         ← SECURITY LAYER
+│   ├── buildtime/                    ← Coding-assistant hook adapters
+│   │   ├── prompt_screen.py
+│   │   └── secret_scan.py
+│   ├── shared/                       ← Shared policy, guidance, and mechanisms
+│   │   ├── SECURITY.md               ← Control reference
+│   │   ├── permission.py             ← Permission-gate entry point
+│   │   ├── deny-list.json            ← Hard-blocked command patterns
+│   │   ├── mcp-allowlist.json        ← Approved tools + egress hosts
+│   │   ├── content_trust.py          ← Data-plane content boundary
+│   │   └── active-controls.md        ← Project-tailored controls
+│   └── runtime/                      ← Deployed-application security
+│       ├── runtime_dispatcher.py
+│       ├── runtime_screen.py
+│       └── core/                     ← Runtime security modules
 ├── Harness-Best-Practice/            ← Workflow state + reusable guidance
 │   ├── progress.md                   ← Session journal + handoff
 │   ├── feature_list.json             ← Phase DAG
@@ -102,14 +109,14 @@ Do not record unconfirmed assumptions as facts. Mark unresolved assumptions expl
 
 After the critical requirements are understood, determine which security controls apply to the product before building the corresponding capability.
 
-Use the existing security and governance material as the implementation source of truth, including:
+Use the existing security material as the implementation source of truth, including:
 
-- `Security-kit/SECURITY.md`
-- `Security-kit/active-controls.md` when present and populated
-- `governance/deny-list.json`
-- `governance/mcp-allowlist.json`
-- `governance/permission.py`
-- the project's runtime-security implementation and tests
+- `security/shared/SECURITY.md`
+- `security/shared/active-controls.md` when present and populated
+- `security/shared/deny-list.json`
+- `security/shared/mcp-allowlist.json`
+- `security/shared/permission.py`
+- `security/runtime/` and the project's runtime-security tests
 
 Typical capability-to-control mapping includes:
 
@@ -225,11 +232,11 @@ The coding assistant must not self-promote phases that require human approval.
 
 {{DENY_LIST_SUMMARY}}
 
-- Enforcement is mechanical — `governance/permission.py` evaluates governed tool calls.
+- Enforcement is mechanical — `security/shared/permission.py` evaluates governed tool calls.
 - Four gates in order: protected-paths → deny-list → phase-gate → egress (fail-closed, first denial wins).
 - The agent CANNOT bypass, modify, or disable the permission gate.
 - Phase transitions require human sign-off; the agent cannot self-promote phases.
-- Patterns in `governance/deny-list.json` are blocked unconditionally.
+- Patterns in `security/shared/deny-list.json` are blocked unconditionally.
 - Security files existing in the repository do not by themselves protect the deployed application; the application must route the relevant runtime actions and data through the security mechanisms defined by the template.
 
 # How to Run
@@ -255,7 +262,7 @@ Use the verification commands that apply to the current project state. Do not re
 # Escalation
 
 - **Scope ambiguity:** Re-read `Harness-Best-Practice/feature_list.json` and `Context/`; ask the developer if the ambiguity remains.
-- **Tool not available:** Check `governance/mcp-allowlist.json`; do not bypass the permission mechanism.
+- **Tool not available:** Check `security/shared/mcp-allowlist.json`; do not bypass the permission mechanism.
 - **Repeated failures (3+):** Update `Harness-Best-Practice/progress.md` and flag the issue for human review.
 - **Permission denied:** Do not retry or bypass the denial. Record it in `Harness-Best-Practice/progress.md` and surface it to the developer.
 - {{DOMAIN_ESCALATION_RULES}}
@@ -271,14 +278,15 @@ See:
 # Reference
 
 - [BEST-PRACTICES.md](Harness-Best-Practice/BEST-PRACTICES.md) — Harness engineering principles
-- `Security-kit/SECURITY.md` — Security-control reference
-- `governance/permission.py` — Permission enforcement
-- `governance/mcp-allowlist.json` — Approved tools and egress destinations
+- `security/shared/SECURITY.md` — Security-control reference
+- `security/shared/permission.py` — Permission enforcement
+- `security/shared/mcp-allowlist.json` — Approved tools and egress destinations
+- `security/runtime/` — Deployed-application security mechanisms
 
 # Domain Context
 
 See `Context/` for project-specific AI-development assets: product/design, AI stack, deployment target, architecture, methodology, scope, assumptions, and other confirmed requirements.
 
-Threat model and security controls live in `Security-kit/`.
+Threat model and shared security controls live in `security/shared/`; deployed runtime controls live in `security/runtime/`.
 
 - {{DOMAIN_CONTEXT_LINKS}}
