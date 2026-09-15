@@ -26,23 +26,26 @@ The Secure Template provides these mechanisms and gives Claude Code a defined wo
 ## Basic Development Process
 
 ```text
-1. Copy the Secure Template
+1. Clone the Secure Template repository
           |
           v
-2. Open the project with Claude Code
+2. Start Claude Code in the repository
           |
           v
-3. Describe the application you want to build
+3. Tell Claude Code to create a new project
+   using the Secure Template
           |
           v
-4. Claude Code clarifies the requirements
+4. Claude Code creates the project from template/
+   and continues work in the new project
           |
           v
-5. Claude Code builds the application
-   + applies security controls
+5. Describe the application you want to build
           |
           v
-6. Verification
+6. Claude Code clarifies requirements,
+   builds the application + security controls,
+   and verifies the result
           |
           v
 7. Developer review and deployment
@@ -50,41 +53,44 @@ The Secure Template provides these mechanisms and gives Claude Code a defined wo
 
 Security is not something added after the application is finished. Claude Code should identify the required controls before substantial coding, apply them while implementing the application, and verify them before completion.
 
-## Step 1 - Copy the Secure Template
+## Step 1 - Clone the Secure Template
 
-Start every new AI application from a fresh copy of the template.
-
-For example, to create a project called `claims-agent`:
+Clone the Secure Template repository and enter the repository:
 
 ```bash
 git clone https://github.com/YuanSingapore/harness-engineering-platform.git harness-engineering-platform
-cp -r harness-engineering-platform/template/ claims-agent/
-cd claims-agent/
-chmod +x init.sh
-./init.sh
+cd harness-engineering-platform
 ```
 
-`init.sh` is a health check. A fresh template is expected to report missing project configuration because the template does not yet know what application you are building.
+The repository contains the reusable application template under `template/`.
 
-At this stage, a failure is expected. Continue to Step 2.
+## Step 2 - Ask Claude Code to Create a New Project
 
-## Step 2 - Start with Claude Code
+Start Claude Code from the cloned Secure Template repository.
 
-Open the copied project with Claude Code.
+Then tell Claude Code what project to create. For example:
 
-Claude Code loads the project instructions from `CLAUDE.md`. `CLAUDE.md` imports the main development workflow from `AGENTS.md` and the active security controls from `Security-kit/active-controls.md`.
+> **Create a new project called `ai-news` using the Secure Template.**
 
-You do not need to manually tell Claude Code to read `AGENTS.md`. Simply describe the application you want to build.
+Claude Code follows the repository-level `CLAUDE.md` bootstrap instructions. It creates the new project from the contents of `template/` without modifying the source template.
+
+After creating the project, Claude Code continues all application work from the new project directory. The new project's own `CLAUDE.md` then becomes the Claude Code entry point and imports the main development workflow from `AGENTS.md` together with the active security controls.
+
+The developer does not need to manually copy `template/` or manage the handover between the template repository and the new project.
+
+## Step 3 - Describe the Application
+
+Once the new project has been created, describe what you want to build.
 
 For example:
 
 > Build an AI News application that collects AI and cybersecurity news, selects four important stories, generates a digest, and allows users to ask questions about the news.
 
-Claude Code should then guide the product-definition process rather than immediately starting substantial coding.
+Claude Code should guide the product-definition process rather than immediately starting substantial coding.
 
 It should:
 
-1. Read the project instructions and existing `Context/` files.
+1. Read the new project's instructions and existing `Context/` files.
 2. Ask the developer questions when important information is missing.
 3. Record confirmed requirements in the appropriate `Context/` files.
 4. Identify the security controls required by those requirements.
@@ -101,9 +107,9 @@ Typical clarification questions may include:
 
 The developer does not need to decide which `Context/` file each answer belongs in. Claude Code should organize and record the confirmed requirements.
 
-## Step 3 - Claude Code Develops and Verifies the Application
+## Step 4 - Claude Code Develops and Verifies the Application
 
-Once the critical requirements are clear, Claude Code follows the workflow defined in `AGENTS.md`.
+Once the critical requirements are clear, Claude Code follows the workflow defined in the new project's `AGENTS.md`.
 
 The intended flow is:
 
@@ -145,7 +151,7 @@ If a new capability is introduced during development, Claude Code should update 
 
 Claude Code should not claim the application is complete until the required verification passes.
 
-## Step 4 - Developer Review and Deployment
+## Step 5 - Developer Review and Deployment
 
 The developer reviews the completed application and confirms that the product behavior, deployment assumptions, and remaining risks are acceptable for the target environment.
 
@@ -154,13 +160,27 @@ The deployed application must continue to use the template's runtime enforcement
 ## Complete Process
 
 ```text
-COPY SECURE TEMPLATE
+CLONE SECURE TEMPLATE REPOSITORY
          |
          v
-OPEN WITH CLAUDE CODE
+START CLAUDE CODE
          |
          v
-DESCRIBE THE APPLICATION
+"Create a new project called ai-news
+using the Secure Template."
+         |
+         v
+CLAUDE CODE COPIES template/
+TO THE NEW PROJECT
+         |
+         v
+CONTINUE WORK IN NEW PROJECT
+         |
+         v
+NEW PROJECT CLAUDE.md -> AGENTS.md
+         |
+         v
+DEVELOPER DESCRIBES THE APPLICATION
          |
          v
 DEVELOPER <--> CLAUDE CODE
@@ -184,4 +204,4 @@ DEVELOPER REVIEW / DEPLOY
 
 In simple terms:
 
-> **The developer defines what to build. Claude Code clarifies the requirements, records them, builds the application using the Secure Template, and verifies the result.**
+> **Clone the Secure Template, ask Claude Code to create a new project from it, then describe what you want to build. Claude Code handles the project setup, requirement clarification, secure development, and verification workflow.**
