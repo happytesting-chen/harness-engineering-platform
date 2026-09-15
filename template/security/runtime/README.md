@@ -2,15 +2,16 @@
 
 Runtime security protects the deployed AI application after development.
 
-Typical responsibilities include:
+## Components
 
-- screening application input before it reaches the model
-- authorizing tool calls before execution
-- enforcing runtime egress policy
-- screening tool results before they return to the model
-- handling untrusted external content
-- ensuring every application tool call passes through the governed runtime path
+- `runtime_dispatcher.py` — governed runtime tool chokepoint
+- `runtime_screen.py` — deployed input screening adapter
+- `core/` — runtime host, ingress, classifier, contracts, audit, review, output, session, startup and related runtime modules
 
-Runtime security does not come from Claude Code hooks. A deployed application must explicitly integrate the runtime enforcement path.
+Runtime components consume common policy and reusable enforcement from `../shared/`.
 
-Runtime controls should consume common policy and enforcement logic from `../shared/` rather than maintaining separate copies.
+## Required integration invariant
+
+Every deployed tool invocation must reach the real callable through the governed runtime path. Application code must not retain a raw callable path that bypasses runtime authorization.
+
+Having these files in a project is not sufficient by itself. The deployed application must mechanically wire its model/tool execution through this runtime layer.
