@@ -10,7 +10,7 @@
         "hooks": [
           {
             "type": "command",
-            "command": "python3 \"$CLAUDE_PROJECT_DIR/Security-kit/prompt_screen.py\"",
+            "command": "python3 \"$CLAUDE_PROJECT_DIR/security/buildtime/prompt_screen.py\"",
             "timeout": 5
           }
         ]
@@ -24,7 +24,7 @@
         "hooks": [
           {
             "type": "command",
-            "command": "python3 \"$CLAUDE_PROJECT_DIR/governance/permission.py\"",
+            "command": "python3 \"$CLAUDE_PROJECT_DIR/security/shared/permission.py\"",
             "timeout": 5
           }
         ]
@@ -36,7 +36,7 @@
         "hooks": [
           {
             "type": "command",
-            "command": "python3 \"$CLAUDE_PROJECT_DIR/Security-kit/secret_scan.py\"",
+            "command": "python3 \"$CLAUDE_PROJECT_DIR/security/buildtime/secret_scan.py\"",
             "timeout": 3
           }
         ]
@@ -50,7 +50,7 @@
         "hooks": [
           {
             "type": "command",
-            "command": "python3 \"$CLAUDE_PROJECT_DIR/Security-kit/result_screen.py\"",
+            "command": "python3 \"$CLAUDE_PROJECT_DIR/security/shared/result_screen.py\"",
             "timeout": 5
           }
         ]
