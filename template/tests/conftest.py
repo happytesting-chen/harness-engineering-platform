@@ -1,13 +1,10 @@
-"""Test import bootstrap for the migrated security-layer layout.
-
-This keeps test modules focused on behavior while the authoritative implementation now
-lives under security/{buildtime,runtime,shared}. Retired paths are not recreated.
-"""
+"""Test import bootstrap for the migrated security-layer layout."""
 import sys
 from pathlib import Path
 
 PROJECT_ROOT = Path(__file__).resolve().parent.parent
 for path in (
+    PROJECT_ROOT / "security",
     PROJECT_ROOT / "security" / "runtime" / "core",
     PROJECT_ROOT / "security" / "runtime",
     PROJECT_ROOT / "security" / "buildtime",
