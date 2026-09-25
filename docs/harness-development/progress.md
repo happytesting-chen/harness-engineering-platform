@@ -989,3 +989,33 @@ needs torch at runtime, which Q7 excludes. Decision recorded: export its backbon
 | 09-08 | Local and pinned stays absolute | A hosted judge would be a different profile with its own verdict, not a change to this one |
 | 09-08 | TestSavantAI rejected despite better headline numbers | 20/24 signed, half the false positives, twice as fast — and it loses `agent-override` 2/2 → 0/2. A solved family traded for two half-solved ones |
 | 09-08 | Option B (ONNX export), decided by shi_yuan@csa.gov.sg | Keeps torch out of the runtime venv. Latency is *not* a justification — see the correction above |
+
+
+## Session — 2026-09-25 (Clusters E–H)
+
+### Done
+
+- Migrated all tests/runtime/*.py from Security-kit/governance sys.path to security/runtime/core
+  and security/shared. Fixed permission_impl patching in test_guarded, test_action_receipts,
+  test_replay, test_source_sink_paths, and attack_driver.py.
+- Fixed test_design_contract.py (harness spec path) and test_eval_chunk_policy.py
+  (classifier-candidates path) to reference moved docs/ locations or skip gracefully.
+- **F-12:** screen_input() now logs ALLOWED audit entry on clean pass. Updated
+  test_rejection_is_audited and test_source_label tests to assert ALLOWED entries.
+- **F-07–F-23:** Rewrote AGENTS.md — two-rule security model + diagram, RuntimeDispatcher
+  wiring example, LLM boundary rule, output screening guidance, three-test-type requirement,
+  mock policy, responsibility table, composed verification command, PermissionError rule,
+  capability scope checklist, phase sign-off UX.
+- **F-22:** Replaced {{GATED_TOOL}} placeholder with _PLACEHOLDER_REPLACE_ME + developer comment.
+- **F-19:** Created security/shared/signoff.py — append-only, idempotent, audited phase sign-off.
+- init.sh: added placeholder tool check and phase-verified-but-not-signed-off warning.
+
+### Test suite
+
+338 passed, 1 skipped (0 failures)
+
+### Remaining
+
+Clusters I (runtime architecture clarity), J (testing model), K (golden path) — all require
+AGENTS.md to be stable (now done) and then Context/ template updates, test architecture docs,
+and golden path end-to-end verification.
