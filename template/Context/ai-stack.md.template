@@ -34,6 +34,12 @@
 
 - <lib> — <purpose> — <exact version pin>
 
+## Testing
+
+- **Product source location:** `src/<project_name>/` — add this to `tests/conftest.py` sys.path so `mock.patch("project_name.module.fn")` resolves correctly (flat imports work in production; mock.patch needs the full package path)
+- **What to mock:** external HTTP, Anthropic SDK, file I/O on real policy files
+- **Never mock:** `screen_input()`, `RuntimeDispatcher.execute()`, permission/allowlist checks — mocking a security mechanism makes the test meaningless; mock the external service it wraps instead
+
 ## Open questions / decisions pending
 
 - <anything not yet decided>
