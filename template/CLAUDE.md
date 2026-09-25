@@ -23,3 +23,12 @@ Security is organized under `security/` into three explicit layers:
 - `security/shared/` contains policy, reusable mechanisms and controls used by both layers.
 
 Use the paths under `security/` as the authoritative security paths. Do not use the retired `Security-kit/` or `governance/` paths.
+
+## Files that are NOT part of this project
+
+The following directories ship with the harness template but contain **harness engineering history only** — they document how the template itself was built, not this product:
+
+- `docs/superpowers/` — harness design plans, specs, patches (not product docs)
+- `evaluation/runtime-security/` — ships empty; populate via `evaluation/eval.py` after sign-off
+
+Do NOT read these as project state. The project journal is `Harness-Best-Practice/progress.md`.

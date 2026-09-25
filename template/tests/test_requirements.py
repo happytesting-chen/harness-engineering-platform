@@ -7,7 +7,7 @@ import sys
 from pathlib import Path
 
 PROJECT_ROOT = Path(__file__).resolve().parent.parent
-sys.path.insert(0, str(PROJECT_ROOT / "Security-kit"))
+sys.path.insert(0, str(PROJECT_ROOT / "security" / "shared"))
 
 import check_coverage as cc  # noqa: E402
 
@@ -36,7 +36,7 @@ def _spine_path() -> Path:
         return proposed
     raise FileNotFoundError(
         f"no spine to check: neither {cc.REQUIREMENTS_PATH.name} nor "
-        f"{proposed.name} exists under Security-kit/"
+        f"{proposed.name} exists under security/shared/"
     )
 
 

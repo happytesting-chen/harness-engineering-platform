@@ -1,11 +1,11 @@
 """Bootstrap the pinned semantic classifier on another machine — fail closed at every step.
 
 The signed lock names artifacts by absolute path on the operator's machine, and the
-classifier is deliberately not shipped. `Security-kit/eval/bootstrap_classifier.py`
+classifier is deliberately not shipped. `security/runtime/eval/bootstrap_classifier.py`
 rebuilds the same classifier locally: pinned venv, digest-verified download, the committed
 benchmark re-run and compared, then an UNSIGNED lock a human signs deliberately.
 
-Nothing here touches `Security-kit/runtime/` (C-5). These tests use fakes for the network,
+Nothing here touches `security/runtime/core/` (C-5). These tests use fakes for the network,
 the venv and the benchmark; the real end-to-end run is recorded in progress.md.
 """
 import ast
@@ -16,14 +16,14 @@ import tempfile
 from pathlib import Path
 
 _ROOT = Path(__file__).resolve().parent.parent
-_KIT = _ROOT / "Security-kit"
+_KIT = _ROOT / "security" / "runtime"
 sys.path.insert(0, str(_KIT))
 sys.path.insert(0, str(_KIT / "eval"))
 
 import bootstrap_classifier as bc  # noqa: E402
 
 _SOURCE = json.loads((_KIT / "eval" / "classifier-source.json").read_text())
-_LOCK = json.loads((_KIT / "runtime" / "semantic-model.lock.json").read_text())
+_LOCK = json.loads((_KIT / "core" / "semantic-model.lock.json").read_text())
 
 
 def _sha(b: bytes) -> str:
@@ -53,7 +53,7 @@ def test_source_pins_the_same_model_as_the_signed_lock_and_candidate_manifest():
     # This assertion used to take the first glob hit, which was correct only while exactly
     # one candidate manifest existed. Adding candidates 02/03 broke it on Linux and not on
     # macOS, because glob order is filesystem-dependent — it passed locally and failed CI.
-    manifest_dir = _ROOT / "evaluation/runtime-security/candidate-manifests"
+    manifest_dir = _ROOT.parent / "docs/harness-development/evaluation-runtime-security/candidate-manifests"
     matching = [json.loads(p.read_text()) for p in sorted(manifest_dir.glob("*.json"))
                 if json.loads(p.read_text()).get("name") == _SOURCE["candidate"]]
     assert len(matching) == 1, (
@@ -70,7 +70,9 @@ def test_source_wrapper_body_digest_matches_the_tracked_wrapper():
 
 
 def test_source_reference_result_exists_and_carries_every_compare_field():
-    ref = json.loads((_ROOT / _SOURCE["reference_result"]).read_text())
+    ref_path = _SOURCE["reference_result"]
+    base = _ROOT.parent if ref_path.startswith("docs/") else _ROOT
+    ref = json.loads((base / ref_path).read_text())
     for field in _SOURCE["compare_fields"]:
         assert field in ref, f"reference result lacks {field}"
     assert ref["model_sha256"] == _LOCK["model_sha256"]
@@ -78,7 +80,9 @@ def test_source_reference_result_exists_and_carries_every_compare_field():
 
 
 def test_source_requirements_lock_exists_and_is_fully_pinned():
-    lines = [l.strip() for l in (_ROOT / _SOURCE["environment"]["requirements_lock"]).read_text().splitlines()
+    lock_path = _SOURCE["environment"]["requirements_lock"]
+    base = _ROOT.parent if lock_path.startswith("docs/") else _ROOT
+    lines = [l.strip() for l in (base / lock_path).read_text().splitlines()
              if l.strip() and not l.startswith("#")]
     assert lines and all("==" in l for l in lines), "every requirement must be ==pinned"
 

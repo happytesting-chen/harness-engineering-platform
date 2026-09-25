@@ -25,8 +25,8 @@ from contextlib import contextmanager
 from pathlib import Path
 
 PROJECT_ROOT = Path(__file__).resolve().parent.parent
-sys.path.insert(0, str(PROJECT_ROOT / "governance"))
 import permission  # noqa: E402
+import permission_impl as _impl  # noqa: E402
 
 
 @contextmanager
@@ -36,6 +36,9 @@ def allowlist(hosts, tools=()):
     `tools` matters only for the tests that go through `make_permission_check`, where
     Gate 2 runs first and would otherwise deny an unregistered tool before Gate 3 is
     reached — which would make this file pass while measuring the wrong gate.
+
+    Patches permission_impl directly — permission.py re-exports values (copies),
+    so patching permission.* does not affect what permission_impl reads at call time.
     """
     with tempfile.TemporaryDirectory() as tmp:
         path = Path(tmp) / "mcp-allowlist.json"
@@ -43,12 +46,12 @@ def allowlist(hosts, tools=()):
             "tools": [{"name": n, "description": n, "version": "1.0"} for n in tools],
             "egress_hosts": hosts,
         }))
-        original = permission.ALLOWLIST_PATH
-        permission.ALLOWLIST_PATH = path
+        original = _impl.ALLOWLIST_PATH
+        _impl.ALLOWLIST_PATH = path
         try:
             yield
         finally:
-            permission.ALLOWLIST_PATH = original
+            _impl.ALLOWLIST_PATH = original
 
 
 def _denied(command="", tool_input=None):
@@ -224,12 +227,12 @@ def test_malformed_allowlist_value_denies_rather_than_allows():
     with tempfile.TemporaryDirectory() as tmp:
         path = Path(tmp) / "mcp-allowlist.json"
         path.write_text(json.dumps({"egress_hosts": "localhost"}))  # str, not list
-        original = permission.ALLOWLIST_PATH
-        permission.ALLOWLIST_PATH = path
+        original = _impl.ALLOWLIST_PATH
+        _impl.ALLOWLIST_PATH = path
         try:
             assert _denied(tool_input={"url": "http://localhost/x"})
         finally:
-            permission.ALLOWLIST_PATH = original
+            _impl.ALLOWLIST_PATH = original
 
 
 # ---------------------------------------------------------------------------

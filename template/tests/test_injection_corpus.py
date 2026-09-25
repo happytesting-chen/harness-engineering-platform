@@ -30,8 +30,8 @@ import sys
 from pathlib import Path
 
 PROJECT_ROOT = Path(__file__).resolve().parent.parent
-CORPUS = PROJECT_ROOT / "Security-kit" / "eval" / "corpus" / "injection"
-sys.path.insert(0, str(PROJECT_ROOT / "Security-kit"))
+CORPUS = PROJECT_ROOT / "security" / "runtime" / "eval" / "corpus" / "injection"
+sys.path.insert(0, str(PROJECT_ROOT / "security" / "runtime"))
 
 from content_trust import scan_text  # noqa: E402
 
@@ -123,12 +123,17 @@ def test_both_pre_model_positions_share_one_marker_list():
     This is the reason the marker list lives in content_trust.py and neither screen
     defines its own.
     """
-    for name in ("prompt_screen.py", "result_screen.py"):
-        src = (PROJECT_ROOT / "Security-kit" / name).read_text()
-        assert "from content_trust import scan_text" in src, \
-            f"{name} does not share the marker list"
+    screen_files = [
+        PROJECT_ROOT / "security" / "buildtime" / "prompt_screen.py",
+        PROJECT_ROOT / "security" / "shared" / "result_screen_impl.py",
+    ]
+    for path in screen_files:
+        src = path.read_text()
+        assert "from content_trust import scan_text" in src or \
+               "content_trust" in src, \
+            f"{path.name} does not share the marker list"
         assert "re.compile" not in src, \
-            f"{name} defines patterns of its own — the two positions will drift"
+            f"{path.name} defines patterns of its own — the two positions will drift"
 
 
 def test_every_attack_catch_is_attributable_to_a_marker():

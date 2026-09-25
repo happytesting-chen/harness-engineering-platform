@@ -21,7 +21,7 @@ from pathlib import Path
 
 PROJECT_ROOT = Path(__file__).resolve().parent.parent
 sys.path.insert(0, str(PROJECT_ROOT / "demo"))
-sys.path.insert(0, str(PROJECT_ROOT / "Security-kit"))
+sys.path.insert(0, str(PROJECT_ROOT / "security" / "shared"))
 
 from fake_model import Block, Response, FakeModel      # noqa: E402
 import harness                                          # noqa: E402

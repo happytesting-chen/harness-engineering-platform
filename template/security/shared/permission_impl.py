@@ -20,7 +20,7 @@ into exit 2. That is load-bearing, not defensive habit: Claude Code blocks only 
 exit 2, and treats every other non-zero as a non-blocking hook error that lets the
 tool RUN. A gate that crashed on a corrupt JSON file would therefore fail OPEN.
 
-To customise: edit deny-list.json and governance/mcp-allowlist.json.
+To customise: edit deny-list.json and security/shared/mcp-allowlist.json.
 Do NOT modify this file per project — it's the mechanism, not the policy.
 """
 import json
@@ -29,10 +29,11 @@ import re
 from pathlib import Path
 from urllib.parse import urlparse
 
-# Layout: <project_root>/governance/permission.py
-#   deny-list.json + mcp-allowlist.json are siblings (in governance/)
+# Layout: <project_root>/security/shared/permission_impl.py
+#   deny-list.json + mcp-allowlist.json are siblings (in security/shared/)
+#   permission.py is the entry-point adapter in security/shared/
 #   feature_list.json lives in <project_root>/Harness-Best-Practice/
-PROJECT_ROOT = Path(__file__).parent.parent
+PROJECT_ROOT = Path(__file__).parent.parent.parent
 DENY_LIST_PATH = Path(__file__).parent / "deny-list.json"
 ALLOWLIST_PATH = Path(__file__).parent / "mcp-allowlist.json"
 FEATURE_LIST_PATH = PROJECT_ROOT / "Harness-Best-Practice" / "feature_list.json"
@@ -181,54 +182,46 @@ WRITE_TARGET_FIELDS = ("file_path", "notebook_path", "path")
 # S2.4 is a mechanism guarantee, so it must not be silently removable by editing
 # policy — that would be the very bypass this gate exists to prevent.
 BUILTIN_PROTECTED_PATHS = (
-    "governance/permission.py",
-    "governance/deny-list.json",
-    "governance/mcp-allowlist.json",
+    # Shared policy and mechanism files — human-only edits.
+    "security/shared/permission.py",
+    "security/shared/permission_impl.py",
+    "security/shared/deny-list.json",
+    "security/shared/mcp-allowlist.json",
+    "security/shared/content_trust.py",
+    "security/shared/result_screen.py",
+    "security/shared/result_screen_impl.py",
     ".claude/settings.json",
-    "Security-kit/secret_scan.py",
-    "Security-kit/content_trust.py",
-    # The two pre-model screens. They are hook ENTRY POINTS, not library code, so
-    # unlike content_trust.py (their shared marker list, already above) each is
-    # independently sufficient to disable a control: blank result_screen.py and it
-    # exits 0 with empty stdout, which the runtime reads as "no replacement" and
-    # forwards the original tool output to the model. Measured 2026-08-17 — before
-    # these two lines, `Edit Security-kit/result_screen.py` was ALLOW.
-    "Security-kit/prompt_screen.py",
-    "Security-kit/result_screen.py",
-    # The runtime pair, added 2026-08-22 with the mechanism itself. The dispatcher is
-    # the single chokepoint that holds a deployed app's only call to the permission
-    # gate, so editing it disables gate ② for the whole application in one line —
-    # strictly more damaging than editing any hook adapter, which only affects a
-    # developer's IDE session. `runtime_screen.py` is its ①/④ counterpart.
-    # Measured on dev_fengmin 2026-08-21: without this line
-    # `Edit governance/runtime_dispatcher.py` returned exit 0 (ALLOW).
-    "governance/runtime_dispatcher.py",
-    "Security-kit/runtime_screen.py",
-    # The runtime-mvp semantic profile, added with the 2026-09-01 claims batch. Same
-    # reasoning as the runtime pair above: each is an in-process enforcement module for
-    # a DEPLOYED application, so one edit disables a control for the whole app, and the
-    # app has no hook layer to catch it. The signed classifier lock is here too — it is
-    # the artifact a human approved by digest, and rewriting it swaps the model silently.
-    # NOT listed, deliberately: runtime/attack_driver.py and runtime/semantic-model.
-    # schema.json — evaluation tooling and inert documentation, matching how
-    # Security-kit/eval/ is left unprotected. The shell patterns use a
-    # Security-kit/runtime/ PREFIX, so those two still get shell coverage.
-    "Security-kit/runtime/__init__.py",
-    "Security-kit/runtime/adapters.py",
-    "Security-kit/runtime/audit.py",
-    "Security-kit/runtime/classifier.py",
-    "Security-kit/runtime/contracts.py",
-    "Security-kit/runtime/guarded.py",
-    "Security-kit/runtime/host.py",
-    "Security-kit/runtime/ingress.py",
-    "Security-kit/runtime/normalization.py",
-    "Security-kit/runtime/output.py",
-    "Security-kit/runtime/review.py",
-    "Security-kit/runtime/review_cli.py",
-    "Security-kit/runtime/rules.py",
-    "Security-kit/runtime/session.py",
-    "Security-kit/runtime/startup.py",
-    "Security-kit/runtime/semantic-model.lock.json",
+    # Buildtime hook entry points. Each is independently sufficient to disable a
+    # control: blank secret_scan.py and secrets pass; blank prompt_screen.py and
+    # injections enter the model. Measured 2026-08-17.
+    "security/buildtime/secret_scan.py",
+    "security/buildtime/prompt_screen.py",
+    # Runtime enforcement pair. The dispatcher is the single chokepoint for a
+    # deployed app's permission gate; runtime_screen.py is its ①/④ counterpart.
+    # Editing either disables a control for the whole application in one line.
+    # Measured 2026-08-21.
+    "security/runtime/runtime_dispatcher.py",
+    "security/runtime/runtime_screen.py",
+    "security/runtime/__init__.py",
+    # Runtime-mvp in-process enforcement modules. One edit disables a control for
+    # the deployed app. attack_driver.py and semantic-model.schema.json are
+    # evaluation tooling and inert documentation — deliberately NOT listed.
+    "security/runtime/core/adapters.py",
+    "security/runtime/core/audit.py",
+    "security/runtime/core/classifier.py",
+    "security/runtime/core/contracts.py",
+    "security/runtime/core/guarded.py",
+    "security/runtime/core/host.py",
+    "security/runtime/core/ingress.py",
+    "security/runtime/core/normalization.py",
+    "security/runtime/core/output.py",
+    "security/runtime/core/review.py",
+    "security/runtime/core/review_cli.py",
+    "security/runtime/core/rules.py",
+    "security/runtime/core/session.py",
+    "security/runtime/core/startup.py",
+    "security/runtime/core/semantic-model.lock.json",
+    # Audit trail — the append-only record of all decisions.
     "Harness-Best-Practice/observability/audit_hook.py",
     "Harness-Best-Practice/observability/audit.log",
 )

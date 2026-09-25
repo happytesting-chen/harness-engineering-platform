@@ -1,4 +1,4 @@
-# Security Tailor
+# Security Tailor (Kiro)
 
 > Purpose: Map THIS product (in `Context/`) to the OWASP-AI controls — deciding which
 > apply, which are N/A, and which are gaps — then emit a checkable `coverage.json` and a

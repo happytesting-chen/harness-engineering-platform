@@ -9,7 +9,11 @@ import hashlib
 import sys
 from pathlib import Path
 
-sys.path.insert(0, str(Path(__file__).resolve().parent.parent.parent / "Security-kit"))
+_ROOT = Path(__file__).resolve().parent.parent.parent
+for _p in (_ROOT / "security", _ROOT / "security" / "runtime" / "core",
+           _ROOT / "security" / "runtime", _ROOT / "security" / "shared"):
+    if str(_p) not in sys.path:
+        sys.path.insert(0, str(_p))
 
 from runtime.classifier import SemanticDecision, SemanticLabel  # noqa: E402
 from runtime.contracts import ContentEnvelope, IngressOutcome, Origin  # noqa: E402

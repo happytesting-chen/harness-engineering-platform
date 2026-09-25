@@ -13,6 +13,7 @@ from pathlib import Path
 PROJECT_ROOT = Path(__file__).resolve().parent.parent
 sys.path.insert(0, str(PROJECT_ROOT / "security" / "shared"))
 import permission  # noqa: E402
+import permission_impl as _impl  # noqa: E402
 
 
 class Block:
@@ -72,39 +73,39 @@ def test_whitespace_padding_cannot_evade():
 
 
 def test_builtins_survive_policy_deletion():
-    original = permission.DENY_LIST_PATH
+    original = _impl.DENY_LIST_PATH
     with tempfile.TemporaryDirectory() as tmp:
         stripped = Path(tmp) / "deny-list.json"
         stripped.write_text(json.dumps({"patterns": [], "protected_paths": []}))
         try:
-            permission.DENY_LIST_PATH = stripped
+            _impl.DENY_LIST_PATH = stripped
             allowed, reason = _check("write_file", {"file_path": "security/shared/permission.py"})
             assert not allowed and "S2.4" in reason
         finally:
-            permission.DENY_LIST_PATH = original
+            _impl.DENY_LIST_PATH = original
 
 
 def test_missing_deny_list_file_still_protects():
-    original = permission.DENY_LIST_PATH
+    original = _impl.DENY_LIST_PATH
     try:
-        permission.DENY_LIST_PATH = Path("/nonexistent/deny-list.json")
+        _impl.DENY_LIST_PATH = Path("/nonexistent/deny-list.json")
         allowed, _ = _check("write_file", {"file_path": "security/shared/permission.py"})
         assert not allowed
     finally:
-        permission.DENY_LIST_PATH = original
+        _impl.DENY_LIST_PATH = original
 
 
 def test_policy_can_add_protected_paths():
-    original = permission.DENY_LIST_PATH
+    original = _impl.DENY_LIST_PATH
     with tempfile.TemporaryDirectory() as tmp:
         extended = Path(tmp) / "deny-list.json"
         extended.write_text(json.dumps({"patterns": [], "protected_paths": ["claims/router.py"]}))
         try:
-            permission.DENY_LIST_PATH = extended
+            _impl.DENY_LIST_PATH = extended
             allowed, _ = _check("write_file", {"file_path": "claims/router.py"})
             assert not allowed
         finally:
-            permission.DENY_LIST_PATH = original
+            _impl.DENY_LIST_PATH = original
 
 
 def test_ordinary_writes_are_allowed():
@@ -152,19 +153,26 @@ SHELL_WRITE_VERBS = [
     ("install", "install /tmp/src {p}"),
     ("mv", "mv /tmp/src {p}"),
     ("rm", "rm {p}"),
-    ("tee", "tee {p} < /tmp/src"),
-    ("truncate", "truncate -s 0 {p}"),
-    ("sed -i", "sed -i '' s/a/b/ {p}"),
+    ('tee', 'tee {p} < /tmp/src'),
+    ('truncate', 'truncate -s 0 {p}'),
+    ('sed -i', "sed -i '' s/a/b/ {p}"),
     ("chmod", "chmod 777 {p}"),
     ("ln -sf", "ln -sf /tmp/src {p}"),
     ("git checkout", "git checkout HEAD~1 -- {p}"),
     ("dd if-first", "dd if=/tmp/src of={p}"),
 ]
 UNCOVERED_VERBS = {"cp", "install", "ln -sf", "git checkout", "dd if-first"}
+# Fully-uncovered paths: no covered verb blocks these (audit files lack security/ prefix).
 UNCOVERED_PATHS = {
-    "security/runtime/__init__.py",
     "Harness-Best-Practice/observability/audit_hook.py",
     "Harness-Best-Practice/observability/audit.log",
+}
+# Partially-uncovered cells: security/runtime/__init__.py is covered by sed-i/tee/truncate
+# but not by redirect/append/cat-redirect/chmod/rm/mv. Documented open gap.
+_INIT_PY = "security/runtime/__init__.py"
+UNCOVERED_CELLS = {
+    (v, _INIT_PY)
+    for v in ("redirect", "append", "cat-redirect", "chmod", "rm", "mv")
 }
 
 
@@ -177,7 +185,7 @@ def test_shell_patterns_block_the_common_forms_they_claim():
         if verb in UNCOVERED_VERBS:
             continue
         for path in MECHANISM_AND_POLICY:
-            if path in UNCOVERED_PATHS:
+            if path in UNCOVERED_PATHS or (verb, path) in UNCOVERED_CELLS:
                 continue
             assert _shell_blocks(tmpl, path), f"claimed shell coverage is open: {verb} -> {path}"
 
@@ -195,13 +203,15 @@ def test_shell_pattern_coverage_is_partial_and_measured():
         for verb, _ in SHELL_WRITE_VERBS
         for path in MECHANISM_AND_POLICY
         if verb in UNCOVERED_VERBS or path in UNCOVERED_PATHS
-    }
-    assert set(open_cells) == predicted
-    # Historical pre-migration measurement was 158/392. The migrated tree adds
-    # protected implementation/adapter paths, so the live matrix is intentionally
-    # re-baselined rather than pretending the old count still describes this layout.
-    assert len(open_cells) == 182, f"shell coverage changed: {len(open_cells)} of {total} open"
-    assert total == 434, f"matrix size changed to {total}"
+    } | UNCOVERED_CELLS
+    assert set(open_cells) == predicted, (
+        f"Shell coverage prediction mismatch.\n"
+        f"  Extra open (not predicted): {sorted(set(map(tuple, open_cells)) - predicted)[:5]}\n"
+        f"  Extra predicted (not open): {sorted(predicted - set(map(tuple, open_cells)))[:5]}"
+    )
+    # Baselined after security-layer migration (2026-09-24).
+    assert len(open_cells) == 174, f"shell coverage changed: {len(open_cells)} of {total} open"
+    assert total == 420, f"matrix size changed to {total}"
 
 
 def test_uncovered_shell_verbs_actually_overwrite_the_mechanism():

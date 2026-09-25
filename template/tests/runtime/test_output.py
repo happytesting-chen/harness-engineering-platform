@@ -8,8 +8,12 @@ leak wearing a bandage).
 import sys
 from pathlib import Path
 
-_KIT = Path(__file__).resolve().parent.parent.parent / "Security-kit"
-sys.path.insert(0, str(_KIT))
+_ROOT = Path(__file__).resolve().parent.parent.parent
+_CORE = _ROOT / "security" / "runtime" / "core"
+for _p in (_ROOT / "security", _CORE,
+           _ROOT / "security" / "runtime", _ROOT / "security" / "shared"):
+    if str(_p) not in sys.path:
+        sys.path.insert(0, str(_p))
 
 from runtime.output import BufferedSender, OutputPolicy, screen_output  # noqa: E402
 
@@ -87,7 +91,7 @@ def test_release_without_prepare_sends_nothing():
 
 
 def test_output_module_does_not_own_credential_patterns():
-    source = (_KIT / "runtime" / "output.py").read_text(encoding="utf-8")
+    source = (_CORE / "output.py").read_text(encoding="utf-8")
     assert "re.compile" not in source, (
         "credential detection has one owner; this module imports it"
     )

@@ -3,4 +3,7 @@
 
 > **Stub.** No product tailoring yet. Run `/security-tailor` (auto-invoked by `/init-project`)
 > to replace this with the controls that apply to THIS product. Until then, consult the full
-> reference in `Security-kit/SECURITY.md`.
+> reference in `security/shared/SECURITY.md`.
+>
+> **SEC-AUDIT-001 note:** `runtime_screen.screen_input()` logs both ALLOW (clean pass at Gate ①)
+> and DENY (injection markers detected). Both decisions are recorded in the audit trail.

@@ -4,7 +4,7 @@ import sys
 import tempfile
 from pathlib import Path
 
-SEC_DIR = Path(__file__).parent.parent / "Security-kit"
+SEC_DIR = Path(__file__).parent.parent / "security" / "shared"
 if str(SEC_DIR) not in sys.path:
     sys.path.insert(0, str(SEC_DIR))
 import check_coverage as cc  # noqa: E402
@@ -92,7 +92,7 @@ def _run_check(matrix, context_files, coverage=None, active=None, mirror=None,
              cc.KIRO_MIRROR_PATH, cc.CROSSWALK_PATH, cc.ALLOWLIST_PATH)
     with tempfile.TemporaryDirectory() as d:
         root = Path(d)
-        sec = root / "Security-kit"; sec.mkdir()
+        sec = root / "security" / "shared"; sec.mkdir(parents=True)
         ctx = _write_context(root, context_files)
         (sec / "control-matrix.md").write_text(matrix)
         cc.MATRIX_PATH = sec / "control-matrix.md"
@@ -101,7 +101,7 @@ def _run_check(matrix, context_files, coverage=None, active=None, mirror=None,
         cc.CONTEXT_DIR = ctx
         cc.KIRO_MIRROR_PATH = root / "kiro" / "steering" / "active-controls.md"
         cc.CROSSWALK_PATH = sec / "owasp-crosswalk.md"
-        cc.ALLOWLIST_PATH = root / "governance" / "mcp-allowlist.json"
+        cc.ALLOWLIST_PATH = root / "security" / "shared" / "mcp-allowlist.json"
         if crosswalk is not None:
             cc.CROSSWALK_PATH.write_text(crosswalk)
         if allowlist is not None:
@@ -218,7 +218,7 @@ def case_pass_when_mirror_content_matches_applies():
 def case_kiro_mirror_required_when_steering_exists():
     """With kiro/steering/ present, a missing mirror is an ERROR.
 
-    The Kiro host loads kiro/steering/*.md, not Security-kit/active-controls.md.
+    The Kiro host loads kiro/steering/*.md, not security/shared/active-controls.md.
     A layer-D file that exists for one host only is steering the agent on one
     host only — and nothing said so.
     """

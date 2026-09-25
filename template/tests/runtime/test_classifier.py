@@ -16,8 +16,13 @@ import sys
 import tempfile
 from pathlib import Path
 
-_KIT = Path(__file__).resolve().parent.parent.parent / "Security-kit"
-sys.path.insert(0, str(_KIT))
+_ROOT = Path(__file__).resolve().parent.parent.parent
+_CORE = _ROOT / "security" / "runtime" / "core"
+_EVAL = _ROOT / "security" / "runtime" / "eval"
+for _p in (_ROOT / "security", _CORE,
+           _ROOT / "security" / "runtime", _ROOT / "security" / "shared"):
+    if str(_p) not in sys.path:
+        sys.path.insert(0, str(_p))
 
 from runtime.classifier import (  # noqa: E402
     LockError,
@@ -225,7 +230,7 @@ def test_request_shape_is_the_committed_protocol():
 
 
 def test_corpus_files_parse_and_labels_are_valid():
-    corpus_dir = _KIT / "eval" / "runtime_injection"
+    corpus_dir = _EVAL / "runtime_injection"
     expected = {
         "attacks.json": "instruction",
         "legitimate.json": "data",

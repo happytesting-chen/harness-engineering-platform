@@ -12,9 +12,10 @@
       "version": "1.0"
     },
     {
-      "name": "{{GATED_TOOL}}",
-      "description": "{{GATED_TOOL_DESC}} — locked until phase-01 verification passes",
-      "version": "{{VERSION}}",
+      "_DEVELOPER_ACTION": "Replace this entry with your first real tool. Tool name, description, and version must be confirmed by the developer. This is a protected file — Claude cannot edit it. Run: python3 security/shared/signoff.py <phase-id> to sign off a phase after verification passes.",
+      "name": "_PLACEHOLDER_REPLACE_ME",
+      "description": "Replace with the first tool the application will call — developer decision",
+      "version": "1.0",
       "gated_until": "phase-01"
     }
   ],

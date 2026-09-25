@@ -34,9 +34,9 @@ PROJECT_ROOT = Path(__file__).parent.parent
 if str(PROJECT_ROOT) not in sys.path:
     sys.path.insert(0, str(PROJECT_ROOT))
 
-import governance.permission as permission  # noqa: E402
+import permission  # noqa: E402
 
-DENY_LIST_PATH = PROJECT_ROOT / "governance" / "deny-list.json"
+DENY_LIST_PATH = PROJECT_ROOT / "security" / "shared" / "deny-list.json"
 
 
 # ---------------------------------------------------------------------------
@@ -47,7 +47,7 @@ DENY_LIST_PATH = PROJECT_ROOT / "governance" / "deny-list.json"
 # ---------------------------------------------------------------------------
 
 def test_the_shipped_policy_is_the_one_under_test():
-    """No monkeypatching. `check_deny_list` must read `governance/deny-list.json`."""
+    """No monkeypatching. `check_deny_list` must read `security/shared/deny-list.json`."""
     assert permission.DENY_LIST_PATH == DENY_LIST_PATH, (
         f"check_deny_list reads {permission.DENY_LIST_PATH}, not the shipped policy. "
         "A previous test probably leaked a monkeypatched path."
@@ -69,20 +69,20 @@ MUST_DENY = [
     ("cat /etc/hosts > /dev/sda", "literal: > /dev/"),
     ("shutdown -h now", "literal: shutdown"),
     ("reboot", "literal: reboot"),
-    ("echo pwned > governance/permission.py", "regex: shell redirect onto the mechanism"),
+    ("echo pwned > security/shared/permission.py", "regex: shell redirect onto the mechanism"),
     ("echo x >> .claude/settings.json", "regex: append onto the hook wiring"),
-    ("sed -i 's/exit(2)/exit(0)/' governance/permission.py", "regex: in-place edit"),
-    ("perl -i -pe 's/2/0/' governance/deny-list.json", "regex: in-place edit"),
-    ("tee governance/mcp-allowlist.json", "regex: tee onto policy"),
-    ("dd of=governance/permission.py", "regex: dd onto the mechanism"),
-    ("chmod 000 governance/permission.py", "regex: chmod on the mechanism"),
-    ("rm Security-kit/secret_scan.py", "regex: rm the secret scanner"),
-    ("mv governance/deny-list.json /tmp/", "regex: mv the policy away"),
+    ("sed -i 's/exit(2)/exit(0)/' security/shared/permission.py", "regex: in-place edit"),
+    ("perl -i -pe 's/2/0/' security/shared/deny-list.json", "regex: in-place edit"),
+    ("tee security/shared/mcp-allowlist.json", "regex: tee onto policy"),
+    ("dd of=security/shared/permission.py", "regex: dd onto the mechanism"),
+    ("chmod 000 security/shared/permission.py", "regex: chmod on the mechanism"),
+    ("rm security/buildtime/secret_scan.py", "regex: rm the secret scanner"),
+    ("mv security/shared/deny-list.json /tmp/", "regex: mv the policy away"),
     # The one case that pins the FIX for item 11 rather than the bug. A backslash
     # before a newline is a line continuation, so this is ONE shell command that
     # writes the mechanism — and the plausible repair (`[^|;&\n]` in the class)
     # takes it from DENY to ALLOW. Without this row, that repair passes the suite.
-    ("sed -i \\\n 's/exit(2)/exit(0)/' governance/permission.py",
+    ("sed -i \\\n 's/exit(2)/exit(0)/' security/shared/permission.py",
      "regex: backslash-newline continuation is ONE command"),
     # Item 14's under-block half, closed 2026-08-15. The entry these exercise used
     # to be the bare literal "rm -rf /", so a root not spelled with a leading slash
@@ -126,17 +126,17 @@ def test_catastrophic_commands_are_denied():
 # ---------------------------------------------------------------------------
 
 MUST_ALLOW = [
-    ("ls -la kiro/steering/security.md Security-kit/README.md", "item 10: 'steering' contains 'tee'"),
-    ("grep -n 'guarantee' Security-kit/SECURITY.md", "item 10: 'guarantee' contains 'tee'"),
-    ("wc -l governance/permission.py", "read-only"),
-    ("cat governance/deny-list.json", "read-only"),
-    ("git diff Security-kit/", "read-only"),
-    ("git log --oneline governance/", "read-only"),
+    ("ls -la kiro/steering/security.md security/shared/SECURITY.md", "item 10: 'steering' contains 'tee'"),
+    ("grep -n 'guarantee' security/shared/SECURITY.md", "item 10: 'guarantee' contains 'tee'"),
+    ("wc -l security/shared/permission.py", "read-only"),
+    ("cat security/shared/deny-list.json", "read-only"),
+    ("git diff security/shared/", "read-only"),
+    ("git log --oneline security/shared/", "read-only"),
     ("python3 tests/test_fixtures.py", "running the suite"),
     ("./init.sh", "the project's own health check"),
-    ("sed -n '1,10p' governance/permission.py", "sed WITHOUT -i is a reader"),
-    ("awk 'NR<3' governance/deny-list.json", "awk WITHOUT -i is a reader"),
-    ("diff governance/deny-list.json /tmp/old.json", "read-only comparison"),
+    ("sed -n '1,10p' security/shared/permission.py", "sed WITHOUT -i is a reader"),
+    ("awk 'NR<3' security/shared/deny-list.json", "awk WITHOUT -i is a reader"),
+    ("diff security/shared/deny-list.json /tmp/old.json", "read-only comparison"),
     # Item 14's over-block half. The first three were refused live while auditing
     # this repo — that is how the defect was found. A named target is not a root,
     # so these must stay allowed no matter how the roots pattern is tightened.
@@ -190,7 +190,7 @@ def test_ordinary_read_only_commands_are_allowed():
 # Two commands that are individually allowed (both appear in MUST_ALLOW above),
 # joined by a newline — as they are whenever a single Bash call runs two lines.
 _COMPOSED = (
-    "sed -n '1,10p' governance/permission.py\n"
+    "sed -n '1,10p' security/shared/permission.py\n"
     "grep -n -i 'gate' .claude/settings.json"
 )
 
@@ -198,20 +198,20 @@ _COMPOSED = (
 MUST_ALLOW_MULTILINE = [
     (_COMPOSED, "the item-11 case: two readers, newline-joined"),
     (_COMPOSED.replace("\n", "; "), "the same two, `;`-joined — the asymmetry that proved it a defect"),
-    ("ls\npwd\nwc -l governance/permission.py\ngit diff Security-kit/",
+    ("ls\npwd\nwc -l security/shared/permission.py\ngit diff security/shared/",
      "four readers, no attack token on any line"),
 ]
 
 MUST_DENY_MULTILINE = [
-    ("sed -i s/2/0/ governance/permission.py",
+    ("sed -i s/2/0/ security/shared/permission.py",
      "one line, unambiguous — the control case"),
-    ("sed \\\n -i s/2/0/ governance/permission.py",
+    ("sed \\\n -i s/2/0/ security/shared/permission.py",
      "BYPASS GUARD: backslash-newline is ONE command; a naive `\\n` in the class allows this"),
-    ("sed -i '\ns/2/0/' governance/permission.py",
+    ("sed -i '\ns/2/0/' security/shared/permission.py",
      "BYPASS GUARD: a newline inside quotes is ONE command; a naive split allows this"),
-    ("ls\npwd\nperl -i -pe s/x/y/ governance/deny-list.json",
+    ("ls\npwd\nperl -i -pe s/x/y/ security/shared/deny-list.json",
      "a real attack on line 3 must still be found after splitting"),
-    ("echo x | tee governance/permission.py",
+    ("echo x | tee security/shared/permission.py",
      "a different pattern, to show splitting did not narrow the others"),
 ]
 
@@ -294,14 +294,14 @@ def test_per_command_matching_opened_no_bypass():
 
 HOOKS = [
     ("permission.py: deny-list hit",
-     PROJECT_ROOT / "governance" / "permission.py",
+     PROJECT_ROOT / "security" / "shared" / "permission.py",
      json.dumps({"tool_name": "Bash",
                  "tool_input": {"command": "rm -rf / --no-preserve-root"}})),
     ("permission.py: malformed payload (fail closed)",
-     PROJECT_ROOT / "governance" / "permission.py",
+     PROJECT_ROOT / "security" / "shared" / "permission.py",
      "not json at all"),
     ("secret_scan.py: empty stdin (fail closed)",
-     PROJECT_ROOT / "Security-kit" / "secret_scan.py",
+     PROJECT_ROOT / "security" / "buildtime" / "secret_scan.py",
      ""),
 ]
 
@@ -350,7 +350,7 @@ def test_a_denial_is_recorded_not_only_refused():
     """The refusal-coverage half of the gate — see build design §4.2.6 finding 1."""
     before = AUDIT_LOG.read_text() if AUDIT_LOG.exists() else ""
     proc = subprocess.run(
-        [sys.executable, str(PROJECT_ROOT / "governance" / "permission.py")],
+        [sys.executable, str(PROJECT_ROOT / "security" / "shared" / "permission.py")],
         input=json.dumps({"tool_name": "Bash", "tool_input": {"command": "reboot"}}),
         capture_output=True, text=True, cwd=str(PROJECT_ROOT), timeout=10,
     )

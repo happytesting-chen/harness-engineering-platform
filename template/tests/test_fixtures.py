@@ -108,12 +108,8 @@ def run_fixture_tests():
     """
     import importlib
 
-    # Ensure governance module is importable
-    governance_dir = Path(__file__).parent.parent / "governance"
-    if str(governance_dir.parent) not in sys.path:
-        sys.path.insert(0, str(governance_dir.parent))
-
-    import governance.permission as permission_mod
+    import permission as permission_mod
+    import permission_impl as _impl_mod
 
     cases = load_fixtures()
     passed = 0
@@ -124,15 +120,16 @@ def run_fixture_tests():
         tmp_path = Path(tmp_dir)
         deny_path, allowlist_path, feature_path = _setup_test_policies(tmp_path)
 
-        # Monkeypatch the path constants in the permission module
-        original_deny = permission_mod.DENY_LIST_PATH
-        original_allowlist = permission_mod.ALLOWLIST_PATH
-        original_feature = permission_mod.FEATURE_LIST_PATH
+        # Patch permission_impl directly — permission.py re-exports values (copies),
+        # so patching permission.* does not affect what permission_impl reads at call time.
+        original_deny = _impl_mod.DENY_LIST_PATH
+        original_allowlist = _impl_mod.ALLOWLIST_PATH
+        original_feature = _impl_mod.FEATURE_LIST_PATH
 
         try:
-            permission_mod.DENY_LIST_PATH = deny_path
-            permission_mod.ALLOWLIST_PATH = allowlist_path
-            permission_mod.FEATURE_LIST_PATH = feature_path
+            _impl_mod.DENY_LIST_PATH = deny_path
+            _impl_mod.ALLOWLIST_PATH = allowlist_path
+            _impl_mod.FEATURE_LIST_PATH = feature_path
 
             check = permission_mod.make_permission_check()
 
@@ -177,10 +174,10 @@ def run_fixture_tests():
                         passed += 1
 
         finally:
-            # Restore original paths
-            permission_mod.DENY_LIST_PATH = original_deny
-            permission_mod.ALLOWLIST_PATH = original_allowlist
-            permission_mod.FEATURE_LIST_PATH = original_feature
+            # Restore original paths on the impl (where the gate actually reads from)
+            _impl_mod.DENY_LIST_PATH = original_deny
+            _impl_mod.ALLOWLIST_PATH = original_allowlist
+            _impl_mod.FEATURE_LIST_PATH = original_feature
 
     return passed, failed, failures
 

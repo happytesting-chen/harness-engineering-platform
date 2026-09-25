@@ -43,6 +43,12 @@ for f in "${REQUIRED_FILES[@]}"; do
   fi
 done
 
+# Check mcp-allowlist.json for unfilled tool placeholders
+if grep -q '_PLACEHOLDER_REPLACE_ME\|{{GATED_TOOL}}' security/shared/mcp-allowlist.json 2>/dev/null; then
+  echo "  ✗ mcp-allowlist.json contains placeholder tool — developer must replace with a real tool name"
+  ERRORS=$((ERRORS + 1))
+fi
+
 # Claude hook wiring must use only the migrated security paths.
 echo "▶ Checking Claude security hook wiring..."
 if [ -f ".claude/settings.json" ]; then
@@ -90,6 +96,20 @@ PY
   else
     echo "  ✓ hook paths resolve"
   fi
+fi
+
+# Warn if any phase is "passing" in feature_list.json but not in signed_off_phases
+if [ -f "Harness-Best-Practice/feature_list.json" ] && [ -f "security/shared/mcp-allowlist.json" ]; then
+  python3 - <<'PYCHECK'
+import json, sys
+from pathlib import Path
+fl = json.loads(Path("Harness-Best-Practice/feature_list.json").read_text())
+al = json.loads(Path("security/shared/mcp-allowlist.json").read_text())
+signed = set(al.get("signed_off_phases", []))
+for phase in fl.get("features", []):
+    if phase.get("status") == "passing" and phase["id"] not in signed:
+        print(f"  ⚠ Phase {phase['id']} is 'passing' but not signed off — run: python3 security/shared/signoff.py {phase['id']}")
+PYCHECK
 fi
 
 # Security coverage checker owns its own shared-layer-relative artifacts.

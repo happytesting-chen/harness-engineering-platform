@@ -18,10 +18,13 @@ import tempfile
 from pathlib import Path
 
 _ROOT = Path(__file__).resolve().parent.parent.parent
-sys.path.insert(0, str(_ROOT / "Security-kit"))
-sys.path.insert(0, str(_ROOT / "governance"))
+for _p in (_ROOT / 'security', _ROOT / 'security' / 'runtime' / 'core',
+           _ROOT / 'security' / 'runtime', _ROOT / 'security' / 'shared'):
+    if str(_p) not in sys.path:
+        sys.path.insert(0, str(_p))
 
 import permission  # noqa: E402
+import permission_impl  # noqa: E402
 import runtime_dispatcher  # noqa: E402
 import runtime_screen  # noqa: E402
 
@@ -100,7 +103,7 @@ def _policy_ctx(tmp):
                   for n in ("retrieve_report", "send_email")],
         "egress_hosts": list(_HOSTS),
     }))
-    permission.ALLOWLIST_PATH = path
+    permission_impl.ALLOWLIST_PATH = path
     runtime_dispatcher.record = lambda *a: None
     runtime_screen._audit = lambda *a: None
 

@@ -10,7 +10,12 @@ import hashlib
 import sys
 from pathlib import Path
 
-sys.path.insert(0, str(Path(__file__).resolve().parent.parent.parent / "Security-kit"))
+_ROOT = Path(__file__).resolve().parent.parent.parent
+_CORE = _ROOT / "security" / "runtime" / "core"
+for _p in (_ROOT / "security", _CORE,
+           _ROOT / "security" / "runtime", _ROOT / "security" / "shared"):
+    if str(_p) not in sys.path:
+        sys.path.insert(0, str(_p))
 
 from runtime.adapters import (  # noqa: E402
     ingress_structured_record,
@@ -114,8 +119,7 @@ def test_structured_record_withholds_a_poisoned_allowed_field():
 def test_adapters_do_not_import_the_hook_modules():
     """R-3: the dev hooks are a separate profile. The runtime adapters must not couple
     to prompt_screen/result_screen — their fail-open semantics stay in the IDE."""
-    source = (Path(__file__).resolve().parent.parent.parent / "Security-kit" /
-              "runtime" / "adapters.py").read_text(encoding="utf-8")
+    source = (_CORE / "adapters.py").read_text(encoding="utf-8")
     assert "prompt_screen" not in source
     assert "result_screen" not in source
 

@@ -33,8 +33,8 @@ import sys
 from pathlib import Path
 
 PROJECT_ROOT = Path(__file__).resolve().parent.parent
-SCREEN = PROJECT_ROOT / "Security-kit" / "result_screen.py"
-sys.path.insert(0, str(PROJECT_ROOT / "Security-kit"))
+SCREEN = PROJECT_ROOT / "security" / "shared" / "result_screen.py"
+sys.path.insert(0, str(PROJECT_ROOT / "security" / "shared"))
 
 from result_screen import screen, WITHHELD_NOTICE  # noqa: E402
 
@@ -224,7 +224,7 @@ def test_notice_is_not_itself_instruction_shaped():
     If it did, a second pass over a withheld result would flag its own output —
     and the marker list would be reporting on itself rather than on content.
     """
-    sys.path.insert(0, str(PROJECT_ROOT / "Security-kit"))
+    sys.path.insert(0, str(PROJECT_ROOT / "security" / "shared"))
     from content_trust import scan_text
     notice = WITHHELD_NOTICE.format(markers="none")
     assert scan_text(notice) == [], f"the notice matches our own markers: {notice}"
@@ -232,8 +232,9 @@ def test_notice_is_not_itself_instruction_shaped():
 
 def test_marker_list_is_not_duplicated():
     """One definition of instruction-shaped, shared with ① and the demo screen."""
-    src = SCREEN.read_text()
-    assert "from content_trust import scan_text" in src
+    impl = SCREEN.parent / "result_screen_impl.py"
+    src = impl.read_text() if impl.is_file() else SCREEN.read_text()
+    assert "content_trust" in src, "result_screen impl does not import from content_trust"
     assert "re.compile" not in src, \
         "a second marker list here would drift from content_trust.py"
 

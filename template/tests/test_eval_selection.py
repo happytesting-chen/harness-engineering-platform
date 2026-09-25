@@ -2,7 +2,7 @@
 import sys
 from pathlib import Path
 
-EVAL_DIR = Path(__file__).parent.parent / "Security-kit" / "eval"
+EVAL_DIR = Path(__file__).parent.parent / "security" / "runtime" / "eval"
 if str(EVAL_DIR) not in sys.path:
     sys.path.insert(0, str(EVAL_DIR))
 import eval_selection as es  # noqa: E402

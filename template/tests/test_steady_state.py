@@ -37,7 +37,8 @@ from pathlib import Path
 PROJECT_ROOT = Path(__file__).resolve().parent.parent
 if str(PROJECT_ROOT) not in sys.path:
     sys.path.insert(0, str(PROJECT_ROOT))
-import governance.permission as pm  # noqa: E402
+import permission as pm  # noqa: E402
+import permission_impl as _impl  # noqa: E402
 
 
 class _Block:
@@ -74,19 +75,21 @@ def _wire(states, tmp: Path, signed_off=None, drop=()):
     (tmp / "d.json").write_text(json.dumps(deny))
     (tmp / "a.json").write_text(json.dumps(allow))
     (tmp / "f.json").write_text(json.dumps(feats))
-    pm.DENY_LIST_PATH = tmp / "d.json"
-    pm.ALLOWLIST_PATH = tmp / "a.json"
-    pm.FEATURE_LIST_PATH = tmp / "f.json"
+    # Patch the impl directly — permission.py re-exports values (copies), so
+    # patching pm.* does not affect what permission_impl reads at call time.
+    _impl.DENY_LIST_PATH = tmp / "d.json"
+    _impl.ALLOWLIST_PATH = tmp / "a.json"
+    _impl.FEATURE_LIST_PATH = tmp / "f.json"
 
 
 def _decide(states, block, signed_off=None, drop=()):
-    orig = (pm.DENY_LIST_PATH, pm.ALLOWLIST_PATH, pm.FEATURE_LIST_PATH)
+    orig = (_impl.DENY_LIST_PATH, _impl.ALLOWLIST_PATH, _impl.FEATURE_LIST_PATH)
     with tempfile.TemporaryDirectory() as td:
         _wire(states, Path(td), signed_off=signed_off, drop=drop)
         try:
             allowed, reason = pm.make_permission_check()(block)
         finally:
-            (pm.DENY_LIST_PATH, pm.ALLOWLIST_PATH, pm.FEATURE_LIST_PATH) = orig
+            (_impl.DENY_LIST_PATH, _impl.ALLOWLIST_PATH, _impl.FEATURE_LIST_PATH) = orig
     return allowed, reason
 
 

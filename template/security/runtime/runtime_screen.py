@@ -51,6 +51,7 @@ def screen_input(text, *, source: str = "request") -> str:
 
     markers = scan_text(text)
     if not markers:
+        _audit("runtime_input", source, [], "ALLOWED", "input passed gate ①")
         return text
 
     reason = (f"runtime input screen: request rejected — instruction-shaped text "

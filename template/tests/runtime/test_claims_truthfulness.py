@@ -9,18 +9,22 @@ import sys
 from pathlib import Path
 
 _ROOT = Path(__file__).resolve().parent.parent.parent
-_KIT = _ROOT / "Security-kit"
-sys.path.insert(0, str(_KIT))
+_CORE = _ROOT / "security" / "runtime" / "core"
+_EVAL = _ROOT / "security" / "runtime" / "eval"
+for _p in (_ROOT / "security", _CORE,
+           _ROOT / "security" / "runtime", _ROOT / "security" / "shared"):
+    if str(_p) not in sys.path:
+        sys.path.insert(0, str(_p))
 
 
 def test_every_runtime_module_the_profile_names_exists():
     for module in ("contracts", "normalization", "rules", "classifier", "ingress",
                    "review", "review_cli", "adapters", "session", "guarded",
                    "startup", "audit", "output", "host", "attack_driver"):
-        assert (_KIT / "runtime" / f"{module}.py").exists(), f"missing runtime/{module}.py"
+        assert (_CORE / f"{module}.py").exists(), f"missing runtime/core/{module}.py"
 
 
-_LOCK_PATH = _KIT / "runtime" / "semantic-model.lock.json"
+_LOCK_PATH = _CORE / "semantic-model.lock.json"
 
 
 def _skip(reason: str) -> None:
@@ -39,7 +43,8 @@ def test_signed_lock_corpus_digest_matches_the_tree():
     """Runs everywhere, including CI runners with no classifier: the lock's corpus digest
     must equal the committed corpus. This is the half of C-5 that a corpus edit breaks —
     it did on 2026-09-03, and only the operator's machine noticed."""
-    sys.path.insert(0, str(_KIT / "eval"))
+    if str(_EVAL) not in sys.path:
+        sys.path.insert(0, str(_EVAL))
     import eval_runtime_injection as e
     from runtime.classifier import load_lock
     lock = load_lock(_LOCK_PATH)                       # static validity, incl. approval fields
@@ -58,10 +63,10 @@ def test_signed_lock_verifies_against_the_artifacts():
     missing = [k for k in ("executable_path", "model_path") if not Path(lock[k]).is_file()]
     if missing:
         return _skip(f"classifier artifacts not on this machine ({', '.join(missing)}); "
-                     "run Security-kit/eval/bootstrap_classifier.py to obtain and pin them")
+                     "run security/runtime/eval/bootstrap_classifier.py to obtain and pin them")
     import subprocess
     result = subprocess.run(
-        [sys.executable, "Security-kit/eval/eval_runtime_injection.py",
+        [sys.executable, str(_EVAL / "eval_runtime_injection.py"),
          "--lock", str(_LOCK_PATH), "--verify"],
         cwd=_ROOT, capture_output=True, text=True,
     )
@@ -71,7 +76,7 @@ def test_signed_lock_verifies_against_the_artifacts():
 def test_runtime_gap_row_is_still_a_gap():
     """SEC-RUNTIME-GAP-001 stays GAP until the human batch promotes it (plan Task 12
     step 5). If this fails, someone upgraded the claim ahead of the review."""
-    matrix = (_KIT / "control-matrix.md").read_text(encoding="utf-8")
+    matrix = (_ROOT / "security" / "shared" / "control-matrix.md").read_text(encoding="utf-8")
     assert "SEC-RUNTIME-GAP-001" in matrix
     # the row must still carry GAP — the code existing is not the same as an app routing through it
     for line in matrix.splitlines():
@@ -86,7 +91,7 @@ def test_no_runtime_module_owns_a_duplicated_detector():
     OUTSIDE runtime/)."""
     import re
     offenders = []
-    for path in (_KIT / "runtime").glob("*.py"):
+    for path in _CORE.glob("*.py"):
         if "re.compile" in path.read_text(encoding="utf-8"):
             offenders.append(path.name)
     # normalization.py legitimately compiles STRUCTURAL signal patterns (not detection

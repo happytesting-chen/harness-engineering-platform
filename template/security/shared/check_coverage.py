@@ -22,7 +22,7 @@ import sys
 from pathlib import Path
 from typing import NamedTuple
 
-PROJECT_ROOT = Path(__file__).parent.parent
+PROJECT_ROOT = Path(__file__).parent.parent.parent
 COVERAGE_PATH = Path(__file__).parent / "coverage.json"
 MATRIX_PATH = Path(__file__).parent / "control-matrix.md"
 ACTIVE_CONTROLS_PATH = Path(__file__).parent / "active-controls.md"
@@ -41,7 +41,7 @@ STATUS_RE = re.compile(r"\*\*(MECHANICAL|OBSERVE|LIBRARY|GAP)\b")
 MECHANISMS_PATH = Path(__file__).parent / "mechanisms.json"
 INIT_SH_PATH = PROJECT_ROOT / "init.sh"
 CROSSWALK_PATH = Path(__file__).parent / "owasp-crosswalk.md"
-ALLOWLIST_PATH = PROJECT_ROOT / "governance" / "mcp-allowlist.json"
+ALLOWLIST_PATH = PROJECT_ROOT / "security" / "shared" / "mcp-allowlist.json"
 
 # `reason` carries its citation inline as `(Context/file.md:12)` — the schema has no
 # separate field. Extracting it is the only way to check a citation resolves.

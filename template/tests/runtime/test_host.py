@@ -15,8 +15,10 @@ from contextlib import contextmanager
 from pathlib import Path
 
 _ROOT = Path(__file__).resolve().parent.parent.parent
-sys.path.insert(0, str(_ROOT / "Security-kit"))
-sys.path.insert(0, str(_ROOT / "governance"))
+for _p in (_ROOT / "security", _ROOT / "security" / "runtime" / "core",
+           _ROOT / "security" / "runtime", _ROOT / "security" / "shared"):
+    if str(_p) not in sys.path:
+        sys.path.insert(0, str(_p))
 
 import permission  # noqa: E402
 import runtime_dispatcher  # noqa: E402

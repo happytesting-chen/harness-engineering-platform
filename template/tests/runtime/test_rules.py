@@ -9,8 +9,13 @@ truncated regex source strings.
 import sys
 from pathlib import Path
 
-_KIT = Path(__file__).resolve().parent.parent.parent / "Security-kit"
-sys.path.insert(0, str(_KIT))
+_ROOT = Path(__file__).resolve().parent.parent.parent
+_CORE = _ROOT / "security" / "runtime" / "core"
+for _p in (_ROOT / "security", _CORE,
+           _ROOT / "security" / "runtime", _ROOT / "security" / "shared"):
+    if str(_p) not in sys.path:
+        sys.path.insert(0, str(_p))
+_KIT = _CORE  # compatibility alias for source-read tests
 
 from runtime.contracts import ContentEnvelope, Origin  # noqa: E402
 from runtime.normalization import NormalizationPolicy, normalize  # noqa: E402
@@ -94,7 +99,7 @@ def test_marker_ids_are_stable_digests_not_regex_source():
 def test_rules_module_owns_no_pattern():
     """Anti-drift, same rule the hook adapters live under: the adapter imports
     scan_text; it never compiles a detection pattern of its own."""
-    source = (_KIT / "runtime" / "rules.py").read_text(encoding="utf-8")
+    source = (_KIT / "rules.py").read_text(encoding="utf-8")
     assert "re.compile" not in source, "rules.py must not own a detection pattern"
     assert "scan_text" in source, "rules.py must delegate detection to content_trust"
 

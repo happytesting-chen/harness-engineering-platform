@@ -16,6 +16,7 @@ for p in (PROJECT_ROOT / "security" / "shared", PROJECT_ROOT / "security" / "run
     sys.path.insert(0, str(p))
 
 import permission            # noqa: E402
+import permission_impl as _impl  # noqa: E402
 import runtime_dispatcher    # noqa: E402
 import runtime_screen        # noqa: E402
 from runtime_dispatcher import RuntimeDispatcher  # noqa: E402
@@ -45,16 +46,16 @@ def policy(tools=("bash", "write_file", "fetch"), hosts=("localhost",)):
             "egress_hosts": list(hosts),
         }))
         lines = []
-        original_path = permission.ALLOWLIST_PATH
+        original_path = _impl.ALLOWLIST_PATH
         original_record = runtime_dispatcher.record
         original_audit = runtime_screen._audit
-        permission.ALLOWLIST_PATH = path
+        _impl.ALLOWLIST_PATH = path
         runtime_dispatcher.record = lambda *a: lines.append(a)
         runtime_screen._audit = lambda *a: lines.append(a)
         try:
             yield lines
         finally:
-            permission.ALLOWLIST_PATH = original_path
+            _impl.ALLOWLIST_PATH = original_path
             runtime_dispatcher.record = original_record
             runtime_screen._audit = original_audit
 
@@ -170,8 +171,8 @@ def test_a_check_that_raises_denies_rather_than_propagating():
     with tempfile.TemporaryDirectory() as tmp:
         corrupt = Path(tmp) / "deny-list.json"
         corrupt.write_text("{not json")
-        original = permission.DENY_LIST_PATH
-        permission.DENY_LIST_PATH = corrupt
+        original = _impl.DENY_LIST_PATH
+        _impl.DENY_LIST_PATH = corrupt
         try:
             with policy():
                 try:
@@ -183,7 +184,7 @@ def test_a_check_that_raises_denies_rather_than_propagating():
                 else:
                     raise AssertionError("a corrupt policy file read as ALLOW")
         finally:
-            permission.DENY_LIST_PATH = original
+            _impl.DENY_LIST_PATH = original
     assert shell.calls == 0
 
 

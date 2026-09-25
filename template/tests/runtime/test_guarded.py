@@ -19,10 +19,14 @@ from contextlib import contextmanager
 from pathlib import Path
 
 _ROOT = Path(__file__).resolve().parent.parent.parent
-sys.path.insert(0, str(_ROOT / "Security-kit"))
-sys.path.insert(0, str(_ROOT / "governance"))
+_CORE = _ROOT / "security" / "runtime" / "core"
+for _p in (_ROOT / "security", _CORE,
+           _ROOT / "security" / "runtime", _ROOT / "security" / "shared"):
+    if str(_p) not in sys.path:
+        sys.path.insert(0, str(_p))
 
 import permission  # noqa: E402
+import permission_impl  # noqa: E402
 import runtime_dispatcher  # noqa: E402
 import runtime_screen  # noqa: E402
 from runtime_dispatcher import RuntimeDispatcher  # noqa: E402
@@ -49,14 +53,14 @@ def policy(tools=("fetch", "send_email", "bash")):
             "tools": [{"name": n, "description": n, "version": "1.0"} for n in tools],
             "egress_hosts": ["localhost"],
         }))
-        originals = (permission.ALLOWLIST_PATH, runtime_dispatcher.record, runtime_screen._audit)
-        permission.ALLOWLIST_PATH = path
+        originals = (permission_impl.ALLOWLIST_PATH, runtime_dispatcher.record, runtime_screen._audit)
+        permission_impl.ALLOWLIST_PATH = path
         runtime_dispatcher.record = lambda *a: None
         runtime_screen._audit = lambda *a: None
         try:
             yield
         finally:
-            permission.ALLOWLIST_PATH, runtime_dispatcher.record, runtime_screen._audit = originals
+            permission_impl.ALLOWLIST_PATH, runtime_dispatcher.record, runtime_screen._audit = originals
 
 
 def _guarded(tools, session_policy):
@@ -219,7 +223,7 @@ def test_wrapper_owns_no_gate_predicate():
     """AD-7 anti-drift: the wrapper adds sequence/turn rules only. No deny-list logic,
     no egress logic, no allowlist membership check duplicated from the inner gate."""
     for name in ("guarded.py", "session.py"):
-        source = (_ROOT / "Security-kit" / "runtime" / name).read_text(encoding="utf-8")
+        source = (_CORE / name).read_text(encoding="utf-8")
         assert "re.compile" not in source
         for token in ("deny-list", "deny_list", "egress_hosts", "check_egress",
                       "check_deny_list", "check_phase_gate", "check_protected_paths"):
