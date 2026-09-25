@@ -8,8 +8,8 @@
 - **Choice:** <e.g. LangChain / LangGraph / Strands / LlamaIndex / custom loop>
 - **Why:** <what this project needs that drove the choice — tool orchestration,
   multi-agent, streaming, graph control flow, minimal deps, …>
-- **Version pin:** <exact version — see supply-chain guidance in Security-kit/SECURITY.md §5>
-- **Where the four gates attach in it:** <the framework owns the loop; name the seam where `RuntimeDispatcher.execute()` replaces its tool caller, and where `screen_input()` sits at the request boundary — see `Security-kit/SECURITY.md` S1.6 and record the wiring in `Context/deployment.md`>
+- **Version pin:** <exact version — see supply-chain guidance in `security/shared/SECURITY.md` §5>
+- **Where the two rules attach:** <the framework owns the loop; name the seam where `RuntimeDispatcher.execute()` replaces its tool caller (action rule), and where `screen_input()` sits before any content enters the model (data rule) — record the wiring in `Context/deployment.md`>
 
 ## Model
 
@@ -20,16 +20,15 @@
 
 ## Tools the agent can call
 
-| Tool | Purpose | In `governance/mcp-allowlist.json`? | Egress? | Reached only via the dispatcher? |
-|------|---------|------------------------------------|---------|----------------------------------|
+| Tool | Purpose | In `security/shared/mcp-allowlist.json`? | Egress? | Reached only via RuntimeDispatcher? |
+|------|---------|-----------------------------------------|---------|-------------------------------------|
 | <tool> | <what it does> | yes/gated_until phase-XX | none / host | yes / no — if no, say why |
 
 > Every tool the agent uses must be in the allowlist. New tools need human approval, and
-> `governance/mcp-allowlist.json` is a protected path — registering one is a human edit.
-> An unregistered tool denies with `<name> not in allowlist`; that is gate ② working.
-> The last column is the one that decides whether the deployed agent is actually gated: a
-> tool a code path can call directly, without going through `RuntimeDispatcher.execute()`,
-> is ungated no matter what this table says (`SEC-RUNTIME-GAP-001`).
+> `security/shared/mcp-allowlist.json` is a protected path — registering one is a human edit.
+> An unregistered tool is denied at runtime. The last column is what matters: a tool a code
+> path can call directly, without going through `RuntimeDispatcher.execute()`, is ungated
+> regardless of what this table says (`SEC-RUNTIME-GAP-001`).
 
 ## Key libraries / dependencies
 
